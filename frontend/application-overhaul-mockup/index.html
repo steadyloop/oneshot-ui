@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="A self-contained OneShot Applications UI overhaul mockup.">
+  <title>Applications overhaul mockup · OneShot</title>
+  <style>
+    :root {
+      --canvas: #f4f5ef;
+      --paper: #ffffff;
+      --paper-soft: #fafbf7;
+      --ink: #17221c;
+      --ink-soft: #334239;
+      --muted: #66726a;
+      --faint: #8c968f;
+      --line: #dfe4dc;
+      --line-strong: #ccd4ca;
+      --nav: #12261d;
+      --nav-soft: #1e382b;
+      --lime: #d9f56f;
+      --lime-ink: #26350c;
+      --green: #327658;
+      --green-soft: #e3f1e9;
+      --blue: #3c6f9f;
+      --blue-soft: #e7f0f8;
+      --amber: #9a641d;
+      --amber-soft: #fff0d8;
+      --purple: #76579a;
+      --purple-soft: #eee8f5;
+      --red: #a1493e;
+      --red-soft: #f9e8e4;
+      --shadow-sm: 0 1px 2px rgb(20 35 27 / 5%), 0 8px 28px rgb(20 35 27 / 5%);
+      --shadow-md: 0 20px 54px rgb(13 27 19 / 15%);
+      --radius: 16px;
+      --sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html { min-width: 320px; background: var(--canvas); }
+    body { margin: 0; background: var(--canvas); color: var(--ink); font: 14px/1.5 var(--sans); -webkit-font-smoothing: antialiased; }
+    button, input, select, textarea { color: inherit; font: inherit; }
+    button, select { cursor: pointer; }
+    button { border: 0; }
+    a { color: inherit; text-decoration: none; }
+    svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+    :focus-visible { outline: 3px solid rgb(60 111 159 / 28%); outline-offset: 2px; }
+    [hidden] { display: none !important; }
+    .icon-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .skip-link { position: fixed; z-index: 200; top: 12px; left: 12px; transform: translateY(-180%); border-radius: 9px; background: var(--ink); padding: 9px 13px; color: white; }
+    .skip-link:focus { transform: none; }
+
+    .app-shell { min-height: 100vh; display: grid; grid-template-columns: 232px minmax(0, 1fr); }
+    .sidebar { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; background: var(--nav); padding: 24px 14px 16px; color: white; }
+    .brand { display: flex; align-items: center; gap: 10px; padding: 0 8px 22px; }
+    .brand-mark { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 11px; background: var(--lime); color: var(--lime-ink); font-weight: 900; letter-spacing: -.05em; }
+    .brand-copy { display: grid; line-height: 1.05; }
+    .brand-copy strong { font-size: 16px; letter-spacing: -.03em; }
+    .brand-copy span { margin-top: 4px; color: rgb(255 255 255 / 46%); font: 9px var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+    .side-nav { display: grid; gap: 3px; }
+    .side-nav > span { margin: 19px 10px 7px; color: rgb(255 255 255 / 35%); font: 9px var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+    .side-nav a { min-height: 42px; display: flex; align-items: center; gap: 10px; border-radius: 10px; padding: 9px 10px; color: rgb(255 255 255 / 62%); font-weight: 640; }
+    .side-nav a:hover, .side-nav a.active { background: var(--nav-soft); color: white; }
+    .side-nav a.active svg { color: var(--lime); }
+    .side-nav b { margin-left: auto; border-radius: 999px; background: rgb(255 255 255 / 9%); padding: 2px 7px; font: 10px var(--mono); }
+    .sidebar-note { margin: auto 5px 12px; border: 1px solid rgb(255 255 255 / 10%); border-radius: 13px; background: rgb(255 255 255 / 4%); padding: 12px; }
+    .sidebar-note span { display: inline-flex; align-items: center; gap: 5px; color: var(--lime); font: 9px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+    .sidebar-note p { margin: 6px 0 0; color: rgb(255 255 255 / 52%); font-size: 11px; line-height: 1.45; }
+    .profile { display: flex; align-items: center; gap: 9px; border-top: 1px solid rgb(255 255 255 / 9%); padding: 15px 8px 2px; }
+    .avatar { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 10px; background: #365746; color: white; font-size: 11px; font-weight: 800; }
+    .profile div { min-width: 0; display: grid; }
+    .profile strong { font-size: 11px; }
+    .profile span { overflow: hidden; color: rgb(255 255 255 / 42%); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+    .profile button { margin-left: auto; background: transparent; color: rgb(255 255 255 / 45%); }
+
+    .workspace { min-width: 0; width: 100%; max-width: 1720px; margin: 0 auto; padding: 34px 38px 70px; }
+    .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+    .eyebrow { margin: 0 0 5px; color: var(--green); font: 750 9px var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: clamp(29px, 3vw, 39px); line-height: 1.05; letter-spacing: -.05em; }
+    .page-subtitle { max-width: 600px; margin: 9px 0 0; color: var(--muted); font-size: 13px; }
+    .header-actions { display: flex; align-items: center; gap: 8px; }
+    .button { min-height: 39px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--paper); padding: 8px 13px; color: var(--ink-soft); font-size: 12px; font-weight: 730; }
+    .button:hover { border-color: #aeb8ad; background: var(--paper-soft); }
+    .button.primary { border-color: var(--ink); background: var(--ink); color: white; }
+    .button.primary:hover { background: #2a3830; }
+    .button.lime { border-color: var(--lime); background: var(--lime); color: var(--lime-ink); }
+    .button.lime:hover { border-color: #cbe85a; background: #cfee60; }
+    .button.ghost { border-color: transparent; background: transparent; }
+    .button.danger { border-color: #edc8c2; color: var(--red); }
+    .button.small { min-height: 32px; padding: 6px 10px; font-size: 10px; }
+    .button:disabled { cursor: wait; opacity: .5; }
+
+    .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 28px; }
+    .metric-card { position: relative; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); padding: 16px 17px; box-shadow: 0 1px 1px rgb(20 35 27 / 2%); }
+    .metric-card::after { position: absolute; right: -16px; bottom: -29px; width: 74px; height: 74px; border-radius: 50%; background: var(--metric-haze, var(--green-soft)); content: ""; opacity: .75; }
+    .metric-label { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 10px; font-weight: 700; }
+    .metric-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--metric-color, var(--green)); }
+    .metric-value { display: flex; align-items: baseline; gap: 8px; margin-top: 8px; }
+    .metric-value strong { font-size: 27px; line-height: 1; letter-spacing: -.045em; }
+    .metric-value span { color: var(--faint); font-size: 10px; }
+
+    .focus-panel { margin-top: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); box-shadow: var(--shadow-sm); }
+    .focus-head { display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--line); padding: 14px 16px; }
+    .focus-title { min-width: 150px; display: flex; align-items: center; gap: 9px; }
+    .focus-icon { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 9px; background: var(--amber-soft); color: var(--amber); }
+    .focus-title div { display: grid; line-height: 1.2; }
+    .focus-title strong { font-size: 12px; }
+    .focus-title span { color: var(--faint); font-size: 9px; }
+    .focus-head p { margin: 0; color: var(--muted); font-size: 11px; }
+    .focus-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .focus-item { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 13px 15px; }
+    .focus-item + .focus-item { border-left: 1px solid var(--line); }
+    .focus-item-main { min-width: 0; display: grid; text-align: left; }
+    .focus-item-main button { overflow: hidden; background: transparent; padding: 0; color: var(--ink); font-size: 11px; font-weight: 750; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+    .focus-item-main button:hover { text-decoration: underline; }
+    .focus-item-main span { overflow: hidden; margin-top: 2px; color: var(--faint); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+    .check-action { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--paper); color: var(--muted); }
+    .check-action:hover { border-color: var(--green); background: var(--green-soft); color: var(--green); }
+    .check-action svg { width: 14px; height: 14px; }
+    .focus-empty { padding: 20px; color: var(--muted); font-size: 11px; text-align: center; }
+
+    .tracker { margin-top: 24px; }
+    .tracker-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; border-bottom: 1px solid var(--line-strong); }
+    .view-tabs { display: flex; gap: 23px; }
+    .view-tabs button { position: relative; background: transparent; padding: 0 1px 12px; color: var(--muted); font-size: 12px; font-weight: 760; }
+    .view-tabs button span { margin-left: 4px; color: var(--faint); font: 9px var(--mono); }
+    .view-tabs button[aria-selected="true"] { color: var(--ink); }
+    .view-tabs button[aria-selected="true"]::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; border-radius: 3px 3px 0 0; background: var(--ink); content: ""; }
+    .tracker-summary { margin: 0 0 11px; color: var(--faint); font-size: 10px; }
+    .toolbar { display: flex; align-items: center; gap: 8px; padding: 12px 0 14px; }
+    .search-field { min-width: 250px; max-width: 450px; flex: 1; display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); padding: 0 10px; color: var(--faint); box-shadow: 0 1px 1px rgb(20 35 27 / 2%); }
+    .search-field input { min-width: 0; width: 100%; height: 39px; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 12px; }
+    .search-field kbd { border: 1px solid var(--line); border-radius: 5px; background: var(--canvas); padding: 1px 5px; color: var(--faint); font: 9px var(--mono); white-space: nowrap; }
+    .quick-filters { display: flex; gap: 5px; }
+    .filter-chip { min-height: 39px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); padding: 7px 11px; color: var(--muted); font-size: 10px; font-weight: 720; }
+    .filter-chip:hover { border-color: var(--line-strong); color: var(--ink); }
+    .filter-chip[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: white; }
+    .sort-control select { min-height: 39px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); padding: 7px 30px 7px 10px; color: var(--muted); font-size: 10px; font-weight: 680; }
+    .display-switch { display: flex; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); padding: 3px; }
+    .display-switch button { width: 31px; height: 31px; display: grid; place-items: center; border-radius: 7px; background: transparent; color: var(--faint); }
+    .display-switch button[aria-pressed="true"] { background: var(--ink); color: white; }
+    .display-switch svg { width: 14px; height: 14px; }
+
+    .application-content { min-height: 330px; }
+    .board { display: grid; grid-template-columns: repeat(5, minmax(210px, 1fr)); gap: 9px; overflow-x: auto; padding: 0 1px 18px; scroll-snap-type: x proximity; }
+    .board-column { min-height: 350px; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--column-soft) 52%, var(--paper-soft)); scroll-snap-align: start; }
+    .board-column.drag-over { border-color: var(--column-color); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--column-color) 28%, transparent); }
+    .column-head { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid color-mix(in srgb, var(--column-color) 15%, var(--line)); background: color-mix(in srgb, var(--column-soft) 68%, white); padding: 12px 12px 10px; }
+    .column-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--column-color); }
+    .column-head h2 { margin: 0; font-size: 11px; }
+    .column-head b { margin-left: auto; color: var(--faint); font: 10px var(--mono); }
+    .column-stack { min-height: 295px; display: grid; align-content: start; gap: 8px; padding: 9px; }
+    .application-card { position: relative; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); padding: 12px; box-shadow: 0 1px 2px rgb(20 35 27 / 4%); transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease; }
+    .application-card:hover { transform: translateY(-1px); border-color: #b9c2b8; box-shadow: 0 9px 22px rgb(20 35 27 / 8%); }
+    .application-card:focus-visible { outline: 3px solid rgb(60 111 159 / 24%); }
+    .application-card[draggable="true"] { cursor: grab; }
+    .application-card.dragging { opacity: .38; }
+    .card-top { display: flex; align-items: center; gap: 8px; }
+    .company-mark { width: 30px; height: 30px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 9px; background: var(--mark-color, var(--nav)); color: white; font: 800 9px var(--mono); letter-spacing: -.04em; }
+    .company-copy { min-width: 0; display: grid; }
+    .company-copy strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+    .company-copy span { overflow: hidden; color: var(--faint); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+    .card-arrow { margin-left: auto; color: var(--faint); }
+    .card-arrow svg { width: 14px; height: 14px; }
+    .application-card h3 { display: -webkit-box; overflow: hidden; margin: 11px 0 9px; font-size: 12px; line-height: 1.35; letter-spacing: -.012em; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+    .next-action { border-top: 1px solid var(--line); padding-top: 9px; }
+    .next-action > span { color: var(--faint); font: 8px var(--mono); letter-spacing: .09em; text-transform: uppercase; }
+    .next-action p { display: -webkit-box; overflow: hidden; min-height: 28px; margin: 3px 0 0; color: var(--ink-soft); font-size: 10px; line-height: 1.4; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+    .card-footer { min-height: 23px; display: flex; align-items: center; gap: 6px; margin-top: 9px; }
+    .date-meta { margin-left: auto; color: var(--faint); font: 8px var(--mono); white-space: nowrap; }
+    .due-badge, .stage-pill { width: fit-content; display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; background: #eef1ec; padding: 4px 7px; color: var(--muted); font-size: 8px; font-weight: 760; white-space: nowrap; }
+    .due-badge svg { width: 10px; height: 10px; }
+    .due-badge.overdue { background: var(--red-soft); color: var(--red); }
+    .due-badge.today { background: var(--amber-soft); color: var(--amber); }
+    .due-badge.soon { background: var(--blue-soft); color: var(--blue); }
+    .due-badge.later { background: var(--green-soft); color: var(--green); }
+    .quick-add { width: 100%; display: flex; align-items: center; justify-content: center; gap: 5px; border: 1px dashed color-mix(in srgb, var(--column-color) 25%, var(--line)); border-radius: 10px; background: transparent; padding: 8px; color: var(--faint); font-size: 9px; font-weight: 700; }
+    .quick-add:hover { border-color: var(--column-color); background: rgb(255 255 255 / 55%); color: var(--column-color); }
+    .quick-add svg { width: 12px; height: 12px; }
+
+    .application-list { overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); box-shadow: var(--shadow-sm); }
+    .list-head, .application-row { display: grid; grid-template-columns: minmax(280px, 1.45fr) .55fr .72fr 1fr .65fr 20px; gap: 16px; align-items: center; }
+    .list-head { background: var(--paper-soft); padding: 10px 15px; color: var(--faint); font: 8px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+    .application-row { width: 100%; border-top: 1px solid var(--line); background: var(--paper); padding: 12px 15px; text-align: left; }
+    .application-row:hover { background: #fbfcf8; }
+    .row-role { min-width: 0; display: flex; align-items: center; gap: 10px; }
+    .row-role div { min-width: 0; display: grid; }
+    .row-role strong, .row-role span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .row-role strong { font-size: 11px; }
+    .row-role span { color: var(--faint); font-size: 9px; }
+    .row-next { overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .row-date { color: var(--muted); font: 9px var(--mono); }
+    .row-chevron { width: 14px; height: 14px; color: var(--faint); }
+    .stage-pill.considering { background: #edf0ec; color: #667169; }
+    .stage-pill.applied { background: var(--blue-soft); color: var(--blue); }
+    .stage-pill.assessment { background: var(--amber-soft); color: var(--amber); }
+    .stage-pill.interview { background: var(--purple-soft); color: var(--purple); }
+    .stage-pill.offer { background: var(--green-soft); color: var(--green); }
+    .stage-pill.closed { background: var(--red-soft); color: var(--red); }
+
+    .empty-state { min-height: 300px; display: grid; place-items: center; align-content: center; border: 1px dashed var(--line-strong); border-radius: 14px; background: var(--paper); padding: 34px; text-align: center; }
+    .empty-state i { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 15px; background: var(--green-soft); color: var(--green); }
+    .empty-state h2 { margin: 13px 0 4px; font-size: 17px; }
+    .empty-state p { max-width: 400px; margin: 0 0 15px; color: var(--muted); font-size: 11px; }
+
+    dialog { color: var(--ink); }
+    dialog::backdrop { background: rgb(10 23 16 / 48%); backdrop-filter: blur(3px); }
+    .drawer { width: min(570px, 96vw); max-width: none; height: 100dvh; max-height: none; margin: 0 0 0 auto; border: 0; background: var(--paper); padding: 0; box-shadow: var(--shadow-md); }
+    .drawer[open] { animation: drawer-in .2s ease-out; }
+    @keyframes drawer-in { from { transform: translateX(24px); opacity: .72; } }
+    .drawer-shell { min-height: 100%; display: flex; flex-direction: column; }
+    .drawer-head { position: sticky; top: 0; z-index: 5; display: flex; align-items: flex-start; gap: 12px; border-bottom: 1px solid var(--line); background: rgb(255 255 255 / 94%); padding: 20px 21px 16px; backdrop-filter: blur(12px); }
+    .drawer-head .company-mark { width: 40px; height: 40px; border-radius: 12px; font-size: 11px; }
+    .drawer-title { min-width: 0; flex: 1; }
+    .drawer-title h2 { margin: 0; font-size: 19px; line-height: 1.25; letter-spacing: -.035em; }
+    .drawer-title p { margin: 3px 0 0; color: var(--muted); font-size: 10px; }
+    .icon-button { width: 34px; height: 34px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 9px; background: transparent; color: var(--muted); }
+    .icon-button:hover { background: var(--paper-soft); color: var(--ink); }
+    .drawer-progress { display: grid; grid-template-columns: repeat(5, 1fr); border-bottom: 1px solid var(--line); background: var(--paper-soft); padding: 13px 20px; }
+    .stage-step { position: relative; display: grid; justify-items: center; gap: 5px; background: transparent; color: var(--faint); font-size: 8px; font-weight: 680; }
+    .stage-step::before { width: 10px; height: 10px; z-index: 2; border: 2px solid var(--line-strong); border-radius: 50%; background: var(--paper-soft); content: ""; }
+    .stage-step:not(:first-child)::after { position: absolute; top: 5px; right: 50%; width: 100%; height: 1px; background: var(--line-strong); content: ""; }
+    .stage-step.complete::before, .stage-step.current::before { border-color: var(--green); background: var(--green); }
+    .stage-step.current { color: var(--ink); }
+    .stage-step.current::before { box-shadow: 0 0 0 4px var(--green-soft); }
+    .drawer-tabs { display: flex; gap: 20px; padding: 0 21px; border-bottom: 1px solid var(--line); }
+    .drawer-tabs button { position: relative; background: transparent; padding: 12px 0 10px; color: var(--muted); font-size: 10px; font-weight: 740; }
+    .drawer-tabs button[aria-selected="true"] { color: var(--ink); }
+    .drawer-tabs button[aria-selected="true"]::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; background: var(--ink); content: ""; }
+    .drawer-body { flex: 1; padding: 20px 21px 28px; }
+    .section-label { margin: 3px 0 10px; color: var(--faint); font: 8px var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+    .form-grid label { display: grid; gap: 4px; color: var(--muted); font-size: 9px; font-weight: 700; }
+    .form-grid label.full { grid-column: 1 / -1; }
+    .form-grid input, .form-grid select, .form-grid textarea { width: 100%; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--paper); padding: 8px 9px; outline: 0; font-size: 11px; }
+    .form-grid input:focus, .form-grid select:focus, .form-grid textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgb(60 111 159 / 11%); }
+    .form-grid textarea { min-height: 92px; resize: vertical; }
+    .field-hint { color: var(--faint); font-size: 8px; font-weight: 500; }
+    .activity-list { display: grid; }
+    .activity-row { position: relative; display: grid; grid-template-columns: 29px minmax(0, 1fr) auto; gap: 10px; padding: 0 0 18px; }
+    .activity-row:not(:last-child)::before { position: absolute; top: 29px; bottom: 0; left: 14px; width: 1px; background: var(--line); content: ""; }
+    .activity-icon { width: 29px; height: 29px; z-index: 1; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 9px; background: var(--paper-soft); color: var(--muted); }
+    .activity-icon svg { width: 13px; height: 13px; }
+    .activity-copy { min-width: 0; }
+    .activity-copy strong { display: block; font-size: 10px; }
+    .activity-copy p { margin: 2px 0 0; color: var(--muted); font-size: 9px; }
+    .activity-row time { color: var(--faint); font: 8px var(--mono); }
+    .drawer-footer { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 9px; border-top: 1px solid var(--line); background: rgb(255 255 255 / 95%); padding: 12px 21px; backdrop-filter: blur(12px); }
+    .drawer-footer div { display: flex; gap: 7px; }
+
+    .modal { width: min(610px, calc(100vw - 26px)); max-width: none; border: 0; border-radius: 17px; background: var(--paper); padding: 0; box-shadow: var(--shadow-md); }
+    .modal.compact { width: min(440px, calc(100vw - 26px)); }
+    .modal form { margin: 0; }
+    .modal-head { display: flex; align-items: flex-start; gap: 15px; border-bottom: 1px solid var(--line); padding: 20px 21px 16px; }
+    .modal-head > div { flex: 1; }
+    .modal-head h2 { margin: 0; font-size: 20px; letter-spacing: -.035em; }
+    .modal-head p:not(.eyebrow) { margin: 4px 0 0; color: var(--muted); font-size: 10px; }
+    .modal .form-grid { padding: 19px 21px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 7px; border-top: 1px solid var(--line); padding: 13px 21px; }
+    .reason-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 19px 21px; }
+    .reason-option { min-height: 72px; display: grid; place-items: center; align-content: center; gap: 5px; border: 1px solid var(--line); border-radius: 11px; background: var(--paper); color: var(--muted); font-size: 10px; font-weight: 700; }
+    .reason-option:hover { border-color: var(--red); background: var(--red-soft); color: var(--red); }
+    .reason-option svg { width: 17px; height: 17px; }
+    .delete-copy { padding: 19px 21px; color: var(--muted); font-size: 11px; }
+    .danger-text { color: var(--red); }
+
+    .toast { position: fixed; z-index: 180; right: 22px; bottom: 22px; max-width: min(430px, calc(100vw - 30px)); display: flex; align-items: center; gap: 12px; transform: translateY(14px); border-radius: 11px; background: var(--ink); padding: 11px 14px; color: white; box-shadow: 0 16px 44px rgb(0 0 0 / 24%); opacity: 0; pointer-events: none; transition: .2s ease; }
+    .toast.show { transform: none; opacity: 1; pointer-events: auto; }
+    .toast span { font-size: 11px; }
+    .toast button { margin-left: auto; border-bottom: 1px solid rgb(255 255 255 / 45%); background: transparent; padding: 0; color: var(--lime); font-size: 10px; font-weight: 780; }
+
+    @media (max-width: 1220px) {
+      .board { grid-template-columns: repeat(5, 230px); }
+      .quick-filters .filter-chip:nth-child(2) { display: none; }
+      .focus-list { grid-template-columns: 1fr 1fr; }
+      .focus-item:nth-child(3) { display: none; }
+    }
+    @media (max-width: 900px) {
+      .app-shell { grid-template-columns: 1fr; }
+      .sidebar { position: static; height: auto; flex-direction: row; align-items: center; padding: 10px 14px; }
+      .brand { padding: 0; }
+      .brand-copy span, .sidebar-note, .profile { display: none; }
+      .side-nav { max-width: calc(100vw - 150px); display: flex; overflow-x: auto; margin-left: auto; scrollbar-width: none; }
+      .side-nav > span { display: none; }
+      .side-nav a { flex: 0 0 auto; }
+      .side-nav a.active { order: -1; }
+      .side-nav a b { display: none; }
+      .workspace { padding: 28px 20px 55px; }
+      .metric-grid { grid-template-columns: repeat(2, 1fr); }
+      .toolbar { flex-wrap: wrap; }
+      .search-field { max-width: none; flex-basis: 100%; }
+      .quick-filters { flex: 1; }
+      .list-head { display: none; }
+      .application-row { grid-template-columns: minmax(0, 1fr) auto 16px; gap: 8px; }
+      .application-row > :not(.row-role):not(.stage-pill):not(.row-chevron) { display: none; }
+    }
+    @media (max-width: 620px) {
+      .workspace { padding: 23px 13px 45px; }
+      .page-header { align-items: stretch; flex-direction: column; }
+      .header-actions .button { flex: 1; }
+      .metric-grid { gap: 7px; margin-top: 20px; }
+      .metric-card { padding: 13px; }
+      .metric-value strong { font-size: 23px; }
+      .focus-head { align-items: flex-start; flex-direction: column; gap: 7px; }
+      .focus-list { grid-template-columns: 1fr; }
+      .focus-item + .focus-item { border-top: 1px solid var(--line); border-left: 0; }
+      .focus-item:nth-child(2), .focus-item:nth-child(3) { display: none; }
+      .tracker-top { align-items: flex-start; flex-direction: column; gap: 0; }
+      .tracker-summary { display: none; }
+      .quick-filters { width: 100%; flex: 0 0 100%; overflow-x: auto; }
+      .quick-filters .filter-chip:nth-child(2) { display: block; }
+      .sort-control { flex: 1; }
+      .sort-control select { width: 100%; }
+      .display-switch { display: none; }
+      .board { grid-template-columns: repeat(5, minmax(82vw, 330px)); }
+      .drawer { width: 100vw; }
+      .drawer-progress { padding-right: 9px; padding-left: 9px; }
+      .form-grid { grid-template-columns: 1fr; }
+      .form-grid label.full { grid-column: auto; }
+      .drawer-footer { align-items: stretch; flex-direction: column-reverse; }
+      .drawer-footer > .button, .drawer-footer div, .drawer-footer div .button { width: 100%; }
+      .drawer-footer div .button { flex: 1; }
+      .reason-grid { grid-template-columns: 1fr; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#workspace">Skip to applications</a>
+  <svg class="icon-sprite" aria-hidden="true">
+    <symbol id="i-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2.2 4.8-4.8 2.2 2.2-4.8 4.8-2.2Z"/></symbol>
+    <symbol id="i-pipeline" viewBox="0 0 24 24"><path d="M5 4v16M5 7h5a3 3 0 0 1 3 3v4a3 3 0 0 0 3 3h3"/><path d="m16 14 3 3-3 3"/></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6Z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></symbol>
+    <symbol id="i-radar" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M12 3a9 9 0 0 1 9 9M12 7a5 5 0 0 1 5 5M5.6 5.6a9 9 0 1 0 12.8 12.8"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-reset" viewBox="0 0 24 24"><path d="M4 4v6h6"/><path d="M5.5 15a8 8 0 1 0 .8-7.9L4 10"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="5" cy="6" r="1"/><circle cx="5" cy="12" r="1"/><circle cx="5" cy="18" r="1"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 3 1.4 4.1L17.5 8.5l-4.1 1.4L12 14l-1.4-4.1-4.1-1.4 4.1-1.4L12 3Z"/><path d="m18 14 .8 2.2L21 17l-2.2.8L18 20l-.8-2.2L15 17l2.2-.8L18 14Z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12h4l2-7 4 14 2-7h6"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 13v6H5V6h6"/></symbol>
+    <symbol id="i-archive" viewBox="0 0 24 24"><path d="M4 8h16v12H4Z"/><path d="M3 4h18v4H3ZM9 12h6"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></symbol>
+    <symbol id="i-restore" viewBox="0 0 24 24"><path d="M4 4v6h6"/><path d="M5.5 15a8 8 0 1 0 .8-7.9L4 10"/></symbol>
+    <symbol id="i-briefcase" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5h8v2M3 12h18"/></symbol>
+  </svg>
+
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Primary navigation">
+      <a class="brand" href="#" aria-label="OneShot home">
+        <span class="brand-mark">1S</span>
+        <span class="brand-copy"><strong>OneShot</strong><span>Application</span></span>
+      </a>
+      <nav class="side-nav">
+        <a href="#"><svg aria-hidden="true"><use href="#i-compass"/></svg>Opportunities <b>184</b></a>
+        <a class="active" href="#" aria-current="page"><svg aria-hidden="true"><use href="#i-pipeline"/></svg>Applications <b id="nav-count">0</b></a>
+        <a href="#"><svg aria-hidden="true"><use href="#i-doc"/></svg>Resume</a>
+        <span>System</span>
+        <a href="#"><svg aria-hidden="true"><use href="#i-radar"/></svg>Feed Status</a>
+      </nav>
+      <div class="sidebar-note"><span><svg aria-hidden="true"><use href="#i-spark"/></svg> Demo workspace</span><p>Everything on this page is sample data and resets locally.</p></div>
+      <div class="profile"><span class="avatar">MC</span><div><strong>Maya Chen</strong><span>maya.chen@example.com</span></div><button type="button" aria-label="Open profile menu"><svg aria-hidden="true"><use href="#i-more"/></svg></button></div>
+    </aside>
+
+    <main id="workspace" class="workspace" tabindex="-1">
+      <header class="page-header">
+        <div><p class="eyebrow">Pipeline command center</p><h1>Applications</h1><p class="page-subtitle">Stay ahead of every deadline, conversation, and decision in one focused workspace.</p></div>
+        <div class="header-actions">
+          <button class="button" type="button" data-action="reset-demo"><svg aria-hidden="true"><use href="#i-reset"/></svg>Reset demo</button>
+          <button class="button primary" type="button" data-action="open-add"><svg aria-hidden="true"><use href="#i-plus"/></svg>Add application</button>
+        </div>
+      </header>
+
+      <section class="metric-grid" aria-label="Pipeline summary">
+        <article class="metric-card" style="--metric-color:#327658;--metric-haze:#e3f1e9"><span class="metric-label"><i class="metric-dot"></i>Active pipeline</span><div class="metric-value"><strong id="metric-active">0</strong><span id="metric-active-detail">applications</span></div></article>
+        <article class="metric-card" style="--metric-color:#a1493e;--metric-haze:#f9e8e4"><span class="metric-label"><i class="metric-dot"></i>Needs attention</span><div class="metric-value"><strong id="metric-attention">0</strong><span id="metric-attention-detail">due soon</span></div></article>
+        <article class="metric-card" style="--metric-color:#76579a;--metric-haze:#eee8f5"><span class="metric-label"><i class="metric-dot"></i>Interviewing</span><div class="metric-value"><strong id="metric-interviews">0</strong><span>in progress</span></div></article>
+        <article class="metric-card" style="--metric-color:#9a641d;--metric-haze:#fff0d8"><span class="metric-label"><i class="metric-dot"></i>Offers</span><div class="metric-value"><strong id="metric-offers">0</strong><span id="metric-offers-detail">awaiting decision</span></div></article>
+      </section>
+
+      <section class="focus-panel" aria-labelledby="focus-heading">
+        <header class="focus-head"><div class="focus-title"><i class="focus-icon"><svg aria-hidden="true"><use href="#i-spark"/></svg></i><div><strong id="focus-heading">Your focus</strong><span>Next 72 hours</span></div></div><p>Complete the highest-leverage follow-ups before they slip.</p></header>
+        <div id="focus-list" class="focus-list"></div>
+      </section>
+
+      <section class="tracker" aria-label="Application tracker">
+        <div class="tracker-top">
+          <div class="view-tabs" role="tablist" aria-label="Application status">
+            <button id="active-tab" type="button" role="tab" aria-selected="true" aria-controls="application-content" data-view="active">Active <span id="active-count">0</span></button>
+            <button id="archive-tab" type="button" role="tab" aria-selected="false" aria-controls="application-content" data-view="archive">Archive <span id="archive-count">0</span></button>
+          </div>
+          <p id="tracker-summary" class="tracker-summary">Showing your active pipeline</p>
+        </div>
+        <div class="toolbar">
+          <label class="search-field"><svg aria-hidden="true"><use href="#i-search"/></svg><span class="sr-only">Search applications</span><input id="search" type="search" placeholder="Search company, role, location, or action" autocomplete="off"><kbd>⌘ K</kbd></label>
+          <div id="quick-filters" class="quick-filters" aria-label="Quick filters">
+            <button class="filter-chip" type="button" data-filter="attention" aria-pressed="false">Needs attention</button>
+            <button class="filter-chip" type="button" data-filter="interview" aria-pressed="false">Interviewing</button>
+            <button class="filter-chip" type="button" data-filter="offer" aria-pressed="false">Offers</button>
+          </div>
+          <label class="sort-control"><span class="sr-only">Sort applications</span><select id="sort"><option value="next">Next action</option><option value="updated">Recently updated</option><option value="applied">Date applied</option><option value="company">Company</option></select></label>
+          <div id="display-switch" class="display-switch" aria-label="Display style"><button type="button" data-display="board" aria-label="Board view" aria-pressed="true"><svg aria-hidden="true"><use href="#i-grid"/></svg></button><button type="button" data-display="list" aria-label="List view" aria-pressed="false"><svg aria-hidden="true"><use href="#i-list"/></svg></button></div>
+        </div>
+        <div id="application-content" class="application-content" role="tabpanel" aria-labelledby="active-tab" aria-live="polite"></div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="detail-drawer" class="drawer" aria-labelledby="drawer-title"><div id="drawer-content"></div></dialog>
+
+  <dialog id="add-dialog" class="modal" aria-labelledby="add-title">
+    <form id="add-form">
+      <header class="modal-head"><div><p class="eyebrow">New application</p><h2 id="add-title">Add to your pipeline</h2><p>Capture the essentials now. You can add details and follow-ups later.</p></div><button class="icon-button" type="button" data-action="close-add" aria-label="Close"><svg aria-hidden="true"><use href="#i-close"/></svg></button></header>
+      <div class="form-grid">
+        <label>Company<input name="company" required autocomplete="organization" placeholder="e.g. Acme"></label>
+        <label>Role<input name="title" required autocomplete="organization-title" placeholder="e.g. Software Engineer Intern"></label>
+        <label>Stage<select name="stage"><option value="considering">Considering</option><option value="applied">Applied</option><option value="assessment">Assessment</option><option value="interview">Interview</option><option value="offer">Offer</option></select></label>
+        <label>Location<input name="location" placeholder="City, state or Remote"></label>
+        <label class="full">Posting URL<input name="url" type="url" placeholder="https://company.com/jobs/…"></label>
+        <label>Next action<input name="nextAction" placeholder="e.g. Ask Jordan for referral"></label>
+        <label>Due date<input name="nextDue" type="date"></label>
+        <label class="full">Notes<textarea name="note" placeholder="Referral context, recruiter details, interview notes…"></textarea></label>
+      </div>
+      <footer class="modal-actions"><button class="button" type="button" data-action="close-add">Cancel</button><button class="button primary" type="submit">Add application</button></footer>
+    </form>
+  </dialog>
+
+  <dialog id="archive-dialog" class="modal compact" aria-labelledby="archive-title">
+    <div><header class="modal-head"><div><p class="eyebrow danger-text">Close application</p><h2 id="archive-title">How did it end?</h2><p>This moves the application to your archive. You can restore it later.</p></div><button class="icon-button" type="button" data-action="close-archive" aria-label="Close"><svg aria-hidden="true"><use href="#i-close"/></svg></button></header><div class="reason-grid"><button class="reason-option" type="button" data-archive-reason="rejected"><svg aria-hidden="true"><use href="#i-close"/></svg>Rejected</button><button class="reason-option" type="button" data-archive-reason="withdrawn"><svg aria-hidden="true"><use href="#i-archive"/></svg>Withdrew</button><button class="reason-option" type="button" data-archive-reason="no_reply"><svg aria-hidden="true"><use href="#i-more"/></svg>No reply</button></div><footer class="modal-actions"><button class="button" type="button" data-action="close-archive">Cancel</button></footer></div>
+  </dialog>
+
+  <dialog id="delete-dialog" class="modal compact" aria-labelledby="delete-title">
+    <div><header class="modal-head"><div><p class="eyebrow danger-text">Permanent action</p><h2 id="delete-title">Delete this application?</h2><p>The record will be removed from this mockup.</p></div><button class="icon-button" type="button" data-action="close-delete" aria-label="Close"><svg aria-hidden="true"><use href="#i-close"/></svg></button></header><p class="delete-copy">This action can be undone from the confirmation toast for a few seconds.</p><footer class="modal-actions"><button class="button" type="button" data-action="close-delete">Cancel</button><button class="button danger" type="button" data-action="confirm-delete"><svg aria-hidden="true"><use href="#i-trash"/></svg>Delete application</button></footer></div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const DAY = 86400000;
+      const STAGES = [
+        { key: "considering", label: "Considering", color: "#6d7870", soft: "#edf0ec" },
+        { key: "applied", label: "Applied", color: "#3c6f9f", soft: "#e7f0f8" },
+        { key: "assessment", label: "Assessment", color: "#9a641d", soft: "#fff0d8" },
+        { key: "interview", label: "Interview", color: "#76579a", soft: "#eee8f5" },
+        { key: "offer", label: "Offer", color: "#327658", soft: "#e3f1e9" },
+      ];
+      const STAGE_LABELS = Object.fromEntries(STAGES.map(stage => [stage.key, stage.label]));
+      const CLOSED_LABELS = { rejected: "Rejected", withdrawn: "Withdrew", no_reply: "No reply" };
+      const pad = value => String(value).padStart(2, "0");
+      const dateOffset = days => { const date = new Date(); date.setHours(12, 0, 0, 0); date.setDate(date.getDate() + days); return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`; };
+      const isoOffset = (days, hours = 0) => new Date(Date.now() + days * DAY + hours * 3600000).toISOString();
+
+      function seedApplications() {
+        return [
+          { id: 1, company: "Northstar Robotics", title: "Platform Engineering Intern", location: "Seattle, WA", stage: "interview", submittedAt: dateOffset(-18), nextAction: "Prepare system design walkthrough", nextDue: dateOffset(1), url: "https://example.com/northstar", contact: "Avery Patel · Engineering Manager", note: "Focus on the CI runner project and incident timeline. Bring questions about the robotics deployment model.", updatedAt: isoOffset(-1), source: "OneShot", resume: "Platform v3", events: [{ at: isoOffset(-1), title: "Technical interview scheduled", detail: "45 minutes with the infrastructure team." }, { at: isoOffset(-8), title: "Moved to Interview", detail: "Recruiter screen completed." }, { at: isoOffset(-18), title: "Application submitted", detail: "Platform v3 resume attached." }] },
+          { id: 2, company: "Lumen Data", title: "Data Infrastructure Co-op", location: "Seattle, WA · Hybrid", stage: "assessment", submittedAt: dateOffset(-11), nextAction: "Submit take-home exercise", nextDue: dateOffset(0), url: "https://example.com/lumen", contact: "Priya Shah · Recruiter", note: "Exercise is a small ingestion pipeline. Budget three focused hours before final review.", updatedAt: isoOffset(-2), source: "External", resume: "Data systems", events: [{ at: isoOffset(-2), title: "Assessment received", detail: "Due by 5:00 PM local time." }, { at: isoOffset(-11), title: "Application submitted", detail: "Added manually." }] },
+          { id: 3, company: "Arcadia Health", title: "Software Engineering Intern, Clinical Tools", location: "Remote — US", stage: "applied", submittedAt: dateOffset(-9), nextAction: "Send recruiter follow-up", nextDue: dateOffset(-1), url: "https://example.com/arcadia", contact: "Morgan Lee · University Recruiting", note: "Mention healthcare data project and availability for a May start.", updatedAt: isoOffset(-5), source: "OneShot", resume: "Product engineering", events: [{ at: isoOffset(-9), title: "Application submitted", detail: "Applied through Greenhouse." }] },
+          { id: 4, company: "Fieldguide", title: "Product Engineering Intern", location: "San Francisco, CA", stage: "considering", submittedAt: null, nextAction: "Ask Jamie for a referral", nextDue: dateOffset(3), url: "https://example.com/fieldguide", contact: "Jamie Kim · Alumni", note: "Strong match on React and collaborative workflows. Referral contact from the UW alumni group.", updatedAt: isoOffset(-1, -3), source: "OneShot", resume: "Product engineering", events: [{ at: isoOffset(-1, -3), title: "Saved to pipeline", detail: "Discovered in OneShot." }] },
+          { id: 5, company: "Sable Security", title: "Backend Engineering Intern", location: "Austin, TX", stage: "applied", submittedAt: dateOffset(-16), nextAction: "", nextDue: null, url: "https://example.com/sable", contact: "", note: "Application asks for Go experience and security interest.", updatedAt: isoOffset(-16), source: "OneShot", resume: "Platform v3", events: [{ at: isoOffset(-16), title: "Application submitted", detail: "Applied through Lever." }] },
+          { id: 6, company: "Meridian Labs", title: "Robotics Software Co-op", location: "Boston, MA", stage: "interview", submittedAt: dateOffset(-24), nextAction: "Send thank-you to interview panel", nextDue: dateOffset(2), url: "https://example.com/meridian", contact: "Elena Rossi · Talent Partner", note: "Panel included autonomy, platform, and behavioral sections.", updatedAt: isoOffset(0, -4), source: "External", resume: "Platform v3", events: [{ at: isoOffset(0, -4), title: "Onsite completed", detail: "Three interviews completed." }, { at: isoOffset(-12), title: "Moved to Interview", detail: "Technical screen passed." }] },
+          { id: 7, company: "Atlas Grid", title: "Site Reliability Intern", location: "Portland, OR · Hybrid", stage: "offer", submittedAt: dateOffset(-29), nextAction: "Review offer and relocation package", nextDue: dateOffset(4), url: "https://example.com/atlas", contact: "Theo Martins · Recruiter", note: "Offer is for June 15 start. Ask whether housing stipend can be used for short-term accommodation.", updatedAt: isoOffset(-1), source: "External", resume: "Platform v2", events: [{ at: isoOffset(-1), title: "Written offer received", detail: "Decision requested this week." }, { at: isoOffset(-10), title: "Final interview completed", detail: "Met the SRE director." }] },
+          { id: 8, company: "Cedar AI", title: "Machine Learning Platform Intern", location: "New York, NY", stage: "considering", submittedAt: null, nextAction: "Tailor resume to model serving work", nextDue: dateOffset(6), url: "https://example.com/cedar", contact: "", note: "Role emphasizes inference reliability, Kubernetes, and observability.", updatedAt: isoOffset(-2), source: "OneShot", resume: "Data systems", events: [{ at: isoOffset(-2), title: "Saved to pipeline", detail: "Matched on 9 resume skills." }] },
+          { id: 9, company: "Pinecone Works", title: "Developer Experience Intern", location: "Remote", stage: "closed", closedReason: "rejected", submittedAt: dateOffset(-44), nextAction: "", nextDue: null, url: "https://example.com/pinecone", contact: "", note: "", updatedAt: isoOffset(-8), source: "OneShot", resume: "Platform v2", events: [{ at: isoOffset(-8), title: "Application closed · Rejected", detail: "Thank-you email received." }, { at: isoOffset(-44), title: "Application submitted", detail: "" }] },
+          { id: 10, company: "Bluebird Finance", title: "Software Engineer Intern", location: "Chicago, IL", stage: "closed", closedReason: "withdrawn", submittedAt: dateOffset(-36), nextAction: "", nextDue: null, url: "https://example.com/bluebird", contact: "", note: "Schedule conflicted with summer research.", updatedAt: isoOffset(-14), source: "External", resume: "Product engineering", events: [{ at: isoOffset(-14), title: "Application closed · Withdrew", detail: "Schedule conflict." }] },
+        ];
+      }
+
+      const $ = selector => document.querySelector(selector);
+      const $$ = selector => [...document.querySelectorAll(selector)];
+      const clone = value => JSON.parse(JSON.stringify(value));
+      const esc = value => String(value == null ? "" : value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
+      const initials = value => String(value || "?").split(/\s+/).filter(Boolean).slice(0, 2).map(word => word[0]).join("").toUpperCase();
+      const markColor = value => { const colors = ["#315645", "#3d5f83", "#775444", "#634d7c", "#4c6970", "#80505a", "#526542"]; const score = [...String(value || "")].reduce((sum, char) => sum + char.charCodeAt(0), 0); return colors[score % colors.length]; };
+      const safeDate = value => { if (!value) return null; const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00` : value); return Number.isNaN(date.getTime()) ? null : date; };
+      const today = () => { const date = new Date(); date.setHours(12, 0, 0, 0); return date; };
+      const dayDiff = value => { const date = safeDate(value); return date ? Math.round((date - today()) / DAY) : null; };
+      const formatDate = value => { const date = safeDate(value); return date ? new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: date.getFullYear() === new Date().getFullYear() ? undefined : "numeric" }).format(date) : "Not set"; };
+      const relativeDate = value => { const date = safeDate(value); if (!date) return ""; const days = Math.round((today() - date) / DAY); if (days <= 0) return "today"; if (days === 1) return "1d ago"; return `${days}d ago`; };
+      const dueState = value => { const days = dayDiff(value); if (days === null) return { key: "none", label: "No due date", rank: Number.MAX_SAFE_INTEGER }; if (days < 0) return { key: "overdue", label: `${Math.abs(days)}d overdue`, rank: days }; if (days === 0) return { key: "today", label: "Due today", rank: 0 }; if (days <= 3) return { key: "soon", label: days === 1 ? "Due tomorrow" : `Due in ${days}d`, rank: days }; return { key: "later", label: `Due in ${days}d`, rank: days }; };
+      const needsAttention = application => application.stage !== "closed" && application.nextDue && dayDiff(application.nextDue) <= 3;
+      const state = { applications: seedApplications(), view: "active", display: "board", query: "", filter: "", sort: "next", selectedId: null, drawerTab: "overview", dragId: null, nextId: 11 };
+      const detailDrawer = $("#detail-drawer"), drawerContent = $("#drawer-content"), addDialog = $("#add-dialog"), addForm = $("#add-form"), archiveDialog = $("#archive-dialog"), deleteDialog = $("#delete-dialog"), toast = $("#toast");
+      const selected = () => state.applications.find(application => application.id === state.selectedId);
+
+      function showToast(message, action) {
+        toast.replaceChildren();
+        const copyNode = document.createElement("span"); copyNode.textContent = message; toast.append(copyNode);
+        if (action) { const button = document.createElement("button"); button.type = "button"; button.textContent = action.label; button.addEventListener("click", () => { toast.classList.remove("show"); action.run(); }, { once: true }); toast.append(button); }
+        toast.classList.add("show"); clearTimeout(showToast.timer); showToast.timer = setTimeout(() => toast.classList.remove("show"), action ? 6500 : 3200);
+      }
+
+      function addEvent(application, title, detail = "") { application.updatedAt = new Date().toISOString(); application.events = application.events || []; application.events.unshift({ at: application.updatedAt, title, detail }); }
+      function counts() { const active = state.applications.filter(item => item.stage !== "closed"), archive = state.applications.filter(item => item.stage === "closed"); return { active, archive, attention: active.filter(needsAttention), interviews: active.filter(item => item.stage === "interview"), offers: active.filter(item => item.stage === "offer") }; }
+      function visibleApplications() {
+        let visible = state.applications.filter(application => state.view === "archive" ? application.stage === "closed" : application.stage !== "closed");
+        const query = state.query.trim().toLowerCase();
+        if (query) visible = visible.filter(application => `${application.company} ${application.title} ${application.location} ${application.nextAction} ${application.contact} ${application.note}`.toLowerCase().includes(query));
+        if (state.filter === "attention") visible = visible.filter(needsAttention);
+        if (state.filter === "interview") visible = visible.filter(application => application.stage === "interview");
+        if (state.filter === "offer") visible = visible.filter(application => application.stage === "offer");
+        return [...visible].sort((a, b) => {
+          if (state.sort === "company") return a.company.localeCompare(b.company);
+          if (state.sort === "updated") return String(b.updatedAt).localeCompare(String(a.updatedAt));
+          if (state.sort === "applied") return String(b.submittedAt || "").localeCompare(String(a.submittedAt || ""));
+          return dueState(a.nextDue).rank - dueState(b.nextDue).rank || String(b.updatedAt).localeCompare(String(a.updatedAt));
+        });
+      }
+
+      function dueBadge(application) { if (!application.nextDue) return ""; const due = dueState(application.nextDue); return `<span class="due-badge ${due.key}"><svg aria-hidden="true"><use href="#i-calendar"/></svg>${esc(due.label)}</span>`; }
+      function stageLabel(application) { return application.stage === "closed" ? CLOSED_LABELS[application.closedReason] || "Closed" : STAGE_LABELS[application.stage]; }
+      function applicationCard(application) {
+        return `<article class="application-card" role="button" tabindex="0" draggable="true" data-application-id="${application.id}" aria-label="Open ${esc(application.title)} at ${esc(application.company)}">
+          <div class="card-top"><i class="company-mark" style="--mark-color:${markColor(application.company)}">${esc(initials(application.company))}</i><span class="company-copy"><strong>${esc(application.company)}</strong><span>${esc(application.location || "Location not set")}</span></span><i class="card-arrow"><svg aria-hidden="true"><use href="#i-chevron"/></svg></i></div>
+          <h3>${esc(application.title)}</h3>
+          <div class="next-action"><span>Next action</span><p>${esc(application.nextAction || "Add a follow-up to keep momentum")}</p></div>
+          <div class="card-footer">${dueBadge(application)}<span class="date-meta">${application.submittedAt ? `Applied ${relativeDate(application.submittedAt)}` : "Not applied"}</span></div>
+        </article>`;
+      }
+      function boardMarkup(applications) {
+        return `<div class="board" aria-label="Active application pipeline">${STAGES.map(stage => { const items = applications.filter(application => application.stage === stage.key); return `<section class="board-column" data-drop-stage="${stage.key}" style="--column-color:${stage.color};--column-soft:${stage.soft}"><header class="column-head"><i class="column-dot"></i><h2>${stage.label}</h2><b>${items.length}</b></header><div class="column-stack">${items.map(applicationCard).join("")}<button class="quick-add" type="button" data-add-stage="${stage.key}"><svg aria-hidden="true"><use href="#i-plus"/></svg>Add to ${stage.label}</button></div></section>`; }).join("")}</div>`;
+      }
+      function listMarkup(applications) {
+        return `<div class="application-list"><div class="list-head"><span>Application</span><span>Stage</span><span>Applied</span><span>Next action</span><span>Due</span><span></span></div>${applications.map(application => `<button class="application-row" type="button" data-application-id="${application.id}"><span class="row-role"><i class="company-mark" style="--mark-color:${markColor(application.company)}">${esc(initials(application.company))}</i><div><strong>${esc(application.title)}</strong><span>${esc(application.company)} · ${esc(application.location || "Location not set")}</span></div></span><span class="stage-pill ${application.stage}">${esc(stageLabel(application))}</span><span class="row-date">${esc(application.submittedAt ? formatDate(application.submittedAt) : "Not applied")}</span><span class="row-next">${esc(application.nextAction || "No next action")}</span><span>${application.nextDue ? dueBadge(application) : '<span class="row-date">—</span>'}</span><svg class="row-chevron" aria-hidden="true"><use href="#i-chevron"/></svg></button>`).join("")}</div>`;
+      }
+      function emptyMarkup() {
+        const filtered = Boolean(state.query || state.filter);
+        return `<div class="empty-state"><i><svg aria-hidden="true"><use href="#${filtered ? "i-search" : "i-briefcase"}"/></svg></i><h2>${filtered ? "No matches found" : state.view === "archive" ? "Your archive is empty" : "Build your pipeline"}</h2><p>${filtered ? "Try a broader search or clear the active quick filter." : state.view === "archive" ? "Closed applications will appear here for future reference." : "Add an opportunity you are considering or have already applied to."}</p>${filtered ? '<button class="button" type="button" data-action="clear-filters">Clear filters</button>' : state.view === "active" ? '<button class="button primary" type="button" data-action="open-add">Add application</button>' : ""}</div>`;
+      }
+
+      function renderMetrics() {
+        const summary = counts();
+        $("#metric-active").textContent = summary.active.length;
+        $("#metric-attention").textContent = summary.attention.length;
+        $("#metric-interviews").textContent = summary.interviews.length;
+        $("#metric-offers").textContent = summary.offers.length;
+        $("#metric-active-detail").textContent = `${STAGES.filter(stage => summary.active.some(item => item.stage === stage.key)).length} stages in motion`;
+        $("#metric-attention-detail").textContent = summary.attention.some(item => dayDiff(item.nextDue) < 0) ? "includes overdue" : "due within 72h";
+        $("#metric-offers-detail").textContent = summary.offers.length === 1 ? "decision in progress" : "awaiting decisions";
+        $("#nav-count").textContent = summary.active.length;
+        $("#active-count").textContent = summary.active.length;
+        $("#archive-count").textContent = summary.archive.length;
+      }
+      function renderFocus() {
+        const focused = counts().attention.sort((a, b) => dueState(a.nextDue).rank - dueState(b.nextDue).rank).slice(0, 3);
+        $("#focus-list").innerHTML = focused.length ? focused.map(application => `<article class="focus-item"><i class="company-mark" style="--mark-color:${markColor(application.company)}">${esc(initials(application.company))}</i><div class="focus-item-main"><button type="button" data-application-id="${application.id}">${esc(application.nextAction)}</button><span>${esc(application.company)} · ${esc(application.title)}</span></div><button class="check-action" type="button" data-complete-action="${application.id}" aria-label="Mark ${esc(application.nextAction)} complete" title="Mark complete"><svg aria-hidden="true"><use href="#i-check"/></svg></button></article>`).join("") : '<p class="focus-empty">Nothing urgent. Your next 72 hours are clear.</p>';
+      }
+      function renderTracker() {
+        const visible = visibleApplications();
+        $("#active-tab").setAttribute("aria-selected", String(state.view === "active"));
+        $("#archive-tab").setAttribute("aria-selected", String(state.view === "archive"));
+        $("#application-content").setAttribute("aria-labelledby", state.view === "active" ? "active-tab" : "archive-tab");
+        $("#tracker-summary").textContent = state.view === "archive" ? `${visible.length} closed application${visible.length === 1 ? "" : "s"}` : `${visible.length} active application${visible.length === 1 ? "" : "s"} · drag cards to update stages`;
+        $("#display-switch").hidden = state.view === "archive";
+        $$("[data-display]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.display === state.display)));
+        $$("[data-filter]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.filter === state.filter)));
+        $("#application-content").innerHTML = visible.length ? (state.view === "active" && state.display === "board" ? boardMarkup(visible) : listMarkup(visible)) : emptyMarkup();
+      }
+      function renderAll() { renderMetrics(); renderFocus(); renderTracker(); }
+
+      function stageProgressMarkup(application) {
+        if (application.stage === "closed") return `<div class="drawer-progress"><span class="stage-step current" style="grid-column:1/-1"><span>Archived · ${esc(stageLabel(application))}</span></span></div>`;
+        const currentIndex = STAGES.findIndex(stage => stage.key === application.stage);
+        return `<div class="drawer-progress" aria-label="Application stage">${STAGES.map((stage, index) => `<button class="stage-step ${index < currentIndex ? "complete" : index === currentIndex ? "current" : ""}" type="button" data-set-stage="${stage.key}" aria-label="Move to ${stage.label}"><span>${stage.label}</span></button>`).join("")}</div>`;
+      }
+      function activityMarkup(application) {
+        const events = application.events || [];
+        return `<section><p class="section-label">Timeline</p><div class="activity-list">${events.map(event => `<article class="activity-row"><i class="activity-icon"><svg aria-hidden="true"><use href="#i-activity"/></svg></i><div class="activity-copy"><strong>${esc(event.title)}</strong>${event.detail ? `<p>${esc(event.detail)}</p>` : ""}</div><time datetime="${esc(event.at)}">${esc(formatDate(event.at))}</time></article>`).join("")}</div></section>`;
+      }
+      function overviewMarkup(application) {
+        return `<form id="detail-form"><p class="section-label">Application details</p><div class="form-grid"><label>Company<input name="company" required value="${esc(application.company)}"></label><label>Role<input name="title" required value="${esc(application.title)}"></label><label>Location<input name="location" value="${esc(application.location || "")}" placeholder="Optional"></label><label>Resume sent<input name="resume" value="${esc(application.resume || "")}" placeholder="Optional"><span class="field-hint">Name of the version you submitted</span></label><label class="full">Posting URL<input name="url" type="url" value="${esc(application.url || "")}" placeholder="https://…"></label><label>Next action<input name="nextAction" value="${esc(application.nextAction || "")}" placeholder="What should happen next?"></label><label>Due date<input name="nextDue" type="date" value="${esc(application.nextDue || "")}"></label><label class="full">Contact<input name="contact" value="${esc(application.contact || "")}" placeholder="Name · role or email"></label><label class="full">Notes<textarea name="note" placeholder="Interview context, referral notes, decision criteria…">${esc(application.note || "")}</textarea></label></div></form>`;
+      }
+      function renderDrawer() {
+        const application = selected(); if (!application) return;
+        const archived = application.stage === "closed";
+        drawerContent.innerHTML = `<div class="drawer-shell"><header class="drawer-head"><i class="company-mark" style="--mark-color:${markColor(application.company)}">${esc(initials(application.company))}</i><div class="drawer-title"><h2 id="drawer-title">${esc(application.title)}</h2><p>${esc(application.company)} · ${esc(application.location || "Location not set")}</p></div><button class="icon-button" type="button" data-action="close-drawer" aria-label="Close application details"><svg aria-hidden="true"><use href="#i-close"/></svg></button></header>${stageProgressMarkup(application)}<div class="drawer-tabs" role="tablist" aria-label="Application detail views"><button type="button" role="tab" data-drawer-tab="overview" aria-selected="${state.drawerTab === "overview"}">Overview</button><button type="button" role="tab" data-drawer-tab="activity" aria-selected="${state.drawerTab === "activity"}">Activity <span>${application.events?.length || 0}</span></button></div><div class="drawer-body">${state.drawerTab === "overview" ? overviewMarkup(application) : activityMarkup(application)}</div><footer class="drawer-footer"><button class="button ghost danger" type="button" data-action="open-delete"><svg aria-hidden="true"><use href="#i-trash"/></svg>Delete</button><div>${application.url ? `<a class="button" href="${esc(application.url)}" target="_blank" rel="noopener noreferrer">Posting <svg aria-hidden="true"><use href="#i-external"/></svg></a>` : ""}<button class="button" type="button" data-action="${archived ? "restore" : "open-archive"}"><svg aria-hidden="true"><use href="#i-${archived ? "restore" : "archive"}"/></svg>${archived ? "Restore" : "Archive"}</button>${state.drawerTab === "overview" ? '<button class="button primary" type="submit" form="detail-form">Save changes</button>' : ""}</div></footer></div>`;
+      }
+      function openApplication(id) { state.selectedId = Number(id); state.drawerTab = "overview"; renderDrawer(); if (!detailDrawer.open) detailDrawer.showModal(); history.replaceState(null, "", `#app=${id}`); }
+      function closeDrawer() { if (detailDrawer.open) detailDrawer.close(); state.selectedId = null; history.replaceState(null, "", location.pathname); }
+      function openAdd(stage = "considering") { addForm.reset(); addForm.elements.stage.value = stage; if (stage !== "considering") addForm.elements.nextAction.placeholder = "What should happen next?"; addDialog.showModal(); }
+      function setStage(application, nextStage, announce = true) {
+        if (!application || application.stage === nextStage) return;
+        const previous = application.stage, previousReason = application.closedReason;
+        application.stage = nextStage; application.closedReason = null;
+        if (nextStage === "applied" && !application.submittedAt) application.submittedAt = dateOffset(0);
+        addEvent(application, `Moved to ${STAGE_LABELS[nextStage]}`, `Previously ${STAGE_LABELS[previous] || "archived"}.`);
+        renderAll(); if (detailDrawer.open) renderDrawer();
+        if (announce) showToast(`Moved to ${STAGE_LABELS[nextStage]}.`, { label: "Undo", run: () => { application.stage = previous; application.closedReason = previousReason; addEvent(application, `Restored to ${STAGE_LABELS[previous] || "Archive"}`, "Stage move undone."); renderAll(); if (detailDrawer.open) renderDrawer(); } });
+      }
+
+      document.addEventListener("click", event => {
+        const complete = event.target.closest("[data-complete-action]");
+        if (complete) { const application = state.applications.find(item => item.id === Number(complete.dataset.completeAction)); if (!application) return; const oldAction = application.nextAction, oldDue = application.nextDue; application.nextAction = ""; application.nextDue = null; addEvent(application, "Next action completed", oldAction); renderAll(); showToast("Next action completed.", { label: "Undo", run: () => { application.nextAction = oldAction; application.nextDue = oldDue; addEvent(application, "Next action restored", oldAction); renderAll(); } }); return; }
+        const applicationTarget = event.target.closest("[data-application-id]"); if (applicationTarget) return openApplication(applicationTarget.dataset.applicationId);
+        const addStage = event.target.closest("[data-add-stage]"); if (addStage) return openAdd(addStage.dataset.addStage);
+        const view = event.target.closest("[data-view]"); if (view) { state.view = view.dataset.view; state.filter = ""; renderTracker(); return; }
+        const filter = event.target.closest("[data-filter]"); if (filter) { state.filter = state.filter === filter.dataset.filter ? "" : filter.dataset.filter; renderTracker(); return; }
+        const display = event.target.closest("[data-display]"); if (display) { state.display = display.dataset.display; renderTracker(); return; }
+        const drawerTab = event.target.closest("[data-drawer-tab]"); if (drawerTab) { state.drawerTab = drawerTab.dataset.drawerTab; renderDrawer(); return; }
+        const stage = event.target.closest("[data-set-stage]"); if (stage) { setStage(selected(), stage.dataset.setStage); return; }
+        const reason = event.target.closest("[data-archive-reason]"); if (reason) { const application = selected(); if (!application) return; application.stage = "closed"; application.closedReason = reason.dataset.archiveReason; application.nextAction = ""; application.nextDue = null; addEvent(application, `Application closed · ${CLOSED_LABELS[application.closedReason]}`, "Moved to Archive."); archiveDialog.close(); closeDrawer(); renderAll(); showToast("Application moved to Archive."); return; }
+        const action = event.target.closest("[data-action]")?.dataset.action;
+        if (action === "open-add") return openAdd();
+        if (action === "close-add") return addDialog.close();
+        if (action === "close-drawer") return closeDrawer();
+        if (action === "open-archive") return archiveDialog.showModal();
+        if (action === "close-archive") return archiveDialog.close();
+        if (action === "open-delete") return deleteDialog.showModal();
+        if (action === "close-delete") return deleteDialog.close();
+        if (action === "restore") { const application = selected(); application.stage = "considering"; application.closedReason = null; addEvent(application, "Restored to Considering", "Returned to the active pipeline."); closeDrawer(); renderAll(); showToast("Application restored."); return; }
+        if (action === "confirm-delete") { const application = selected(); if (!application) return; const index = state.applications.indexOf(application), snapshot = clone(application); state.applications.splice(index, 1); deleteDialog.close(); closeDrawer(); renderAll(); showToast("Application deleted.", { label: "Undo", run: () => { state.applications.splice(index, 0, snapshot); renderAll(); } }); return; }
+        if (action === "clear-filters") { state.query = ""; state.filter = ""; $("#search").value = ""; renderTracker(); return; }
+        if (action === "reset-demo") { const reset = clone(state.applications); state.applications = seedApplications(); state.nextId = 11; state.query = ""; state.filter = ""; state.view = "active"; state.display = "board"; $("#search").value = ""; $("#sort").value = "next"; state.sort = "next"; renderAll(); showToast("Demo reset.", { label: "Undo", run: () => { state.applications = reset; renderAll(); } }); }
+      });
+
+      document.addEventListener("submit", event => {
+        if (event.target === addForm) { event.preventDefault(); const data = new FormData(addForm), stage = String(data.get("stage")), now = new Date().toISOString(); const application = { id: state.nextId++, company: String(data.get("company")).trim(), title: String(data.get("title")).trim(), location: String(data.get("location")).trim(), stage, closedReason: null, submittedAt: stage === "considering" ? null : dateOffset(0), nextAction: String(data.get("nextAction")).trim(), nextDue: String(data.get("nextDue")) || null, url: String(data.get("url")).trim(), contact: "", note: String(data.get("note")).trim(), updatedAt: now, source: "External", resume: "", events: [{ at: now, title: stage === "considering" ? "Saved to pipeline" : `Added at ${STAGE_LABELS[stage]}`, detail: "Created in this mockup." }] }; state.applications.unshift(application); addDialog.close(); renderAll(); showToast("Application added."); openApplication(application.id); return; }
+        if (event.target.id === "detail-form") { event.preventDefault(); const application = selected(); if (!application) return; const data = new FormData(event.target); application.company = String(data.get("company")).trim(); application.title = String(data.get("title")).trim(); application.location = String(data.get("location")).trim(); application.resume = String(data.get("resume")).trim(); application.url = String(data.get("url")).trim(); application.nextAction = String(data.get("nextAction")).trim(); application.nextDue = String(data.get("nextDue")) || null; application.contact = String(data.get("contact")).trim(); application.note = String(data.get("note")).trim(); addEvent(application, "Application details updated", "Changes saved from Overview."); closeDrawer(); renderAll(); showToast("Changes saved."); }
+      });
+
+      $("#search").addEventListener("input", event => { state.query = event.target.value; renderTracker(); });
+      $("#sort").addEventListener("change", event => { state.sort = event.target.value; renderTracker(); });
+      document.addEventListener("keydown", event => {
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") { event.preventDefault(); $("#search").focus(); }
+        if (event.target.matches("[role=tab]") && ["ArrowLeft", "ArrowRight"].includes(event.key)) { const tabs = [...event.target.parentElement.querySelectorAll("[role=tab]")], index = tabs.indexOf(event.target), next = tabs[(index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length]; next.focus(); next.click(); }
+        if (event.target.matches(".application-card") && ["Enter", " "].includes(event.key)) { event.preventDefault(); openApplication(event.target.dataset.applicationId); }
+      });
+      document.addEventListener("dragstart", event => { const card = event.target.closest(".application-card"); if (!card) return; state.dragId = Number(card.dataset.applicationId); card.classList.add("dragging"); event.dataTransfer.effectAllowed = "move"; });
+      document.addEventListener("dragend", event => { event.target.closest(".application-card")?.classList.remove("dragging"); $$(".drag-over").forEach(column => column.classList.remove("drag-over")); state.dragId = null; });
+      document.addEventListener("dragover", event => { const column = event.target.closest("[data-drop-stage]"); if (column && state.dragId) { event.preventDefault(); column.classList.add("drag-over"); } });
+      document.addEventListener("dragleave", event => { const column = event.target.closest("[data-drop-stage]"); if (column && !column.contains(event.relatedTarget)) column.classList.remove("drag-over"); });
+      document.addEventListener("drop", event => { const column = event.target.closest("[data-drop-stage]"); if (!column || !state.dragId) return; event.preventDefault(); column.classList.remove("drag-over"); setStage(state.applications.find(application => application.id === state.dragId), column.dataset.dropStage); state.dragId = null; });
+      [detailDrawer, addDialog, archiveDialog, deleteDialog].forEach(dialog => dialog.addEventListener("click", event => { if (event.target !== dialog) return; if (dialog === detailDrawer) closeDrawer(); else dialog.close(); }));
+      detailDrawer.addEventListener("close", () => { if (state.selectedId !== null) { state.selectedId = null; history.replaceState(null, "", location.pathname); } });
+
+      renderAll();
+      const requested = new URLSearchParams(location.hash.replace(/^#/, "")).get("app"); if (requested && state.applications.some(application => application.id === Number(requested))) openApplication(requested);
+    })();
+  </script>
+</body>
+</html>

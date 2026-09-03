@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="The OneShot feed status workspace.">
+  <title>Feed Status · OneShot</title>
+  <link rel="stylesheet" href="/static/source-coverage/styles.css?v=fleet-heatmap-20260822">
+  <link rel="stylesheet" href="/static/navigation.css?v=lockup-20260901">
+  <script defer src="/static/api-client.js?v=fleet-heatmap-20260822"></script>
+  <script defer src="/static/nav-count.js?v=visitor-local-20260816"></script>
+  <script defer src="/static/source-coverage/app.js?v=fleet-heatmap-20260822"></script>
+</head>
+<body>
+  <a class="skip-link" href="#workspace">Skip to feed status</a>
+  <svg class="icon-sprite" aria-hidden="true">
+    <symbol id="icon-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m15.4 8.6-2 4.8-4.8 2 2-4.8 4.8-2Z"/></symbol>
+    <symbol id="icon-pipeline" viewBox="0 0 24 24"><path d="M5 4v16M5 7h5a3 3 0 0 1 3 3v4a3 3 0 0 0 3 3h3"/><path d="m16 14 3 3-3 3"/></symbol>
+    <symbol id="icon-radar" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M12 3a9 9 0 0 1 9 9M12 7a5 5 0 0 1 5 5M5.6 5.6a9 9 0 1 0 12.8 12.8"/></symbol>
+    <symbol id="icon-sources" viewBox="0 0 24 24"><circle cx="6" cy="12" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="m8 11 8-4M8 13l8 4"/></symbol>
+    <symbol id="icon-postings" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></symbol>
+    <symbol id="icon-spark" viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
+    <symbol id="icon-alert" viewBox="0 0 24 24"><path d="M12 4 3.5 19h17L12 4Z"/><path d="M12 9v4M12 16h.01"/></symbol>
+    <symbol id="icon-doc" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></symbol>
+  </svg>
+
+  <div class="shell">
+    <aside class="sidebar" aria-label="Primary navigation">
+      <a class="brand" href="/"><img class="brand-mark" src="/static/brand-mark.svg?v=20260813" alt="" width="32" height="32"><span class="brand-word">OneShot</span><span class="brand-sub">Application</span></a>
+      <nav class="side-nav">
+        <a href="/"><svg class="nav-icon" aria-hidden="true"><use href="#icon-compass"/></svg>Opportunities <b data-opportunity-count>—</b></a>
+        <a href="/application/"><svg class="nav-icon" aria-hidden="true"><use href="#icon-pipeline"/></svg>Applications</a>
+        <a href="/resume/"><svg class="nav-icon" aria-hidden="true"><use href="#icon-doc"/></svg>Resume</a>
+        <p>System</p>
+        <a class="active" href="/source-coverage/" aria-current="page"><svg class="nav-icon" aria-hidden="true"><use href="#icon-radar"/></svg>Feed Status</a>
+      </nav>
+    </aside>
+
+    <main id="workspace" class="workspace" tabindex="-1">
+      <header class="page-header">
+        <h1>Feed Status</h1>
+        <span id="clock" class="clock" aria-label="Current time">—</span>
+      </header>
+
+      <p id="fleet-stats" class="fleet-stats">Loading fleet…</p>
+
+      <section class="source-section" aria-labelledby="source-list-title">
+        <header class="section-header">
+          <div class="section-title">
+            <h2 id="source-list-title">Boards</h2>
+            <span id="stale-note" class="stale-note" hidden aria-live="polite"><i aria-hidden="true"></i>Refresh failed — showing last known data</span>
+          </div>
+          <div class="legend-row" aria-label="Cell states">
+            <span class="legend-key ok"><i aria-hidden="true"></i>ok</span>
+            <span class="legend-key degraded"><i aria-hidden="true"></i>degraded</span>
+            <span class="legend-key failing"><i aria-hidden="true"></i>failing</span>
+            <span class="legend-key stale"><i aria-hidden="true"></i>stale</span>
+            <span class="legend-key paused"><i aria-hidden="true"></i>paused</span>
+            <span class="legend-key never"><i aria-hidden="true"></i>never polled</span>
+          </div>
+        </header>
+        <div id="coverage-content">
+          <div class="state loading-state"><span class="spinner"></span><p>Loading feed status…</p></div>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

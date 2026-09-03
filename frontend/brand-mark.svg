@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40">
+  <!-- OneShot emblem: rising stages, an arrow sweeping over them, a hit target.
+       Simplified from the full lockup because this renders at 26-32px in the nav,
+       where the artwork's stepped ribbon and letterpress grain turn to mush.
+       Colours are literal rather than currentColor: the mark only ever sits on
+       the dark nav (#15251e). -->
+  <rect x="2.8" y="29.8" width="5.4" height="7" rx="2.2" fill="#7fa87f"/>
+  <rect x="10" y="25.8" width="5.4" height="11" rx="2.2" fill="#8fb98a"/>
+  <rect x="17.2" y="21.8" width="5.4" height="15" rx="2.2" fill="#9ec49a"/>
+  <path d="M3 25.5C9 24 16 20.5 21.2 13.8" fill="none" stroke="#d9f36a" stroke-width="2.9" stroke-linecap="round"/>
+  <path d="M24.6 9.4 24.36 16.26 18.04 11.34Z" fill="#d9f36a" stroke="#d9f36a" stroke-width="1.2" stroke-linejoin="round"/>
+  <circle cx="31" cy="8" r="5.2" fill="none" stroke="#d9f36a" stroke-width="2.1"/>
+  <circle cx="31" cy="8" r="1.8" fill="#d9f36a"/>
+</svg>

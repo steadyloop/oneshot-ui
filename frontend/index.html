@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Opportunities · OneShot</title>
+  <link rel="stylesheet" href="/static/opportunities/styles.css?v=skill-bundles-20260902i">
+  <link rel="stylesheet" href="/static/navigation.css?v=lockup-20260901">
+  <!-- No sample-data toggle on this page, but api-client.js and nav-count.js
+       both read window.OneShotVisitorData (the guest workspace) as they
+       initialise, so the module that defines it still has to load first. -->
+  <script defer src="/static/sample-data.js?v=no-resume-fixture-20260901"></script>
+  <script defer src="/static/api-client.js?v=visitor-local-20260816"></script>
+  <script defer src="/static/nav-count.js?v=visitor-local-20260816"></script>
+  <script defer src="/static/opportunities/app.js?v=skill-bundles-20260902g"></script>
+</head>
+<body>
+  <a class="skip-link" href="#view">Skip to opportunities</a>
+  <svg class="icon-sprite" aria-hidden="true">
+    <symbol id="icon-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+    <symbol id="icon-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m15.4 8.6-2 4.8-4.8 2 2-4.8 4.8-2Z"/></symbol>
+    <symbol id="icon-pipeline" viewBox="0 0 24 24"><path d="M5 4v16M5 7h5a3 3 0 0 1 3 3v4a3 3 0 0 0 3 3h3"/><path d="m16 14 3 3-3 3"/></symbol>
+    <symbol id="icon-radar" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M12 3a9 9 0 0 1 9 9M12 7a5 5 0 0 1 5 5M5.6 5.6a9 9 0 1 0 12.8 12.8"/></symbol>
+    <symbol id="icon-doc" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></symbol>
+    <symbol id="icon-pin" viewBox="0 0 24 24"><path d="M12 21s7-7.2 7-12.5A7 7 0 0 0 5 8.5C5 13.8 12 21 12 21Z"/><circle cx="12" cy="8.5" r="2.4"/></symbol>
+    <symbol id="icon-calendar" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></symbol>
+    <symbol id="icon-briefcase" viewBox="0 0 24 24"><rect x="3" y="7.5" width="18" height="12" rx="2"/><path d="M8 7.5V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1.5M3 12.5h18"/></symbol>
+    <symbol id="icon-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+    <symbol id="icon-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+  </svg>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Primary navigation">
+      <a class="brand" href="/"><img class="brand-mark" src="/static/brand-mark.svg?v=20260813" alt="" width="32" height="32"><span class="brand-word">OneShot</span><span class="brand-sub">Application</span></a>
+      <nav class="side-nav">
+        <a class="active" href="/" aria-current="page"><svg class="nav-icon" aria-hidden="true"><use href="#icon-compass"/></svg>Opportunities <b data-opportunity-count>—</b></a>
+        <a href="/application/"><svg class="nav-icon" aria-hidden="true"><use href="#icon-pipeline"/></svg>Applications</a>
+        <a href="/resume/"><svg class="nav-icon" aria-hidden="true"><use href="#icon-doc"/></svg>Resume</a>
+        <p>System</p>
+        <a href="/source-coverage/"><svg class="nav-icon" aria-hidden="true"><use href="#icon-radar"/></svg>Feed Status</a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <div id="flash" class="flash" role="status" aria-live="polite"></div>
+      <section id="view" class="view opportunities-view" aria-live="polite">
+        <div class="state loading"><i></i><h1>Loading Opportunities</h1><p>Reading the latest API data.</p></div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

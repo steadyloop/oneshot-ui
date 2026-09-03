@@ -1,0 +1,5 @@
+# Request-facing API only. The crawler/harvester commands are never invoked by
+# frontend/app.py; these packages provide the existing, tested Neon query and
+# response contract used by the browser.
+xjobscore @ git+https://github.com/steadyloop/xjobscore.git@main
+xjobscore-oneshot-ui @ git+https://github.com/steadyloop/xjobscore.git@main#subdirectory=xjobscore/oneshot-ui
