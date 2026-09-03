@@ -1,10 +1,4 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "fastapi",
-  "rewrites": [
-    {
-      "source": "/static/:path*",
-      "destination": "/:path*"
-    }
-  ]
+  "framework": "fastapi"
 }
