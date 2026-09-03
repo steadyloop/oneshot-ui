@@ -3,7 +3,7 @@
 The browser client for OneShot. Plain HTML, CSS, and vanilla JS — no build step,
 no framework, no bundler. Every file here is shipped to the browser as-is.
 
-All data comes from the OneShot API (`xjobscore/oneshot-ui`) over `/api/*`.
+All data comes from the OneShot API over `/api/*`.
 Nothing here talks to Postgres, and nothing here is rendered on a server.
 
 ## Running it
@@ -12,13 +12,13 @@ The API server serves this directory during local development, so the normal
 flow is unchanged:
 
 ```bash
-cd xjobscore/oneshot-ui
-../../.venv/bin/python -m oneshot_ui     # http://127.0.0.1:8766
+cd oneshot-ui
+python -m oneshot_ui     # http://127.0.0.1:8766
 ```
 
 The API finds this directory by walking up from its own package to the repo
 root. Override with
-`XJOBSCORE_ONESHOT_STATIC_DIR`, or point it at a path that does not exist to run
+`ONESHOT_STATIC_DIR`, or point it at a path that does not exist to run
 the API on its own with no client attached.
 
 ## Tests
@@ -110,10 +110,10 @@ Set the Vercel project root to this directory, leave the build and output
 settings empty, and provide `DATABASE_URL` as a server-side environment
 variable. Use Neon's pooled connection string for the deployed function.
 
-For sign-in, also configure the `XJOBSCORE_ONESHOT_GOOGLE_CLIENT_ID`,
-`XJOBSCORE_ONESHOT_GOOGLE_CLIENT_SECRET`,
-`XJOBSCORE_ONESHOT_ALLOWED_EMAILS`, `XJOBSCORE_ONESHOT_SESSION_SECRET`,
-`XJOBSCORE_ONESHOT_PUBLIC_URL`, and `XJOBSCORE_ONESHOT_COOKIE_SECURE=1`
+For sign-in, also configure the `ONESHOT_GOOGLE_CLIENT_ID`,
+`ONESHOT_GOOGLE_CLIENT_SECRET`,
+`ONESHOT_ALLOWED_EMAILS`, `ONESHOT_SESSION_SECRET`,
+`ONESHOT_PUBLIC_URL`, and `ONESHOT_COOKIE_SECURE=1`
 variables described in the repository's `.env.example`.
 
 The browser keeps its existing relative `/api` URLs. No database connection

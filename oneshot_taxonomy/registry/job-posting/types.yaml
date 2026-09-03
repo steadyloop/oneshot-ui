@@ -1,0 +1,40 @@
+# Degree fields extracted from posting text.
+#
+# The `type:` block that lived here classified job_type from the posting
+# title. That is now derived per vendor at parse() time from measured
+# evidence in doc/raw_postings/, so the canon no longer exists.
+
+degree:
+  - name: cs
+    patterns:
+      - '(?i)\b(?:computer\s+science|comp\s*sci|computer\s+engineering|c\.?s\.?)\b'
+
+  - name: mathematics
+    patterns:
+      - '(?i)\b(?:math(?:ematics)?|applied\s+math(?:ematics)?|mathematical\s+sciences?)\b'
+
+  - name: med_device
+    patterns:
+      - '(?i)\b(?:bio[- ]?medical(?:\s+engineering|\s+sciences?)?|b\.?m\.?e\.?|medical[- ]?device(?:s)?|med[- ]?tech|medical\s+technolog(?:y|ies)|medical\s+instrumentation)\b'
+      - '(?i)\b(?:clinical\s+engineering|healthcare\s+technology|biomechanic(?:al|s)?|(?:neuro|neural)[- ]?engineering|rehabilitation\s+engineering|bio[- ]?instrumentation|bio[- ]?sensors?|bio[- ]?compatib(?:ility|le))\b'
+      - '(?i)\b(?:ISO\s*13485|IEC\s*60601|21\s*CFR\s*(?:Part\s*)?820|SaMD|IVDs?|in[- ]vitro\s+diagnostics?)\b'
+    title_patterns:
+      - '(?i)\b(?:neuro[- ]?engineer(?:ing)?|surgical\s+robotics?|(?:neural|brain[- ]computer|brain[- ]machine)\s+interfaces?|biosensors?)\b'
+      - '(?i)\b(?:(?:medical|diagnostic)\s+imaging|(?:bio[- ]?medical|medical)\s+equipment|prosthetics?|orthotics?|medical\s+implants?)\b'
+
+  # Description only, deliberately: no title_patterns. Measured 2026-08-27 over
+  # 292,665 active postings, the title channel added 529 tags (11% of biotech)
+  # and 68% of those had no description at all -- overwhelmingly senior clinical,
+  # regulatory and marketing roles named for a therapy area rather than a degree.
+  - name: biotech
+    patterns:
+      - '(?i)\b(?:bio[- ]?engineering|biological\s+engineering|biosystems?\s+engineering|biochemical\s+engineering|bioinformatics?|computational[- ]+bio(?:logy|engineering)?|systems?\s+biology)\b'
+      - '(?i)\b(?:bio[- ]?process(?:es|ing|ors?|\s+engineering)?|bio[- ]?materials?|tissue\s+engineering|protein\s+engineering|cell\s+engineering|genetic\s+engineering)\b'
+      - '(?i)\b(?:biotechnolog(?:y|ies|ist|ists|ical)|bio[- ]?tech|life[- ]+sciences?|molecular\s+biology|synthetic\s+biology|regenerative\s+medicine)\b'
+      - '(?i)\b(?:(?:cell|gene|cell\s+and\s+gene)[- ]+therap(?:y|ies)|genomics?|proteomics?|bio[- ]?pharma(?:ceutical)?s?|bio[- ]?therapeutics?|biologics?)\b'
+
+  - name: clinical_affairs
+    patterns:
+      - '(?i)\b(?:clinical\s+affairs?|clinical\s+research|clinical\s+trials?|clinical\s+operations?|clinical\s+development|clinical\s+stud(?:y|ies)|clinical\s+data\s+management)\b'
+      - '(?i)\b(?:regulatory\s+affairs?|regulatory\s+science|regulatory\s+submissions?|medical\s+affairs?|pharmacovigilance|drug\s+safety|FDA)\b'
+      - '(?i)\b(?:good\s+clinical\s+practice|ICH[- /]?GCP|GCP\s+(?:guidelines?|regulations?|compliance|standards?|requirements?|training))\b'

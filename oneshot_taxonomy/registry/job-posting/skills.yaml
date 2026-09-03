@@ -1,0 +1,6859 @@
+# Standalone skill taxonomy generated from skills-suggestion.md.
+#
+# Candidate membership comes exclusively from that document. Aliases are explicit:
+# `aliases` are case-insensitive, `case_sensitive_aliases` preserve exact case,
+# and `ambiguous_aliases` are documented but intentionally not matched.
+#
+# Categories: language, library, tool, platform, method, concept, framework,
+# datastore, protocol, format, hardware.
+# The production loader supports these categories and per-alias case
+# sensitivity.
+# `skill_group` is display-only metadata. Group names are never passed to the
+# matcher; every member skill is searched and counted independently.
+skill_group:
+- id: data-structures-and-algorithms
+  name: Data Structures and Algorithms
+  skill_ids:
+  - data-structures
+  - algorithms
+
+- id: fault-tolerance-and-high-availability
+  name: Fault Tolerance and High Availability
+  skill_ids:
+  - fault-tolerance
+  - high-availability
+
+- id: etl-and-elt
+  name: ETL and ELT
+  skill_ids:
+  - etl
+  - elt
+
+- id: olap-and-oltp
+  name: OLAP and OLTP
+  skill_ids:
+  - online-analytical-processing
+  - online-transaction-processing
+
+- id: star-and-snowflake-schemas
+  name: Star and Snowflake Schemas
+  skill_ids:
+  - star-schema
+  - snowflake-schema
+
+- id: dynamic-and-continuous-batching
+  name: Dynamic and Continuous Batching
+  skill_ids:
+  - dynamic-batching
+  - continuous-batching
+
+- id: asynchronous-and-non-blocking-io
+  name: Asynchronous and Non-Blocking I/O
+  skill_ids:
+  - asynchronous-i-o
+  - non-blocking-i-o
+
+- id: simd-and-vectorization
+  name: SIMD and Vectorization
+  skill_ids:
+  - simd
+  - vectorization
+
+- id: model-distillation-and-compression
+  name: Model Distillation and Compression
+  skill_ids:
+  - knowledge-distillation
+  - model-compression
+
+- id: probability-and-stochastic-processes
+  name: Probability and Stochastic Processes
+  skill_ids:
+  - probability
+  - stochastic-processes
+
+- id: statistical-modeling-and-hypothesis-testing
+  name: Statistical Modeling and Hypothesis Testing
+  skill_ids:
+  - statistical-modeling
+  - hypothesis-testing
+
+- id: cuda-and-cuda-cpp
+  name: CUDA / CUDA C++
+  skill_ids:
+  - cuda
+  - cuda-cpp
+
+skill:
+
+- id: c
+  name: C
+  category: language
+  aliases:
+  - C language
+  - C programming
+  ambiguous_aliases:
+  - c
+
+- id: cpp
+  name: C++
+  category: language
+  aliases:
+  - C++
+  - cpp
+  - C++17
+  - C++20
+  - C++23
+  - c plus plus
+
+- id: csharp
+  name: C#
+  category: language
+  aliases:
+  - C#
+  - c sharp
+  - c-sharp
+
+- id: java
+  name: Java
+  category: language
+  aliases:
+  - Java
+
+- id: python
+  name: Python
+  category: language
+  aliases:
+  - Python
+
+- id: javascript
+  name: JavaScript
+  category: language
+  aliases:
+  - ECMAScript
+  - JavaScript
+  case_sensitive_aliases:
+  - JS
+
+- id: typescript
+  name: TypeScript
+  category: language
+  aliases:
+  - TypeScript
+
+- id: go
+  name: Go
+  category: language
+  aliases:
+  - Golang
+  - Go language
+  - Go programming
+  ambiguous_aliases:
+  - go
+
+- id: rust
+  name: Rust
+  category: language
+  aliases: []
+  case_sensitive_aliases:
+  - Rust
+
+- id: zig
+  name: Zig
+  category: language
+  aliases:
+  - Zig
+
+- id: sql
+  name: SQL
+  category: language
+  aliases:
+  - SQL
+  - Structured Query Language
+
+- id: pl-sql
+  name: PL/SQL
+  category: language
+  aliases:
+  - PL/SQL
+
+- id: transact-sql
+  name: Transact-SQL (T-SQL)
+  category: language
+  aliases:
+  - T SQL
+  - T-SQL
+  - Transact SQL
+  - Transact-SQL
+  - Transact SQL (T SQL)
+  - Transact-SQL (T-SQL)
+
+- id: bash
+  name: Bash
+  category: language
+  aliases:
+  - Bash
+  - bash scripting
+  - shell scripting
+
+- id: powershell
+  name: PowerShell
+  category: language
+  aliases:
+  - pwsh
+  - PowerShell
+  - PowerShell scripting
+
+- id: assembly-language
+  name: Assembly language
+  category: language
+  aliases:
+  - Assembly language
+
+- id: x86-assembly
+  name: x86 assembly
+  category: language
+  aliases:
+  - x86 assembly
+
+- id: arm-assembly
+  name: ARM assembly
+  category: language
+  aliases:
+  - ARM assembly
+
+- id: ada
+  name: Ada
+  category: language
+  aliases: []
+  case_sensitive_aliases:
+  - Ada
+
+- id: r
+  name: R
+  category: language
+  aliases:
+  - R language
+  - R programming
+  ambiguous_aliases:
+  - r
+
+- id: matlab
+  name: MATLAB
+  category: language
+  aliases:
+  - MATLAB
+
+- id: julia
+  name: Julia
+  category: language
+  aliases:
+  - Julia
+
+- id: fortran
+  name: Fortran
+  category: language
+  aliases:
+  - Fortran
+
+- id: sas
+  name: SAS
+  category: language
+  aliases: []
+  case_sensitive_aliases:
+  - SAS
+
+- id: stata-programming-language
+  name: Stata programming language
+  category: language
+  aliases:
+  - Stata
+  - Stata programming language
+
+- id: ampl
+  name: AMPL
+  category: language
+  aliases:
+  - AMPL
+
+- id: gams
+  name: GAMS
+  category: language
+  aliases:
+  - GAMS
+
+- id: minizinc
+  name: MiniZinc
+  category: language
+  aliases:
+  - MiniZinc
+
+- id: html
+  name: HTML
+  category: language
+  aliases:
+  - HTML
+  - HTML5
+
+- id: css
+  name: CSS
+  category: language
+  aliases:
+  - CSS
+  - CSS3
+
+- id: sass-scss
+  name: Sass / SCSS
+  category: language
+  aliases:
+  - Sass
+  - SCSS
+  - Sass / SCSS
+
+- id: php
+  name: PHP
+  category: language
+  aliases:
+  - PHP
+
+- id: ruby
+  name: Ruby
+  category: language
+  aliases:
+  - Ruby
+
+- id: swift
+  name: Swift
+  category: language
+  aliases: []
+  case_sensitive_aliases:
+  - Swift
+
+- id: objective-c
+  name: Objective-C
+  category: language
+  aliases:
+  - ObjC
+  - Obj-C
+  - Objective C
+  - Objective-C
+
+- id: kotlin
+  name: Kotlin
+  category: language
+  aliases:
+  - Kotlin
+
+- id: dart
+  name: Dart
+  category: language
+  aliases:
+  - Dart
+
+- id: cython
+  name: Cython
+  category: language
+  aliases:
+  - Cython
+
+- id: scala
+  name: Scala
+  category: language
+  aliases:
+  - Scala
+
+- id: clojure
+  name: Clojure
+  category: language
+  aliases:
+  - Clojure
+
+- id: groovy
+  name: Groovy
+  category: language
+  aliases:
+  - Groovy
+
+- id: ocaml
+  name: OCaml
+  category: language
+  aliases:
+  - OCaml
+
+- id: haskell
+  name: Haskell
+  category: language
+  aliases:
+  - Haskell
+
+- id: fsharp
+  name: F#
+  category: language
+  aliases:
+  - F#
+
+- id: erlang
+  name: Erlang
+  category: language
+  aliases:
+  - Erlang
+
+- id: elixir
+  name: Elixir
+  category: language
+  aliases:
+  - Elixir
+
+- id: prolog
+  name: Prolog
+  category: language
+  aliases:
+  - Prolog
+
+- id: chapel
+  name: Chapel
+  category: language
+  aliases:
+  - Chapel
+
+- id: cuda-cpp
+  name: CUDA C++
+  category: language
+  aliases:
+  - CUDA C
+  - CUDA C++
+  - CUDA programming
+
+- id: triton-kernel-language
+  name: Triton Kernel Language
+  category: language
+  aliases:
+  - Triton Kernel Language
+  - OpenAI Triton
+  - Triton kernel
+  - Triton kernels
+
+- id: verilog
+  name: Verilog
+  category: language
+  aliases:
+  - Verilog
+
+- id: systemverilog
+  name: SystemVerilog
+  category: language
+  aliases:
+  - SystemVerilog
+
+- id: vhdl
+  name: VHDL
+  category: language
+  aliases:
+  - VHDL
+
+- id: glsl
+  name: GLSL
+  category: language
+  aliases:
+  - GLSL
+
+- id: hlsl
+  name: HLSL
+  category: language
+  aliases:
+  - HLSL
+
+- id: webgpu-shading-language
+  name: WebGPU Shading Language (WGSL)
+  category: language
+  aliases:
+  - WGSL
+  - WebGPU Shading Language
+  - WebGPU Shading Language (WGSL)
+
+- id: graphql
+  name: GraphQL
+  category: language
+  aliases:
+  - GraphQL
+
+- id: cypher
+  name: Cypher
+  category: language
+  aliases:
+  - Cypher
+
+- id: sparql
+  name: SPARQL
+  category: language
+  aliases:
+  - SPARQL
+
+- id: kusto-query-language
+  name: Kusto Query Language (KQL)
+  category: language
+  aliases:
+  - KQL
+  - Kusto Query Language
+  - Kusto Query Language (KQL)
+
+- id: promql
+  name: PromQL
+  category: language
+  aliases:
+  - PromQL
+
+- id: dax
+  name: DAX
+  category: language
+  aliases:
+  - DAX
+
+- id: hashicorp-configuration-language
+  name: HashiCorp Configuration Language (HCL)
+  category: language
+  aliases:
+  - HCL
+  - HashiCorp Configuration Language
+  - HashiCorp Configuration Language (HCL)
+
+- id: solidity
+  name: Solidity
+  category: language
+  aliases:
+  - Solidity
+
+- id: q
+  name: q
+  category: language
+  aliases:
+  - kdb+/q
+  - q language
+  ambiguous_aliases:
+  - q
+
+- id: tcl
+  name: Tcl
+  category: language
+  aliases:
+  - Tcl
+
+- id: visual-basic-dotnet
+  name: Visual Basic .NET
+  category: language
+  aliases:
+  - VB Net
+  - VB.NET
+  - Visual Basic
+  - Visual Basic .NET
+
+- id: visual-basic-for-applications
+  name: Visual Basic for Applications (VBA)
+  category: language
+  aliases:
+  - VBA
+  - Visual Basic for Applications
+  - Visual Basic for Applications (VBA)
+
+- id: abap
+  name: ABAP
+  category: language
+  aliases:
+  - ABAP
+
+- id: cobol
+  name: COBOL
+  category: language
+  aliases:
+  - COBOL
+
+- id: lua
+  name: Lua
+  category: language
+  aliases:
+  - Lua
+
+- id: perl
+  name: Perl
+  category: language
+  aliases:
+  - Perl
+
+- id: latex
+  name: LaTeX
+  category: language
+  aliases:
+  - LaTeX
+
+- id: numpy
+  name: NumPy
+  category: library
+  aliases:
+  - NumPy
+
+- id: pandas
+  name: pandas
+  category: library
+  aliases:
+  - pandas
+
+- id: scipy
+  name: SciPy
+  category: library
+  aliases:
+  - SciPy
+
+- id: polars
+  name: Polars
+  category: library
+  aliases:
+  - Polars
+
+- id: pyarrow
+  name: PyArrow
+  category: library
+  aliases:
+  - PyArrow
+
+- id: statsmodels
+  name: statsmodels
+  category: library
+  aliases:
+  - statsmodels
+
+- id: networkx
+  name: NetworkX
+  category: library
+  aliases:
+  - NetworkX
+
+- id: xarray
+  name: xarray
+  category: library
+  aliases:
+  - xarray
+
+- id: geopandas
+  name: GeoPandas
+  category: library
+  aliases:
+  - GeoPandas
+
+- id: shapely
+  name: Shapely
+  category: library
+  aliases:
+  - Shapely
+
+- id: beautiful-soup
+  name: Beautiful Soup
+  category: library
+  aliases:
+  - bs4
+  - BeautifulSoup
+  - Beautiful Soup
+
+- id: sqlalchemy
+  name: SQLAlchemy
+  category: library
+  aliases:
+  - SQLAlchemy
+
+- id: pydantic
+  name: Pydantic
+  category: library
+  aliases:
+  - Pydantic
+
+- id: simpy
+  name: SimPy
+  category: library
+  aliases:
+  - SimPy
+
+- id: numba
+  name: Numba
+  category: library
+  aliases:
+  - Numba
+
+- id: cupy
+  name: CuPy
+  category: library
+  aliases:
+  - CuPy
+
+- id: rapids-cudf
+  name: RAPIDS cuDF
+  category: library
+  aliases:
+  - cuDF
+  - RAPIDS
+  - RAPIDS cuDF
+  - NVIDIA RAPIDS
+
+- id: scikit-learn
+  name: scikit-learn
+  category: library
+  aliases:
+  - sklearn
+  - scikit learn
+  - scikit-learn
+
+- id: xgboost
+  name: XGBoost
+  category: library
+  aliases:
+  - XGBoost
+
+- id: lightgbm
+  name: LightGBM
+  category: library
+  aliases:
+  - LightGBM
+
+- id: catboost
+  name: CatBoost
+  category: library
+  aliases:
+  - CatBoost
+
+- id: shap
+  name: SHAP
+  category: library
+  aliases:
+  - SHAP
+
+- id: cvxpy
+  name: CVXPY
+  category: library
+  aliases:
+  - CVXPY
+
+- id: google-or-tools
+  name: Google OR-Tools
+  category: library
+  aliases:
+  - OR-Tools
+  - Google OR Tools
+  - Google OR-Tools
+
+- id: pymc
+  name: PyMC
+  category: library
+  aliases:
+  - PyMC
+
+- id: pytorch
+  name: PyTorch
+  category: library
+  aliases:
+  - PyTorch
+
+- id: torchvision
+  name: torchvision
+  category: library
+  aliases:
+  - torchvision
+
+- id: torchaudio
+  name: torchaudio
+  category: library
+  aliases:
+  - torchaudio
+
+- id: tensorflow
+  name: TensorFlow
+  category: library
+  aliases:
+  - TensorFlow
+
+- id: keras
+  name: Keras
+  category: library
+  aliases:
+  - Keras
+
+- id: jax
+  name: JAX
+  category: library
+  aliases:
+  - JAX
+
+- id: flax
+  name: Flax
+  category: library
+  aliases:
+  - Flax
+
+- id: hugging-face-transformers
+  name: Hugging Face Transformers
+  category: library
+  aliases:
+  - Transformers library
+  - HuggingFace Transformers
+  - Hugging Face Transformers
+
+- id: sentence-transformers
+  name: Sentence Transformers
+  category: library
+  aliases:
+  - SentenceTransformers
+  - Sentence Transformers
+  - sentence-transformers
+
+- id: spacy
+  name: spaCy
+  category: library
+  aliases:
+  - spaCy
+
+- id: nltk
+  name: NLTK
+  category: library
+  aliases:
+  - NLTK
+
+- id: opencv
+  name: OpenCV
+  category: library
+  aliases:
+  - cv2
+  - OpenCV
+
+- id: pillow
+  name: Pillow
+  category: library
+  aliases:
+  - Pillow
+
+- id: onnx-runtime
+  name: ONNX Runtime
+  category: library
+  aliases:
+  - ONNX Runtime
+  - onnxruntime
+
+- id: tensorrt
+  name: TensorRT
+  category: library
+  aliases:
+  - TensorRT
+
+- id: tensorrt-llm
+  name: TensorRT-LLM
+  category: library
+  aliases:
+  - TensorRT LLM
+  - TensorRT-LLM
+
+- id: vllm
+  name: vLLM
+  category: library
+  aliases:
+  - vLLM
+
+- id: sglang
+  name: SGLang
+  category: library
+  aliases:
+  - SGLang
+
+- id: flashattention
+  name: FlashAttention
+  category: library
+  aliases:
+  - FlashAttention
+  - flash attention
+
+- id: fastertransformer
+  name: FasterTransformer
+  category: library
+  aliases:
+  - FasterTransformer
+  - faster transformer
+
+- id: llama-cpp
+  name: llama.cpp
+  category: library
+  aliases:
+  - llama.cpp
+
+- id: pytorch-distributed
+  name: PyTorch Distributed
+  category: library
+  aliases:
+  - PyTorch Distributed
+  - fully sharded data parallel
+  - distributed data parallel
+  case_sensitive_aliases:
+  - FSDP
+  - DDP
+
+- id: apple-mlx
+  name: Apple MLX
+  category: library
+  aliases:
+  - Apple MLX
+
+- id: matplotlib
+  name: Matplotlib
+  category: library
+  aliases:
+  - Matplotlib
+
+- id: seaborn
+  name: Seaborn
+  category: library
+  aliases:
+  - Seaborn
+
+- id: plotly
+  name: Plotly
+  category: library
+  aliases:
+  - Plotly
+
+- id: altair
+  name: Altair
+  category: library
+  aliases:
+  - Altair
+
+- id: bokeh
+  name: Bokeh
+  category: library
+  aliases:
+  - Bokeh
+
+- id: d3-js
+  name: D3.js
+  category: library
+  aliases:
+  - D3js
+  - D3.js
+
+- id: cpp-standard-library
+  name: C++ Standard Library
+  category: library
+  aliases:
+  - C++ Standard Library
+
+- id: boost
+  name: Boost
+  category: library
+  aliases:
+  - Boost
+
+- id: eigen
+  name: Eigen
+  category: library
+  aliases:
+  - Eigen
+
+- id: blas
+  name: BLAS
+  category: library
+  aliases:
+  - BLAS
+
+- id: lapack
+  name: LAPACK
+  category: library
+  aliases:
+  - LAPACK
+
+- id: intel-onemkl
+  name: Intel oneMKL
+  category: library
+  aliases:
+  - oneMKL
+  - Intel MKL
+  - Intel oneMKL
+  case_sensitive_aliases:
+  - MKL
+
+- id: gnu-scientific-library
+  name: GNU Scientific Library (GSL)
+  category: library
+  aliases:
+  - GSL
+  - GNU Scientific Library
+  - GNU Scientific Library (GSL)
+
+- id: fftw
+  name: FFTW
+  category: library
+  aliases:
+  - FFTW
+
+- id: petsc
+  name: PETSc
+  category: library
+  aliases:
+  - PETSc
+
+- id: trilinos
+  name: Trilinos
+  category: library
+  aliases:
+  - Trilinos
+
+- id: googletest
+  name: GoogleTest
+  category: library
+  aliases:
+  - GoogleTest
+
+- id: catch2
+  name: Catch2
+  category: library
+  aliases:
+  - Catch2
+
+- id: cublas
+  name: cuBLAS
+  category: library
+  aliases:
+  - cuBLAS
+
+- id: cudnn
+  name: cuDNN
+  category: library
+  aliases:
+  - cuDNN
+
+- id: nccl
+  name: NCCL
+  category: library
+  aliases:
+  - NCCL
+
+- id: cutlass
+  name: CUTLASS
+  category: library
+  aliases:
+  - CUTLASS
+
+- id: openmp
+  name: OpenMP
+  category: library
+  aliases:
+  - OpenMP
+
+- id: mpi
+  name: MPI
+  category: library
+  aliases:
+  - MPI
+
+- id: dpdk
+  name: DPDK
+  category: library
+  aliases:
+  - DPDK
+
+- id: solarflare-openonload
+  name: Solarflare OpenOnload
+  category: library
+  aliases:
+  - Solarflare OpenOnload
+  - openonload
+
+- id: react
+  name: React
+  category: library
+  aliases: []
+  case_sensitive_aliases:
+  - React
+
+- id: redux
+  name: Redux
+  category: library
+  aliases:
+  - Redux
+
+- id: rxjs
+  name: RxJS
+  category: library
+  aliases:
+  - RxJS
+
+- id: jquery
+  name: jQuery
+  category: library
+  aliases:
+  - jQuery
+
+- id: lodash
+  name: Lodash
+  category: library
+  aliases:
+  - Lodash
+
+- id: axios
+  name: Axios
+  category: library
+  aliases:
+  - Axios
+
+- id: three-js
+  name: Three.js
+  category: library
+  aliases:
+  - Threejs
+  - Three.js
+
+- id: junit
+  name: JUnit
+  category: library
+  aliases:
+  - JUnit
+
+- id: mockito
+  name: Mockito
+  category: library
+  aliases:
+  - Mockito
+
+- id: tokio
+  name: Tokio
+  category: library
+  aliases:
+  - Tokio
+
+- id: zeromq
+  name: ZeroMQ
+  category: library
+  aliases:
+  - ZeroMQ
+  case_sensitive_aliases:
+  - ZMQ
+
+- id: dask
+  name: Dask
+  category: library
+  aliases:
+  - Dask
+
+- id: faiss
+  name: FAISS
+  category: library
+  aliases:
+  - FAISS
+
+- id: git
+  name: Git
+  category: tool
+  aliases:
+  - Git
+
+- id: git-lfs
+  name: Git LFS
+  category: tool
+  aliases:
+  - Git LFS
+  - git-lfs
+
+- id: visual-studio
+  name: Visual Studio
+  category: tool
+  aliases:
+  - Visual Studio
+
+- id: xcode
+  name: Xcode
+  category: tool
+  aliases:
+  - Xcode
+
+- id: android-studio
+  name: Android Studio
+  category: tool
+  aliases:
+  - Android Studio
+
+- id: jupyter
+  name: Jupyter
+  category: tool
+  aliases:
+  - Jupyter
+  - Jupyter Notebook
+  - JupyterLab
+
+- id: figma
+  name: Figma
+  category: tool
+  aliases:
+  - Figma
+
+- id: gcc
+  name: GCC
+  category: tool
+  aliases:
+  - GCC
+
+- id: clang
+  name: Clang
+  category: tool
+  aliases:
+  - Clang
+
+- id: llvm
+  name: LLVM
+  category: tool
+  aliases:
+  - LLVM
+
+- id: microsoft-visual-cpp
+  name: Microsoft Visual C++ (MSVC)
+  category: tool
+  aliases:
+  - MSVC
+  - Microsoft Visual C++
+  - Microsoft Visual C++ (MSVC)
+
+- id: make
+  name: Make
+  category: tool
+  aliases:
+  - GNU Make
+  - Makefile
+  - Makefiles
+  ambiguous_aliases:
+  - make
+
+- id: cmake
+  name: CMake
+  category: tool
+  aliases:
+  - CMake
+
+- id: ninja
+  name: Ninja
+  category: tool
+  aliases:
+  - Ninja build
+  - Ninja build system
+  ambiguous_aliases:
+  - ninja
+
+- id: bazel
+  name: Bazel
+  category: tool
+  aliases:
+  - Bazel
+
+- id: maven
+  name: Maven
+  category: tool
+  aliases:
+  - Maven
+
+- id: gradle
+  name: Gradle
+  category: tool
+  aliases:
+  - Gradle
+
+- id: npm
+  name: npm
+  category: tool
+  aliases:
+  - npm
+
+- id: yarn
+  name: Yarn
+  category: tool
+  aliases:
+  - Yarn
+
+- id: pnpm
+  name: pnpm
+  category: tool
+  aliases:
+  - pnpm
+
+- id: pip
+  name: pip
+  category: tool
+  aliases:
+  - pip
+
+- id: conda
+  name: Conda
+  category: tool
+  aliases:
+  - Conda
+
+- id: poetry
+  name: Poetry
+  category: tool
+  aliases:
+  - Python Poetry
+  - Poetry package manager
+  case_sensitive_aliases:
+  - Poetry
+  ambiguous_aliases:
+  - poetry
+
+- id: uv
+  name: uv
+  category: tool
+  aliases:
+  - Astral uv
+  - uv package manager
+  ambiguous_aliases:
+  - uv
+
+- id: cargo
+  name: Cargo
+  category: tool
+  aliases:
+  - Rust Cargo
+  - Cargo package manager
+  ambiguous_aliases:
+  - cargo
+
+- id: nuget
+  name: NuGet
+  category: tool
+  aliases:
+  - NuGet
+
+- id: aws-cli
+  name: AWS CLI
+  category: tool
+  aliases:
+  - AWS CLI
+
+- id: azure-cli
+  name: Azure CLI
+  category: tool
+  aliases:
+  - Azure CLI
+
+- id: google-cloud-cli
+  name: Google Cloud CLI
+  category: tool
+  aliases:
+  - gcloud
+  - gcloud CLI
+  - Google Cloud CLI
+  - Google Cloud SDK
+
+- id: kubectl
+  name: kubectl
+  category: tool
+  aliases:
+  - kubectl
+
+- id: docker
+  name: Docker
+  category: tool
+  aliases:
+  - Docker
+
+- id: docker-compose
+  name: Docker Compose
+  category: tool
+  aliases:
+  - Docker Compose
+  - docker-compose
+
+- id: terraform
+  name: Terraform
+  category: tool
+  aliases:
+  - Terraform
+
+- id: ansible
+  name: Ansible
+  category: tool
+  aliases:
+  - Ansible
+
+- id: helm
+  name: Helm
+  category: tool
+  aliases:
+  - Helm
+
+- id: packer
+  name: Packer
+  category: tool
+  aliases:
+  - Packer
+
+- id: vagrant
+  name: Vagrant
+  category: tool
+  aliases:
+  - Vagrant
+
+- id: jenkins
+  name: Jenkins
+  category: tool
+  aliases:
+  - Jenkins
+
+- id: github-actions
+  name: GitHub Actions
+  category: tool
+  aliases:
+  - GitHub Actions
+
+- id: gitlab-ci-cd
+  name: GitLab CI/CD
+  category: tool
+  aliases:
+  - GitLab CI/CD
+
+- id: circleci
+  name: CircleCI
+  category: tool
+  aliases:
+  - CircleCI
+
+- id: travis-ci
+  name: Travis CI
+  category: tool
+  aliases:
+  - Travis CI
+
+- id: argo-cd
+  name: Argo CD
+  category: tool
+  aliases:
+  - Argo CD
+
+- id: pytest
+  name: pytest
+  category: tool
+  aliases:
+  - pytest
+
+- id: selenium
+  name: Selenium
+  category: tool
+  aliases:
+  - Selenium
+
+- id: cypress
+  name: Cypress
+  category: tool
+  aliases:
+  - Cypress
+
+- id: playwright
+  name: Playwright
+  category: tool
+  aliases:
+  - Playwright
+
+- id: cucumber
+  name: Cucumber
+  category: tool
+  aliases:
+  - Cucumber
+
+- id: postman
+  name: Postman
+  category: tool
+  aliases:
+  - Postman
+
+- id: swagger-ui
+  name: Swagger UI
+  category: tool
+  aliases:
+  - Swagger UI
+
+- id: apache-jmeter
+  name: Apache JMeter
+  category: tool
+  aliases:
+  - Apache JMeter
+
+- id: k6
+  name: k6
+  category: tool
+  aliases:
+  - k6
+
+- id: locust
+  name: Locust
+  category: tool
+  aliases:
+  - Locust
+
+- id: gdb
+  name: gdb
+  category: tool
+  aliases:
+  - gdb
+
+- id: lldb
+  name: lldb
+  category: tool
+  aliases:
+  - lldb
+
+- id: valgrind
+  name: Valgrind
+  category: tool
+  aliases:
+  - Valgrind
+
+- id: addresssanitizer
+  name: AddressSanitizer
+  category: tool
+  aliases:
+  - AddressSanitizer
+  - address sanitizer
+  case_sensitive_aliases:
+  - ASan
+  - ASAN
+
+- id: threadsanitizer
+  name: ThreadSanitizer
+  category: tool
+  aliases:
+  - ThreadSanitizer
+  - thread sanitizer
+  case_sensitive_aliases:
+  - TSan
+  - TSAN
+
+- id: clang-tidy
+  name: clang-tidy
+  category: tool
+  aliases:
+  - clang tidy
+  - clang-tidy
+
+- id: linux-perf
+  name: Linux perf
+  category: tool
+  aliases:
+  - Linux perf
+
+- id: nsight-systems
+  name: Nsight Systems
+  category: tool
+  aliases:
+  - Nsight Systems
+
+- id: nsight-compute
+  name: Nsight Compute
+  category: tool
+  aliases:
+  - Nsight Compute
+
+- id: intel-vtune-profiler
+  name: Intel VTune Profiler
+  category: tool
+  aliases:
+  - VTune
+  - Intel VTune Profiler
+
+- id: strace
+  name: strace
+  category: tool
+  aliases:
+  - strace
+
+- id: ftrace
+  name: ftrace
+  category: tool
+  aliases:
+  - ftrace
+
+- id: flamegraph
+  name: FlameGraph
+  category: tool
+  aliases:
+  - FlameGraph
+  - Flame Graph
+  - FlameGraphs
+  - Flame Graphs
+
+- id: wireshark
+  name: Wireshark
+  category: tool
+  aliases:
+  - Wireshark
+
+- id: tcpdump
+  name: tcpdump
+  category: tool
+  aliases:
+  - tcpdump
+
+- id: pytorch-inductor
+  name: PyTorch Inductor
+  category: tool
+  aliases:
+  - PyTorch Inductor
+  - torchinductor
+  - torch inductor
+
+- id: torchscript
+  name: TorchScript
+  category: tool
+  aliases:
+  - TorchScript
+  - torch script
+
+- id: torch-compile
+  name: torch.compile
+  category: tool
+  aliases:
+  - torch.compile
+
+- id: apache-tvm
+  name: Apache TVM
+  category: tool
+  aliases:
+  - Apache TVM
+  - TVM compiler
+  case_sensitive_aliases:
+  - TVM
+
+- id: mlir
+  name: MLIR
+  category: tool
+  aliases:
+  - MLIR
+
+- id: xla
+  name: XLA
+  category: tool
+  aliases:
+  - XLA
+
+- id: microsoft-excel
+  name: Microsoft Excel
+  category: tool
+  aliases:
+  - MS Excel
+  - Microsoft Excel
+  case_sensitive_aliases:
+  - Excel
+
+- id: microsoft-powerpoint
+  name: Microsoft PowerPoint
+  category: tool
+  aliases:
+  - MS PowerPoint
+  - Microsoft PowerPoint
+
+- id: microsoft-access
+  name: Microsoft Access
+  category: tool
+  aliases:
+  - Microsoft Access
+
+- id: power-bi
+  name: Power BI
+  category: tool
+  aliases:
+  - PowerBI
+  - Power BI
+
+- id: power-query
+  name: Power Query
+  category: tool
+  aliases:
+  - Power Query M
+  case_sensitive_aliases:
+  - Power Query
+
+- id: tableau
+  name: Tableau
+  category: tool
+  aliases:
+  - Tableau
+
+- id: looker
+  name: Looker
+  category: tool
+  aliases:
+  - Looker
+
+- id: qlik-sense
+  name: Qlik Sense
+  category: tool
+  aliases:
+  - Qlik Sense
+
+- id: alteryx
+  name: Alteryx
+  category: tool
+  aliases:
+  - Alteryx
+
+- id: dbt
+  name: dbt
+  category: tool
+  aliases:
+  - dbt
+
+- id: sql-server-management-studio
+  name: SQL Server Management Studio (SSMS)
+  category: tool
+  aliases:
+  - SSMS
+  - SQL Server Management Studio
+  - SQL Server Management Studio (SSMS)
+
+- id: gurobi-optimizer
+  name: Gurobi Optimizer
+  category: tool
+  aliases:
+  - Gurobi
+  - Gurobi Optimizer
+
+- id: ibm-ilog-cplex-optimization-studio
+  name: IBM ILOG CPLEX Optimization Studio
+  category: tool
+  aliases:
+  - IBM ILOG CPLEX Optimization Studio
+  case_sensitive_aliases:
+  - CPLEX
+
+- id: mlflow
+  name: MLflow
+  category: tool
+  aliases:
+  - MLflow
+
+- id: weights-biases
+  name: Weights & Biases
+  category: tool
+  aliases:
+  - Weights & Biases
+
+- id: tensorboard
+  name: TensorBoard
+  category: tool
+  aliases:
+  - TensorBoard
+
+- id: data-version-control
+  name: Data Version Control (DVC)
+  category: tool
+  aliases:
+  - DVC
+  - Data Version Control
+  - Data Version Control (DVC)
+
+- id: label-studio
+  name: Label Studio
+  category: tool
+  aliases:
+  - Label Studio
+
+- id: nmap
+  name: Nmap
+  category: tool
+  aliases:
+  - Nmap
+
+- id: burp-suite
+  name: Burp Suite
+  category: tool
+  aliases:
+  - Burp Suite
+
+- id: metasploit
+  name: Metasploit
+  category: tool
+  aliases:
+  - Metasploit
+
+- id: nessus
+  name: Nessus
+  category: tool
+  aliases:
+  - Nessus
+
+- id: tenable
+  name: Tenable
+  category: tool
+  aliases:
+  - Tenable
+
+- id: hashicorp-vault
+  name: HashiCorp Vault
+  category: tool
+  aliases:
+  - HashiCorp Vault
+
+- id: openssl
+  name: OpenSSL
+  category: tool
+  aliases:
+  - OpenSSL
+
+- id: sonarqube
+  name: SonarQube
+  category: tool
+  aliases:
+  - SonarQube
+
+- id: snyk
+  name: Snyk
+  category: tool
+  aliases:
+  - Snyk
+
+- id: trivy
+  name: Trivy
+  category: tool
+  aliases:
+  - Trivy
+
+- id: bloomberg-terminal
+  name: Bloomberg Terminal
+  category: tool
+  aliases:
+  - Bloomberg Terminal
+
+- id: s-p-capital-iq
+  name: S&P Capital IQ
+  category: tool
+  aliases:
+  - S&P Capital IQ
+
+- id: factset
+  name: FactSet
+  category: tool
+  aliases:
+  - FactSet
+
+- id: lseg-workspace-refinitiv-workspace
+  name: LSEG Workspace / Refinitiv Workspace
+  category: tool
+  aliases:
+  - LSEG Workspace
+  - Refinitiv Workspace
+  - LSEG Workspace / Refinitiv Workspace
+  case_sensitive_aliases:
+  - Eikon
+
+- id: pitchbook
+  name: PitchBook
+  category: tool
+  aliases:
+  - PitchBook
+
+- id: morningstar-direct
+  name: Morningstar Direct
+  category: tool
+  aliases:
+  - Morningstar Direct
+
+- id: nvidia-nsight
+  name: NVIDIA Nsight
+  category: tool
+  aliases:
+  - NVIDIA Nsight
+  - Nsight
+  - Nsight profiling
+
+- id: simulink
+  name: Simulink
+  category: tool
+  aliases:
+  - Simulink
+
+- id: labview
+  name: LabVIEW
+  category: tool
+  aliases:
+  - LabVIEW
+
+- id: quickbooks
+  name: QuickBooks
+  category: tool
+  aliases:
+  - QuickBooks
+
+- id: pulumi
+  name: Pulumi
+  category: tool
+  aliases:
+  - Pulumi
+
+- id: linux
+  name: Linux
+  category: platform
+  aliases:
+  - Linux
+
+- id: unix
+  name: Unix
+  category: platform
+  aliases:
+  - Unix
+
+- id: windows
+  name: Windows
+  category: platform
+  aliases:
+  - Windows
+
+- id: macos
+  name: macOS
+  category: platform
+  aliases:
+  - OS X
+  - macOS
+  - Mac OS
+
+- id: ios
+  name: iOS
+  category: platform
+  aliases:
+  - iOS
+
+- id: android
+  name: Android
+  category: platform
+  aliases:
+  - Android
+
+- id: freertos
+  name: FreeRTOS
+  category: platform
+  aliases:
+  - FreeRTOS
+
+- id: qnx
+  name: QNX
+  category: platform
+  aliases:
+  - QNX
+
+- id: vxworks
+  name: VxWorks
+  category: platform
+  aliases:
+  - VxWorks
+
+- id: amazon-web-services
+  name: Amazon Web Services (AWS)
+  category: platform
+  aliases:
+  - AWS
+  - Amazon Web Services
+  - Amazon Web Services (AWS)
+
+- id: microsoft-azure
+  name: Microsoft Azure
+  category: platform
+  aliases:
+  - Azure
+  - Microsoft Azure
+
+- id: google-cloud-platform
+  name: Google Cloud Platform (GCP)
+  category: platform
+  aliases:
+  - GCP
+  - Google Cloud
+  - Google Cloud Platform
+  - Google Cloud Platform (GCP)
+
+- id: oracle-cloud-infrastructure
+  name: Oracle Cloud Infrastructure (OCI)
+  category: platform
+  aliases:
+  - OCI
+  - Oracle Cloud Infrastructure
+  - Oracle Cloud Infrastructure (OCI)
+
+- id: ibm-cloud
+  name: IBM Cloud
+  category: platform
+  aliases:
+  - IBM Cloud
+
+- id: openstack
+  name: OpenStack
+  category: platform
+  aliases:
+  - OpenStack
+
+- id: cloudflare
+  name: Cloudflare
+  category: platform
+  aliases:
+  - Cloudflare
+
+- id: amazon-ec2
+  name: Amazon EC2
+  category: platform
+  aliases:
+  - Amazon EC2
+
+- id: aws-lambda
+  name: AWS Lambda
+  category: platform
+  aliases:
+  - AWS Lambda
+
+- id: amazon-s3
+  name: Amazon S3
+  category: platform
+  aliases:
+  - Amazon S3
+
+- id: amazon-ecs
+  name: Amazon ECS
+  category: platform
+  aliases:
+  - Amazon ECS
+
+- id: amazon-eks
+  name: Amazon EKS
+  category: platform
+  aliases:
+  - Amazon EKS
+
+- id: aws-fargate
+  name: AWS Fargate
+  category: platform
+  aliases:
+  - AWS Fargate
+
+- id: amazon-sagemaker
+  name: Amazon SageMaker
+  category: platform
+  aliases:
+  - SageMaker
+  - Amazon SageMaker
+
+- id: amazon-bedrock
+  name: Amazon Bedrock
+  category: platform
+  aliases:
+  - Amazon Bedrock
+
+- id: amazon-emr
+  name: Amazon EMR
+  category: platform
+  aliases:
+  - Amazon EMR
+
+- id: aws-glue
+  name: AWS Glue
+  category: platform
+  aliases:
+  - AWS Glue
+
+- id: amazon-kinesis
+  name: Amazon Kinesis
+  category: platform
+  aliases:
+  - Amazon Kinesis
+
+- id: azure-virtual-machines
+  name: Azure Virtual Machines
+  category: platform
+  aliases:
+  - Azure VM
+  - Azure VMs
+  - Azure virtual machine
+  - Azure Virtual Machines
+
+- id: azure-functions
+  name: Azure Functions
+  category: platform
+  aliases:
+  - Azure Functions
+
+- id: azure-app-service
+  name: Azure App Service
+  category: platform
+  aliases:
+  - Azure App Service
+
+- id: azure-kubernetes-service
+  name: Azure Kubernetes Service (AKS)
+  category: platform
+  aliases:
+  - AKS
+  - Azure Kubernetes Service
+  - Azure Kubernetes Service (AKS)
+
+- id: azure-machine-learning
+  name: Azure Machine Learning
+  category: platform
+  aliases:
+  - Azure Machine Learning
+
+- id: azure-databricks
+  name: Azure Databricks
+  category: platform
+  aliases:
+  - Azure Databricks
+
+- id: azure-synapse-analytics
+  name: Azure Synapse Analytics
+  category: platform
+  aliases:
+  - Azure Synapse Analytics
+
+- id: google-compute-engine
+  name: Google Compute Engine
+  category: platform
+  aliases:
+  - Compute Engine
+  - Google Compute Engine
+  case_sensitive_aliases:
+  - GCE
+
+- id: google-cloud-run
+  name: Google Cloud Run
+  category: platform
+  aliases:
+  - Google Cloud Run
+
+- id: google-kubernetes-engine
+  name: Google Kubernetes Engine (GKE)
+  category: platform
+  aliases:
+  - GKE
+  - Google Kubernetes Engine
+  - Google Kubernetes Engine (GKE)
+
+- id: vertex-ai
+  name: Vertex AI
+  category: platform
+  aliases:
+  - Vertex AI
+
+- id: google-cloud-dataflow
+  name: Google Cloud Dataflow
+  category: platform
+  aliases:
+  - Google Cloud Dataflow
+
+- id: google-cloud-dataproc
+  name: Google Cloud Dataproc
+  category: platform
+  aliases:
+  - Dataproc
+  - Google Cloud Dataproc
+
+- id: kubernetes
+  name: Kubernetes
+  category: platform
+  aliases:
+  - k8s
+  - Kubernetes
+
+- id: red-hat-openshift
+  name: Red Hat OpenShift
+  category: platform
+  aliases:
+  - Red Hat OpenShift
+
+- id: hashicorp-nomad
+  name: HashiCorp Nomad
+  category: platform
+  aliases:
+  - HashiCorp Nomad
+
+- id: vmware-vsphere
+  name: VMware vSphere
+  category: platform
+  aliases:
+  - VMware vSphere
+
+- id: gitlab
+  name: GitLab
+  category: platform
+  aliases:
+  - GitLab
+  - Git Lab
+
+- id: bitbucket
+  name: Bitbucket
+  category: platform
+  aliases:
+  - Bitbucket
+
+- id: java-virtual-machine
+  name: Java Virtual Machine (JVM)
+  category: platform
+  aliases:
+  - JVM
+  - Java Virtual Machine
+  - Java Virtual Machine (JVM)
+
+- id: dotnet
+  name: .NET
+  category: platform
+  aliases:
+  - .NET
+  - dotnet
+  - .NET Core
+
+- id: node-js
+  name: Node.js
+  category: platform
+  aliases:
+  - NodeJS
+  - Node JS
+  - Node.js
+
+- id: deno
+  name: Deno
+  category: platform
+  aliases:
+  - Deno
+
+- id: bun
+  name: Bun
+  category: platform
+  aliases:
+  - Bun
+
+- id: webassembly
+  name: WebAssembly
+  category: platform
+  aliases:
+  - WebAssembly
+
+- id: ebpf
+  name: eBPF
+  category: platform
+  aliases:
+  - eBPF
+
+- id: cuda
+  name: CUDA
+  category: platform
+  aliases:
+  - CUDA
+
+- id: rocm
+  name: ROCm
+  category: platform
+  aliases:
+  - ROCm
+
+- id: opencl
+  name: OpenCL
+  category: platform
+  aliases:
+  - OpenCL
+
+- id: firebase
+  name: Firebase
+  category: platform
+  aliases:
+  - Firebase
+
+- id: heroku
+  name: Heroku
+  category: platform
+  aliases:
+  - Heroku
+
+- id: vercel
+  name: Vercel
+  category: platform
+  aliases:
+  - Vercel
+
+- id: netlify
+  name: Netlify
+  category: platform
+  aliases:
+  - Netlify
+
+- id: apache-spark
+  name: Apache Spark
+  category: platform
+  aliases:
+  - PySpark
+  - Apache Spark
+
+- id: hadoop
+  name: Hadoop
+  category: platform
+  aliases:
+  - Hadoop
+
+- id: hadoop-distributed-file-system
+  name: Hadoop Distributed File System (HDFS)
+  category: platform
+  aliases:
+  - HDFS
+  - Hadoop Distributed File System
+  - Hadoop Distributed File System (HDFS)
+
+- id: apache-flink
+  name: Apache Flink
+  category: platform
+  aliases:
+  - Flink
+  - Apache Flink
+
+- id: apache-kafka
+  name: Apache Kafka
+  category: platform
+  aliases:
+  - Kafka
+  - Apache Kafka
+
+- id: apache-pulsar
+  name: Apache Pulsar
+  category: platform
+  aliases:
+  - Apache Pulsar
+
+- id: databricks
+  name: Databricks
+  category: platform
+  aliases:
+  - Databricks
+
+- id: snowflake
+  name: Snowflake
+  category: platform
+  aliases:
+  - Snowflake
+
+- id: apache-hive
+  name: Apache Hive
+  category: platform
+  aliases:
+  - Apache Hive
+  - Hive Metastore
+  case_sensitive_aliases:
+  - Hive
+  - HiveQL
+
+- id: apache-hbase
+  name: Apache HBase
+  category: platform
+  aliases:
+  - Apache HBase
+
+- id: amazon-redshift
+  name: Amazon Redshift
+  category: platform
+  aliases:
+  - Redshift
+  - Amazon Redshift
+
+- id: google-bigquery
+  name: Google BigQuery
+  category: platform
+  aliases:
+  - BigQuery
+  - Google BigQuery
+
+- id: teradata
+  name: Teradata
+  category: platform
+  aliases:
+  - Teradata
+
+- id: cloudera
+  name: Cloudera
+  category: platform
+  aliases:
+  - Cloudera
+
+- id: palantir-foundry
+  name: Palantir Foundry
+  category: platform
+  aliases:
+  - Palantir Foundry
+
+- id: rabbitmq
+  name: RabbitMQ
+  category: platform
+  aliases:
+  - RabbitMQ
+
+- id: apache-activemq
+  name: Apache ActiveMQ
+  category: platform
+  aliases:
+  - ActiveMQ
+  - Apache ActiveMQ
+
+- id: redpanda
+  name: Redpanda
+  category: platform
+  aliases:
+  - Redpanda
+
+- id: redis-streams
+  name: Redis Streams
+  category: platform
+  aliases:
+  - Redis Streams
+
+- id: slurm
+  name: Slurm
+  category: platform
+  aliases:
+  - Slurm
+
+- id: hugging-face-hub
+  name: Hugging Face Hub
+  category: platform
+  aliases:
+  - Hugging Face Hub
+
+- id: apache-airflow
+  name: Apache Airflow
+  category: platform
+  aliases:
+  - Apache Airflow
+
+- id: kubeflow
+  name: Kubeflow
+  category: platform
+  aliases:
+  - Kubeflow
+
+- id: nvidia-triton-inference-server
+  name: NVIDIA Triton Inference Server
+  category: platform
+  aliases:
+  - Triton Inference Server
+  - NVIDIA Triton Inference Server
+
+- id: tensorflow-serving
+  name: TensorFlow Serving
+  category: platform
+  aliases:
+  - TensorFlow Serving
+
+- id: torchserve
+  name: TorchServe
+  category: platform
+  aliases:
+  - TorchServe
+  - torch serve
+
+- id: hugging-face-text-generation-inference
+  name: Hugging Face Text Generation Inference (TGI)
+  category: platform
+  aliases:
+  - TGI
+  - Hugging Face Text Generation Inference
+  - Hugging Face Text Generation Inference (TGI)
+
+- id: openai-api
+  name: OpenAI API
+  category: platform
+  aliases:
+  - OpenAI API
+
+- id: azure-openai-service
+  name: Azure OpenAI Service
+  category: platform
+  aliases:
+  - Azure OpenAI Service
+
+- id: anthropic-api
+  name: Anthropic API
+  category: platform
+  aliases:
+  - Anthropic API
+
+- id: google-gemini-api
+  name: Google Gemini API
+  category: platform
+  aliases:
+  - Google Gemini API
+  - Gemini API
+
+- id: datadog
+  name: Datadog
+  category: platform
+  aliases:
+  - Datadog
+
+- id: new-relic
+  name: New Relic
+  category: platform
+  aliases:
+  - New Relic
+
+- id: grafana
+  name: Grafana
+  category: platform
+  aliases:
+  - Grafana
+
+- id: prometheus
+  name: Prometheus
+  category: platform
+  aliases:
+  - Prometheus
+
+- id: opentelemetry
+  name: OpenTelemetry
+  category: platform
+  aliases:
+  - OTel
+  - OpenTelemetry
+  - Open Telemetry
+
+- id: elastic-stack
+  name: Elastic Stack (ELK)
+  category: platform
+  aliases:
+  - ELK
+  - ELK Stack
+  - Elastic Stack
+  - Elastic Stack (ELK)
+
+- id: splunk
+  name: Splunk
+  category: platform
+  aliases:
+  - Splunk
+
+- id: salesforce
+  name: Salesforce
+  category: platform
+  aliases:
+  - Salesforce
+
+- id: sap
+  name: SAP
+  category: platform
+  aliases:
+  - SAP
+
+- id: servicenow
+  name: ServiceNow
+  category: platform
+  aliases:
+  - ServiceNow
+
+- id: robot-operating-system
+  name: Robot Operating System (ROS)
+  category: platform
+  aliases:
+  - Robot Operating System
+  - Robot Operating System (ROS)
+  ambiguous_aliases:
+  - ros
+
+- id: ros-2
+  name: ROS 2
+  category: platform
+  aliases:
+  - ROS 2
+
+- id: unity
+  name: Unity
+  category: platform
+  aliases: []
+  case_sensitive_aliases:
+  - Unity
+
+- id: unreal-engine
+  name: Unreal Engine
+  category: platform
+  aliases:
+  - Unreal Engine
+
+- id: dagster
+  name: Dagster
+  category: platform
+  aliases:
+  - Dagster
+
+- id: istio
+  name: Istio
+  category: platform
+  aliases:
+  - Istio
+
+- id: trino
+  name: Trino
+  category: platform
+  aliases:
+  - Trino
+
+- id: nginx
+  name: NGINX
+  category: platform
+  aliases:
+  - NGINX
+
+- id: kserve
+  name: KServe
+  category: platform
+  aliases:
+  - KServe
+
+- id: containerd
+  name: containerd
+  category: platform
+  aliases:
+  - containerd
+
+- id: temporal
+  name: Temporal
+  category: platform
+  aliases:
+  - Temporal workflow
+  - Temporal workflows
+  - Temporal SDK
+  - Temporal Cloud
+  - Temporal.io
+  - Temporal durable execution
+
+- id: envoy-proxy
+  name: Envoy Proxy
+  category: platform
+  aliases:
+  - Envoy Proxy
+  - Envoy gateway
+
+- id: front-end-development
+  name: Front-end development
+  category: method
+  aliases:
+  - Front end development
+  - Front-end development
+
+- id: back-end-development
+  name: Back-end development
+  category: method
+  aliases:
+  - Back end development
+  - Back-end development
+
+- id: full-stack-development
+  name: Full-stack development
+  category: method
+  aliases:
+  - Full stack development
+  - Full-stack development
+
+- id: mobile-application-development
+  name: Mobile application development
+  category: method
+  aliases:
+  - Mobile application development
+
+- id: systems-programming
+  name: Systems programming
+  category: method
+  aliases:
+  - Systems programming
+
+- id: embedded-software-development
+  name: Embedded software development
+  category: method
+  aliases:
+  - Embedded software development
+
+- id: firmware-development
+  name: Firmware development
+  category: method
+  aliases:
+  - Firmware development
+
+- id: api-development
+  name: API development
+  category: method
+  aliases:
+  - API development
+
+- id: api-design
+  name: API design
+  category: method
+  aliases:
+  - API design
+
+- id: object-oriented-design
+  name: Object-oriented design
+  category: method
+  aliases:
+  - Object oriented design
+  - Object-oriented design
+
+- id: software-architecture
+  name: Software architecture
+  category: method
+  aliases:
+  - Software architecture
+
+- id: system-design
+  name: System design
+  category: method
+  aliases:
+  - System design
+
+- id: database-design
+  name: Database design
+  category: method
+  aliases:
+  - Database design
+
+- id: data-modeling
+  name: Data modeling
+  category: method
+  aliases:
+  - Data modeling
+
+- id: requirements-analysis
+  name: Requirements analysis
+  category: method
+  aliases:
+  - Requirements analysis
+
+- id: technical-documentation
+  name: Technical documentation
+  category: method
+  aliases:
+  - Technical documentation
+
+- id: code-review
+  name: Code review
+  category: method
+  aliases:
+  - Code review
+
+- id: refactoring
+  name: Refactoring
+  category: method
+  aliases:
+  - Refactoring
+
+- id: debugging
+  name: Debugging
+  category: method
+  aliases:
+  - Debugging
+
+- id: troubleshooting
+  name: Troubleshooting
+  category: method
+  aliases:
+  - Troubleshooting
+
+- id: root-cause-analysis
+  name: Root-cause analysis
+  category: method
+  aliases:
+  - Root cause analysis
+  - Root-cause analysis
+
+- id: performance-profiling
+  name: Performance profiling
+  category: method
+  aliases:
+  - Performance profiling
+
+- id: performance-optimization
+  name: Performance optimization
+  category: method
+  aliases:
+  - Performance optimization
+
+- id: memory-optimization
+  name: Memory optimization
+  category: method
+  aliases:
+  - Memory optimization
+
+- id: algorithm-design
+  name: Algorithm design
+  category: method
+  aliases:
+  - Algorithm design
+
+- id: complexity-analysis
+  name: Complexity analysis
+  category: method
+  aliases:
+  - Complexity analysis
+
+- id: unit-testing
+  name: Unit testing
+  category: method
+  aliases:
+  - Unit testing
+
+- id: integration-testing
+  name: Integration testing
+  category: method
+  aliases:
+  - Integration testing
+
+- id: end-to-end-testing
+  name: End-to-end testing
+  category: method
+  aliases:
+  - End to end testing
+  - End-to-end testing
+
+- id: regression-testing
+  name: Regression testing
+  category: method
+  aliases:
+  - Regression testing
+
+- id: acceptance-testing
+  name: Acceptance testing
+  category: method
+  aliases:
+  - Acceptance testing
+
+- id: test-automation
+  name: Test automation
+  category: method
+  aliases:
+  - Test automation
+
+- id: test-driven-development
+  name: Test-driven development (TDD)
+  category: method
+  aliases:
+  - TDD
+  - Test driven development
+  - Test-driven development
+  - Test driven development (TDD)
+  - Test-driven development (TDD)
+
+- id: behavior-driven-development
+  name: Behavior-driven development (BDD)
+  category: method
+  aliases:
+  - BDD
+  - Behavior driven development
+  - Behavior-driven development
+  - Behavior driven development (BDD)
+  - Behavior-driven development (BDD)
+
+- id: property-based-testing
+  name: Property-based testing
+  category: method
+  aliases:
+  - Property based testing
+  - Property-based testing
+
+- id: fuzz-testing
+  name: Fuzz testing
+  category: method
+  aliases:
+  - Fuzz testing
+
+- id: load-testing
+  name: Load testing
+  category: method
+  aliases:
+  - Load testing
+
+- id: stress-testing
+  name: Stress testing
+  category: method
+  aliases:
+  - Stress testing
+  - Stress test
+  - Stress tests
+  - Software stress testing
+
+- id: performance-testing
+  name: Performance testing
+  category: method
+  aliases:
+  - Performance testing
+
+- id: static-analysis
+  name: Static analysis
+  category: method
+  aliases:
+  - Static analysis
+
+- id: dynamic-analysis
+  name: Dynamic analysis
+  category: method
+  aliases:
+  - Dynamic analysis
+
+- id: version-control
+  name: Version control
+  category: method
+  aliases:
+  - Version control
+
+- id: ci-cd
+  name: CI/CD
+  category: method
+  aliases:
+  - CI/CD
+  - CI CD
+  - ci-cd
+  - Continuous integration
+  - Continuous delivery
+  - Continuous deployment
+
+- id: agile-software-development
+  name: Agile software development
+  category: method
+  aliases:
+  - Agile software development
+
+- id: scrum
+  name: Scrum
+  category: method
+  aliases:
+  - Scrum
+
+- id: kanban
+  name: Kanban
+  category: method
+  aliases:
+  - Kanban
+
+- id: infrastructure-as-code
+  name: Infrastructure as code
+  category: method
+  aliases:
+  - Infrastructure as code
+
+- id: containerization
+  name: Containerization
+  category: method
+  aliases:
+  - Containerization
+
+- id: cloud-deployment
+  name: Cloud deployment
+  category: method
+  aliases:
+  - Cloud deployment
+
+- id: configuration-management
+  name: Configuration management
+  category: method
+  aliases:
+  - Configuration management
+
+- id: release-engineering
+  name: Release engineering
+  category: method
+  aliases:
+  - Release engineering
+
+- id: build-automation
+  name: Build automation
+  category: method
+  aliases:
+  - Build automation
+
+- id: observability
+  name: Observability
+  category: method
+  aliases:
+  - Observability
+
+- id: monitoring
+  name: Monitoring
+  category: method
+  aliases:
+  - Monitoring
+
+- id: logging
+  name: Logging
+  category: method
+  aliases:
+  - Logging
+
+- id: distributed-tracing
+  name: Distributed tracing
+  category: method
+  aliases:
+  - Distributed tracing
+
+- id: capacity-planning
+  name: Capacity planning
+  category: method
+  aliases:
+  - Capacity planning
+
+- id: fault-injection
+  name: Fault injection
+  category: method
+  aliases:
+  - Fault injection
+
+- id: chaos-engineering
+  name: Chaos engineering
+  category: method
+  aliases:
+  - Chaos engineering
+
+- id: benchmarking
+  name: Benchmarking
+  category: method
+  aliases:
+  - Benchmarking
+
+- id: microbenchmarking
+  name: Microbenchmarking
+  category: method
+  aliases:
+  - Microbenchmarking
+  - micro-benchmarking
+
+- id: data-collection
+  name: Data collection
+  category: method
+  aliases:
+  - Data collection
+
+- id: data-analysis
+  name: Data analysis
+  category: method
+  aliases:
+  - Data analysis
+
+- id: data-ingestion
+  name: Data ingestion
+  category: method
+  aliases:
+  - Data ingestion
+
+- id: data-integration
+  name: Data integration
+  category: method
+  aliases:
+  - Data integration
+
+- id: data-preparation
+  name: Data preparation
+  category: method
+  aliases:
+  - Data preparation
+  - Data cleaning
+  - Data cleansing
+  - Data preprocessing
+  - Data wrangling
+
+- id: data-transformation
+  name: Data transformation
+  category: method
+  aliases:
+  - Data transformation
+
+- id: exploratory-data-analysis
+  name: Exploratory data analysis (EDA)
+  category: method
+  aliases:
+  - EDA
+  - Exploratory data analysis
+  - Exploratory data analysis (EDA)
+
+- id: data-validation
+  name: Data validation
+  category: method
+  aliases:
+  - Data validation
+  - Data quality testing
+
+- id: data-visualization
+  name: Data visualization
+  category: method
+  aliases:
+  - Data visualization
+
+- id: dashboard-development
+  name: Dashboard development
+  category: method
+  aliases:
+  - Dashboard development
+
+- id: etl
+  name: ETL
+  category: method
+  aliases:
+  - ETL
+
+- id: elt
+  name: ELT
+  category: method
+  aliases:
+  - ELT
+
+- id: batch-processing
+  name: Batch processing
+  category: method
+  aliases:
+  - Batch processing
+
+- id: stream-processing
+  name: Stream processing
+  category: method
+  aliases:
+  - Stream processing
+  - real-time streaming
+  - real-time data processing
+
+- id: data-pipeline-development
+  name: Data pipeline development
+  category: method
+  aliases:
+  - data pipeline
+  - data pipelines
+  - Data pipeline development
+
+- id: feature-engineering
+  name: Feature engineering
+  category: method
+  aliases:
+  - Feature engineering
+
+- id: feature-extraction
+  name: Feature extraction
+  category: method
+  aliases:
+  - Feature extraction
+
+- id: feature-selection
+  name: Feature selection
+  category: method
+  aliases:
+  - Feature selection
+
+- id: dimensionality-reduction
+  name: Dimensionality reduction
+  category: method
+  aliases:
+  - Dimensionality reduction
+
+- id: data-mining
+  name: Data mining
+  category: method
+  aliases:
+  - Data mining
+
+- id: geospatial-analysis
+  name: Geospatial analysis
+  category: method
+  aliases:
+  - Geospatial analysis
+
+- id: web-scraping
+  name: Web scraping
+  category: method
+  aliases:
+  - Web scraping
+
+- id: statistical-analysis
+  name: Statistical analysis
+  category: method
+  aliases:
+  - Statistical analysis
+
+- id: statistical-modeling
+  name: Statistical modeling
+  category: method
+  aliases:
+  - Statistical modeling
+
+- id: hypothesis-testing
+  name: Hypothesis testing
+  category: method
+  aliases:
+  - Hypothesis testing
+
+- id: experimental-design
+  name: Experimental design
+  category: method
+  aliases:
+  - Experimental design
+
+- id: a-b-testing
+  name: A/B testing
+  category: method
+  aliases:
+  - A/B testing
+
+- id: regression-analysis
+  name: Regression analysis
+  category: method
+  aliases:
+  - Regression analysis
+
+- id: classification
+  name: Classification
+  category: method
+  aliases:
+  - Classification
+
+- id: clustering
+  name: Clustering
+  category: method
+  aliases:
+  - Clustering
+
+- id: time-series-analysis
+  name: Time-series analysis
+  category: method
+  aliases:
+  - time series
+  - time-series
+  - Time series analysis
+  - Time-series analysis
+
+- id: forecasting
+  name: Forecasting
+  category: method
+  aliases:
+  - Forecasting
+
+- id: survival-analysis
+  name: Survival analysis
+  category: method
+  aliases:
+  - Survival analysis
+
+- id: econometric-modeling
+  name: Econometric modeling
+  category: method
+  aliases:
+  - Econometric modeling
+
+- id: anomaly-detection
+  name: Anomaly detection
+  category: method
+  aliases:
+  - Anomaly detection
+
+- id: causal-inference
+  name: Causal inference
+  category: method
+  aliases:
+  - Causal inference
+
+- id: bayesian-inference
+  name: Bayesian inference
+  category: method
+  aliases:
+  - Bayesian inference
+
+- id: monte-carlo-simulation
+  name: Monte Carlo simulation
+  category: method
+  aliases:
+  - Monte Carlo simulation
+  - monte carlo
+  - monte-carlo
+
+- id: markov-chain-monte-carlo
+  name: Markov chain Monte Carlo (MCMC)
+  category: method
+  aliases:
+  - MCMC
+  - Markov chain Monte Carlo
+  - Markov chain Monte Carlo (MCMC)
+
+- id: stochastic-simulation
+  name: Stochastic simulation
+  category: method
+  aliases:
+  - Stochastic simulation
+
+- id: numerical-optimization
+  name: Numerical optimization
+  category: method
+  aliases:
+  - Numerical optimization
+
+- id: convex-optimization
+  name: Convex optimization
+  category: method
+  aliases:
+  - Convex optimization
+
+- id: discrete-optimization
+  name: Discrete optimization
+  category: method
+  aliases:
+  - Discrete optimization
+
+- id: combinatorial-optimization
+  name: Combinatorial optimization
+  category: method
+  aliases:
+  - Combinatorial optimization
+
+- id: linear-programming
+  name: Linear programming
+  category: method
+  aliases:
+  - Linear programming
+
+- id: integer-programming
+  name: Integer programming
+  category: method
+  aliases:
+  - Integer programming
+
+- id: mixed-integer-programming
+  name: Mixed-integer programming
+  category: method
+  aliases:
+  - Mixed integer programming
+  - Mixed-integer programming
+
+- id: dynamic-programming
+  name: Dynamic programming
+  category: method
+  aliases:
+  - Dynamic programming
+
+- id: constraint-programming
+  name: Constraint programming
+  category: method
+  aliases:
+  - Constraint programming
+
+- id: simulation-modeling
+  name: Simulation modeling
+  category: method
+  aliases:
+  - Simulation modeling
+
+- id: sensitivity-analysis
+  name: Sensitivity analysis
+  category: method
+  aliases:
+  - Sensitivity analysis
+
+- id: scenario-analysis
+  name: Scenario analysis
+  category: method
+  aliases:
+  - Scenario analysis
+
+- id: uncertainty-quantification
+  name: Uncertainty quantification
+  category: method
+  aliases:
+  - Uncertainty quantification
+
+- id: decision-analysis
+  name: Decision analysis
+  category: method
+  aliases:
+  - Decision analysis
+
+- id: signal-processing
+  name: Signal processing
+  category: method
+  aliases:
+  - Signal processing
+
+- id: image-processing
+  name: Image processing
+  category: method
+  aliases:
+  - Image processing
+
+- id: finite-difference-methods
+  name: Finite-difference methods
+  category: method
+  aliases:
+  - Finite difference methods
+  - Finite-difference methods
+
+- id: finite-element-methods
+  name: Finite-element methods
+  category: method
+  aliases:
+  - Finite element methods
+  - Finite-element methods
+
+- id: model-development
+  name: Model development
+  category: method
+  aliases:
+  - Model development
+  - Machine learning model development
+  - Deep learning model development
+  - Deep-learning model development
+  - Computer vision model development
+  - Computer-vision model development
+  - Generative AI development
+  - Large language model development
+
+- id: model-training
+  name: Model training
+  category: method
+  aliases:
+  - Model training
+
+- id: model-evaluation
+  name: Model evaluation
+  category: method
+  aliases:
+  - Model evaluation
+
+- id: model-validation
+  name: Model validation
+  category: method
+  aliases:
+  - Model validation
+
+- id: model-calibration
+  name: Model calibration
+  category: method
+  aliases:
+  - Model calibration
+
+- id: cross-validation
+  name: Cross-validation
+  category: method
+  aliases:
+  - Cross validation
+  - Cross-validation
+
+- id: hyperparameter-optimization
+  name: Hyperparameter optimization
+  category: method
+  aliases:
+  - Hyperparameter optimization
+
+- id: predictive-modeling
+  name: Predictive modeling
+  category: method
+  aliases:
+  - Predictive modeling
+
+- id: prompt-engineering
+  name: Prompt engineering
+  category: method
+  aliases:
+  - Prompt engineering
+
+- id: retrieval-augmented-generation
+  name: Retrieval-augmented generation (RAG)
+  category: method
+  aliases:
+  - RAG
+  - Retrieval augmented generation
+  - Retrieval-augmented generation
+  - Retrieval augmented generation (RAG)
+  - Retrieval-augmented generation (RAG)
+
+- id: fine-tuning
+  name: Fine-tuning
+  category: method
+  aliases:
+  - Fine tuning
+  - Fine-tuning
+
+- id: parameter-efficient-fine-tuning
+  name: Parameter-efficient fine-tuning (PEFT)
+  category: method
+  aliases:
+  - PEFT
+  - Parameter efficient fine tuning
+  - Parameter-efficient fine-tuning
+  - Parameter efficient fine tuning (PEFT)
+  - Parameter-efficient fine-tuning (PEFT)
+
+- id: ranking
+  name: Ranking
+  category: method
+  aliases:
+  - Ranking
+
+- id: mlops
+  name: MLOps
+  category: method
+  aliases:
+  - MLOps
+
+- id: model-deployment
+  name: Model deployment
+  category: method
+  aliases:
+  - Model deployment
+
+- id: model-monitoring
+  name: Model monitoring
+  category: method
+  aliases:
+  - Model monitoring
+
+- id: distributed-training
+  name: Distributed training
+  category: method
+  aliases:
+  - Distributed training
+  - data parallelism
+  - tensor parallelism
+  - pipeline parallelism
+  - sequence parallelism
+  - context parallelism
+  - zero redundancy optimizer
+
+- id: distributed-inference
+  name: Distributed inference
+  category: method
+  aliases:
+  - Distributed inference
+
+- id: inference-optimization
+  name: Inference optimization
+  category: method
+  aliases:
+  - Inference optimization
+
+- id: quantization
+  name: Quantization
+  category: method
+  aliases:
+  - Quantization
+  - SmoothQuant
+  case_sensitive_aliases:
+  - AWQ
+  - GPTQ
+  - PTQ
+
+- id: model-pruning
+  name: Model pruning
+  category: method
+  aliases:
+  - Model pruning
+
+- id: knowledge-distillation
+  name: Knowledge distillation
+  category: method
+  aliases:
+  - distillation
+  - model distillation
+  - Knowledge distillation
+
+- id: model-compression
+  name: Model compression
+  category: method
+  aliases:
+  - Model compression
+
+- id: model-explainability
+  name: Model explainability
+  category: method
+  aliases:
+  - Model explainability
+
+- id: multithreading
+  name: Multithreading
+  category: method
+  aliases:
+  - Threads
+  - Multithreading
+  - multi-threading
+  - multi threading
+  - multi threaded
+  - multithreaded programming
+  - thread pool
+  - thread pools
+
+- id: multiprocessing
+  name: Multiprocessing
+  category: method
+  aliases:
+  - Multiprocessing
+
+- id: asynchronous-programming
+  name: Asynchronous programming
+  category: method
+  aliases:
+  - Asynchronous programming
+
+- id: gpu-programming
+  name: GPU programming
+  category: method
+  aliases:
+  - GPU programming
+
+- id: vectorization
+  name: Vectorization
+  category: method
+  aliases:
+  - Vectorization
+
+- id: simd-optimization
+  name: SIMD optimization
+  category: method
+  aliases:
+  - SIMD optimization
+
+- id: kernel-optimization
+  name: Kernel optimization
+  category: method
+  aliases:
+  - Kernel optimization
+
+- id: cache-optimization
+  name: Cache optimization
+  category: method
+  aliases:
+  - Cache optimization
+
+- id: lock-free-programming
+  name: Lock-free programming
+  category: method
+  aliases:
+  - Lock free programming
+  - Lock-free programming
+
+- id: network-programming
+  name: Network programming
+  category: method
+  aliases:
+  - Network programming
+
+- id: socket-programming
+  name: Socket programming
+  category: method
+  aliases:
+  - Socket programming
+  - POSIX sockets
+
+- id: protocol-implementation
+  name: Protocol implementation
+  category: method
+  aliases:
+  - Protocol implementation
+
+- id: binary-protocol-parsing
+  name: Binary protocol parsing
+  category: method
+  aliases:
+  - Binary protocol parsing
+
+- id: serialization
+  name: Serialization
+  category: method
+  aliases:
+  - Serialization
+
+- id: low-latency-engineering
+  name: Low-latency engineering
+  category: method
+  aliases:
+  - Low latency engineering
+  - Low-latency engineering
+  - low latency
+  - low-latency
+  - ultra-low latency
+  - ultra low latency
+  - Low latency systems
+  - Low-latency systems
+
+- id: compiler-development
+  name: Compiler development
+  category: method
+  aliases:
+  - Compiler development
+
+- id: compiler-optimization
+  name: Compiler optimization
+  category: method
+  aliases:
+  - Compiler optimization
+
+- id: formal-verification
+  name: Formal verification
+  category: method
+  aliases:
+  - Formal verification
+
+- id: clock-synchronization
+  name: Clock synchronization
+  category: method
+  aliases:
+  - Clock synchronization
+
+- id: secure-coding
+  name: Secure coding
+  category: method
+  aliases:
+  - Secure coding
+
+- id: security-testing
+  name: Security testing
+  category: method
+  aliases:
+  - Security testing
+
+- id: threat-modeling
+  name: Threat modeling
+  category: method
+  aliases:
+  - Threat modeling
+
+- id: vulnerability-assessment
+  name: Vulnerability assessment
+  category: method
+  aliases:
+  - Vulnerability assessment
+
+- id: vulnerability-management
+  name: Vulnerability management
+  category: method
+  aliases:
+  - Vulnerability management
+
+- id: penetration-testing
+  name: Penetration testing
+  category: method
+  aliases:
+  - Penetration testing
+
+- id: security-monitoring
+  name: Security monitoring
+  category: method
+  aliases:
+  - Security monitoring
+
+- id: log-analysis
+  name: Log analysis
+  category: method
+  aliases:
+  - Log analysis
+
+- id: security-operations
+  name: Security operations
+  category: method
+  aliases:
+  - SOC
+  - Security operations
+  - Security operations center
+  - Security operations center (SOC)
+
+- id: incident-response
+  name: Incident response
+  category: method
+  aliases:
+  - Incident response
+
+- id: malware-analysis
+  name: Malware analysis
+  category: method
+  aliases:
+  - Malware analysis
+
+- id: digital-forensics
+  name: Digital forensics
+  category: method
+  aliases:
+  - Digital forensics
+
+- id: reverse-engineering
+  name: Reverse engineering
+  category: method
+  aliases:
+  - Reverse engineering
+
+- id: network-traffic-analysis
+  name: Network traffic analysis
+  category: method
+  aliases:
+  - Network traffic analysis
+
+- id: cryptographic-implementation
+  name: Cryptographic implementation
+  category: method
+  aliases:
+  - Cryptographic implementation
+
+- id: application-security-testing
+  name: Application security testing
+  category: method
+  aliases:
+  - Application security testing
+
+- id: cloud-security-assessment
+  name: Cloud security assessment
+  category: method
+  aliases:
+  - Cloud security assessment
+
+- id: risk-assessment
+  name: Risk assessment
+  category: method
+  aliases:
+  - Risk assessment
+
+- id: quantitative-modeling
+  name: Quantitative modeling
+  category: method
+  aliases:
+  - Quantitative modeling
+  - quantitative model
+  - quantitative models
+
+- id: financial-modeling
+  name: Financial modeling
+  category: method
+  aliases:
+  - Financial modeling
+
+- id: mathematical-modeling
+  name: Mathematical modeling
+  category: method
+  aliases:
+  - Mathematical modeling
+
+- id: market-data-analysis
+  name: Market-data analysis
+  category: method
+  aliases:
+  - Market data analysis
+  - Market-data analysis
+
+- id: algorithmic-trading
+  name: Algorithmic trading
+  category: method
+  aliases:
+  - Algorithmic trading
+  - algo execution
+  - automated trading
+  - automated trading systems
+  case_sensitive_aliases:
+  - VWAP
+  - TWAP
+
+- id: strategy-research
+  name: Strategy research
+  category: method
+  aliases:
+  - Strategy research
+
+- id: strategy-implementation
+  name: Strategy implementation
+  category: method
+  aliases:
+  - Strategy implementation
+
+- id: backtesting
+  name: Backtesting
+  category: method
+  aliases:
+  - Backtesting
+  - back-testing
+  - backtest framework
+
+- id: trade-execution
+  name: Trade Execution
+  category: method
+  aliases:
+  - Trade execution analysis
+  - trade execution
+
+- id: transaction-cost-analysis
+  name: Transaction-cost analysis
+  category: method
+  aliases:
+  - Transaction cost analysis
+  - Transaction-cost analysis
+
+- id: portfolio-optimization
+  name: Portfolio optimization
+  category: method
+  aliases:
+  - Portfolio optimization
+
+- id: asset-allocation
+  name: Asset allocation
+  category: method
+  aliases:
+  - Asset allocation
+
+- id: risk-modeling
+  name: Risk modeling
+  category: method
+  aliases:
+  - Risk modeling
+
+- id: factor-modeling
+  name: Factor modeling
+  category: method
+  aliases:
+  - Factor modeling
+  - Factor models
+
+- id: derivatives-pricing
+  name: Derivatives pricing
+  category: method
+  aliases:
+  - Derivatives pricing
+
+- id: option-pricing
+  name: Option pricing
+  category: method
+  aliases:
+  - Option pricing
+
+- id: fixed-income-modeling
+  name: Fixed-income modeling
+  category: method
+  aliases:
+  - Fixed income modeling
+  - Fixed-income modeling
+
+- id: credit-risk-modeling
+  name: Credit-risk modeling
+  category: method
+  aliases:
+  - Credit risk modeling
+  - Credit-risk modeling
+
+- id: market-risk-modeling
+  name: Market-risk modeling
+  category: method
+  aliases:
+  - Market risk modeling
+  - Market-risk modeling
+
+- id: value-at-risk
+  name: Value at Risk (VaR)
+  category: method
+  aliases:
+  - VaR
+  - Value at Risk
+  - Value at Risk (VaR)
+
+- id: financial-statement-analysis
+  name: Financial-statement analysis
+  category: method
+  aliases:
+  - Financial statement analysis
+  - Financial-statement analysis
+
+- id: equity-research
+  name: Equity research
+  category: method
+  aliases:
+  - Equity research
+
+- id: fundamental-analysis
+  name: Fundamental analysis
+  category: method
+  aliases:
+  - Fundamental analysis
+
+- id: credit-analysis
+  name: Credit analysis
+  category: method
+  aliases:
+  - Credit analysis
+
+- id: underwriting-analysis
+  name: Underwriting analysis
+  category: method
+  aliases:
+  - Underwriting analysis
+
+- id: valuation
+  name: Valuation
+  category: method
+  aliases:
+  - Valuation
+
+- id: discounted-cash-flow-analysis
+  name: Discounted cash-flow analysis (DCF)
+  category: method
+  aliases:
+  - DCF
+  - Discounted cash flow analysis
+  - Discounted cash-flow analysis
+  - Discounted cash flow analysis (DCF)
+  - Discounted cash-flow analysis (DCF)
+  - Discounted cash flow
+
+- id: comparable-company-analysis
+  name: Comparable-company analysis
+  category: method
+  aliases:
+  - Comparable company analysis
+  - Comparable-company analysis
+
+- id: precedent-transaction-analysis
+  name: Precedent-transaction analysis
+  category: method
+  aliases:
+  - transaction comps
+  - precedent transactions
+  - Precedent transaction analysis
+  - Precedent-transaction analysis
+
+- id: leveraged-buyout-modeling
+  name: Leveraged-buyout modeling (LBO)
+  category: method
+  aliases:
+  - LBO
+  - LBO modeling
+  - Leveraged buyout modeling
+  - Leveraged-buyout modeling
+  - Leveraged buyout modeling (LBO)
+  - Leveraged-buyout modeling (LBO)
+
+- id: budgeting
+  name: Budgeting
+  category: method
+  aliases:
+  - Budgeting
+
+- id: financial-forecasting
+  name: Financial forecasting
+  category: method
+  aliases:
+  - Financial forecasting
+
+- id: variance-analysis
+  name: Variance analysis
+  category: method
+  aliases:
+  - Variance analysis
+
+- id: cash-flow-analysis
+  name: Cash-flow analysis
+  category: method
+  aliases:
+  - Cash flow analysis
+  - Cash-flow analysis
+
+- id: due-diligence
+  name: Due diligence
+  category: method
+  aliases:
+  - Due diligence
+
+- id: actuarial-modeling
+  name: Actuarial modeling
+  category: method
+  aliases:
+  - Actuarial modeling
+
+- id: lora
+  name: LoRA
+  category: method
+  aliases:
+  - LoRA
+  - low-rank adaptation
+
+- id: order-routing
+  name: Order routing
+  category: method
+  aliases:
+  - order routing
+  - smart order routing
+
+- id: cpu-affinity-and-pinning
+  name: CPU affinity and pinning
+  category: method
+  aliases:
+  - CPU pinning
+  - CPU affinity
+  - core affinity
+
+- id: data-oriented-design
+  name: Data-oriented design
+  category: method
+  aliases:
+  - data-oriented design
+
+- id: importance-sampling
+  name: Importance sampling
+  category: method
+  aliases:
+  - importance sampling
+
+- id: quadratic-programming
+  name: Quadratic programming
+  category: method
+  aliases:
+  - quadratic programming
+
+- id: constrained-optimization
+  name: Constrained optimization
+  category: method
+  aliases:
+  - constrained optimization
+
+- id: gradient-descent
+  name: Gradient descent
+  category: method
+  aliases:
+  - gradient descent
+
+- id: arima
+  name: ARIMA
+  category: method
+  aliases: []
+  case_sensitive_aliases:
+  - ARIMA
+
+- id: garch
+  name: GARCH
+  category: method
+  aliases: []
+  case_sensitive_aliases:
+  - GARCH
+
+- id: autoregressive-models
+  name: Autoregressive models
+  category: method
+  aliases:
+  - autoregressive models
+  - autoregressive model
+
+- id: chunked-prefill
+  name: Chunked prefill
+  category: method
+  aliases:
+  - chunked prefill
+
+- id: retry-strategies
+  name: Retry strategies
+  category: method
+  aliases:
+  - retry strategies
+  - retry mechanisms
+  - retry patterns
+
+- id: wait-free-programming
+  name: Wait-free programming
+  category: method
+  aliases:
+  - wait-free
+
+- id: vectorized-query-execution
+  name: Vectorized query execution
+  category: method
+  aliases:
+  - vectorized execution
+  - Vectorized query execution
+
+- id: kv-cache-optimization
+  name: KV-cache optimization
+  category: method
+  aliases:
+  - KV cache optimization
+  - KV-cache optimization
+  - kv cache
+  - kv-cache
+  - kv cache management
+  - kv-cache management
+  - prefix caching
+
+- id: dynamic-batching
+  name: Dynamic batching
+  category: method
+  aliases:
+  - Dynamic batching
+
+- id: continuous-batching
+  name: Continuous batching
+  category: method
+  aliases:
+  - Continuous batching
+
+- id: speculative-decoding
+  name: Speculative decoding
+  category: method
+  aliases:
+  - Speculative decoding
+
+- id: prefill-decode-disaggregation
+  name: Prefill-decode disaggregation
+  category: method
+  aliases:
+  - Prefill decode disaggregation
+  - Prefill-decode disaggregation
+
+- id: pagedattention
+  name: PagedAttention
+  category: method
+  aliases:
+  - PagedAttention
+  - paged attention
+
+- id: business-intelligence
+  name: Business intelligence
+  category: concept
+  aliases:
+  - Business intelligence
+
+- id: data-structures
+  name: Data structures
+  category: concept
+  aliases:
+  - Data structures
+
+- id: algorithms
+  name: Algorithms
+  category: concept
+  aliases:
+  - Algorithms
+
+- id: computational-complexity
+  name: Computational complexity
+  category: concept
+  aliases:
+  - Computational complexity
+
+- id: object-oriented-programming
+  name: Object-oriented programming (OOP)
+  category: concept
+  aliases:
+  - OOP
+  - Object oriented programming
+  - Object-oriented programming
+  - Object oriented programming (OOP)
+  - Object-oriented programming (OOP)
+
+- id: functional-programming
+  name: Functional programming
+  category: concept
+  aliases:
+  - Functional programming
+
+- id: programming-language-theory
+  name: Programming-language theory
+  category: concept
+  aliases:
+  - Programming language theory
+  - Programming-language theory
+
+- id: type-systems
+  name: Type systems
+  category: concept
+  aliases:
+  - Type systems
+
+- id: design-patterns
+  name: Design patterns
+  category: concept
+  aliases:
+  - Design patterns
+  - Gang of Four
+
+- id: software-engineering
+  name: Software engineering
+  category: concept
+  aliases:
+  - Software engineering
+
+- id: software-development-lifecycle
+  name: Software development lifecycle (SDLC)
+  category: concept
+  aliases:
+  - SDLC
+  - Software development lifecycle
+  - Software development lifecycle (SDLC)
+
+- id: operating-systems
+  name: Operating systems
+  category: concept
+  aliases:
+  - Operating systems
+
+- id: computer-architecture
+  name: Computer architecture
+  category: concept
+  aliases:
+  - Computer architecture
+  - Computer organization
+
+- id: computer-networks
+  name: Computer networks
+  category: concept
+  aliases:
+  - Computer networks
+
+- id: database-systems
+  name: Database systems
+  category: concept
+  aliases:
+  - Database systems
+
+- id: compilers
+  name: Compilers
+  category: concept
+  aliases:
+  - Compilers
+
+- id: distributed-systems
+  name: Distributed systems
+  category: concept
+  aliases:
+  - Distributed systems
+  - Distributed systems engineering
+  - Distributed-systems engineering
+
+- id: parallel-computing
+  name: Parallel computing
+  category: concept
+  aliases:
+  - Parallel computing
+  - Parallel programming
+
+- id: cloud-computing
+  name: Cloud computing
+  category: concept
+  aliases:
+  - Cloud computing
+
+- id: edge-computing
+  name: Edge computing
+  category: concept
+  aliases:
+  - Edge computing
+
+- id: embedded-systems
+  name: Embedded systems
+  category: concept
+  aliases:
+  - Embedded systems
+
+- id: real-time-systems
+  name: Real-time systems
+  category: concept
+  aliases:
+  - Real time systems
+  - Real-time systems
+  - Real time systems development
+  - Real-time systems development
+
+- id: high-performance-computing
+  name: High-performance computing (HPC)
+  category: concept
+  aliases:
+  - HPC
+  - High performance computing
+  - High-performance computing
+  - High performance computing (HPC)
+  - High-performance computing (HPC)
+
+- id: human-computer-interaction
+  name: Human-computer interaction (HCI)
+  category: concept
+  aliases:
+  - HCI
+  - Human computer interaction
+  - Human-computer interaction
+  - Human computer interaction (HCI)
+  - Human-computer interaction (HCI)
+
+- id: computer-graphics
+  name: Computer graphics
+  category: concept
+  aliases:
+  - Computer graphics
+
+- id: scientific-computing
+  name: Scientific computing
+  category: concept
+  aliases:
+  - Scientific computing
+
+- id: data-science
+  name: Data science
+  category: concept
+  aliases:
+  - Data science
+
+- id: data-engineering
+  name: Data engineering
+  category: concept
+  aliases:
+  - Data engineering
+
+- id: big-data
+  name: Big data
+  category: concept
+  aliases:
+  - Big data
+
+- id: formal-methods
+  name: Formal methods
+  category: concept
+  aliases:
+  - Formal methods
+
+- id: computational-geometry
+  name: Computational geometry
+  category: concept
+  aliases:
+  - Computational geometry
+
+- id: robotics
+  name: Robotics
+  category: concept
+  aliases:
+  - Robotics
+
+- id: autonomous-systems
+  name: Autonomous systems
+  category: concept
+  aliases:
+  - Autonomous systems
+
+- id: quantum-computing
+  name: Quantum computing
+  category: concept
+  aliases:
+  - Quantum computing
+
+- id: bioinformatics
+  name: Bioinformatics
+  category: concept
+  aliases:
+  - Bioinformatics
+
+- id: computational-biology
+  name: Computational biology
+  category: concept
+  aliases:
+  - Computational biology
+
+- id: client-server-architecture
+  name: Client-server architecture
+  category: concept
+  aliases:
+  - Client server architecture
+  - Client-server architecture
+
+- id: service-oriented-architecture
+  name: Service-oriented architecture
+  category: concept
+  aliases:
+  - Service oriented architecture
+  - Service-oriented architecture
+
+- id: microservices-architecture
+  name: Microservices architecture
+  category: concept
+  aliases:
+  - Microservices architecture
+  - microservices
+  - microservice architecture
+
+- id: event-driven-architecture
+  name: Event-driven architecture
+  category: concept
+  aliases:
+  - Event driven architecture
+  - Event-driven architecture
+  - event-driven
+
+- id: layered-architecture
+  name: Layered architecture
+  category: concept
+  aliases:
+  - Layered architecture
+
+- id: model-view-controller
+  name: Model-view-controller (MVC)
+  category: concept
+  aliases:
+  - MVC
+  - Model view controller
+  - Model-view-controller
+  - Model view controller (MVC)
+  - Model-view-controller (MVC)
+
+- id: rest
+  name: REST
+  category: concept
+  aliases:
+  - REST architecture
+  - REST API
+  - REST APIs
+  - RESTful API
+  - RESTful APIs
+  - Representational state transfer
+  - Representational state transfer (REST)
+  case_sensitive_aliases:
+  - REST
+
+- id: remote-procedure-calls
+  name: Remote procedure calls (RPC)
+  category: concept
+  aliases:
+  - RPC
+  - Remote Procedure Call
+  - Remote procedure calls
+  - Remote procedure calls (RPC)
+
+- id: publish-subscribe-architecture
+  name: Publish-subscribe architecture
+  category: concept
+  aliases:
+  - pubsub
+  - pub-sub
+  - pub/sub
+  - publish-subscribe
+  - publish/subscribe
+  - Publish subscribe architecture
+  - Publish-subscribe architecture
+
+- id: message-queues
+  name: Message queues
+  category: concept
+  aliases:
+  - Message queues
+
+- id: event-sourcing
+  name: Event sourcing
+  category: concept
+  aliases:
+  - Event sourcing
+
+- id: command-query-responsibility-segregation
+  name: Command Query Responsibility Segregation (CQRS)
+  category: concept
+  aliases:
+  - CQRS
+  - Command Query Responsibility Segregation
+  - Command Query Responsibility Segregation (CQRS)
+
+- id: distributed-consensus
+  name: Distributed consensus
+  category: concept
+  aliases:
+  - Distributed consensus
+  - consensus algorithms
+  - raft consensus
+  - paxos consensus
+  - byzantine fault tolerance
+  case_sensitive_aliases:
+  - Raft
+  - Paxos
+  - BFT
+
+- id: cap-theorem
+  name: CAP theorem
+  category: concept
+  aliases:
+  - CAP theorem
+
+- id: consistency-models
+  name: Consistency models
+  category: concept
+  aliases:
+  - Consistency models
+
+- id: eventual-consistency
+  name: Eventual consistency
+  category: concept
+  aliases:
+  - Eventual consistency
+
+- id: distributed-transactions
+  name: Distributed transactions
+  category: concept
+  aliases:
+  - Distributed transactions
+
+- id: distributed-locking
+  name: Distributed locking
+  category: concept
+  aliases:
+  - Distributed locking
+  - distributed locks
+
+- id: fault-tolerance
+  name: Fault tolerance
+  category: concept
+  aliases:
+  - Fault tolerance
+
+- id: high-availability
+  name: High availability
+  category: concept
+  aliases:
+  - High availability
+
+- id: scalability
+  name: Scalability
+  category: concept
+  aliases:
+  - Scalability
+
+- id: resilience
+  name: Resilience
+  category: concept
+  aliases:
+  - Resilience
+
+- id: load-balancing
+  name: Load balancing
+  category: concept
+  aliases:
+  - Load balancing
+  - load balancer
+  - load balancers
+
+- id: sharding
+  name: Sharding
+  category: concept
+  aliases:
+  - Sharding
+
+- id: caching
+  name: Caching
+  category: concept
+  aliases:
+  - Caching
+
+- id: consistent-hashing
+  name: Consistent hashing
+  category: concept
+  aliases:
+  - Consistent hashing
+
+- id: rate-limiting
+  name: Rate limiting
+  category: concept
+  aliases:
+  - Rate limiting
+  - rate limiter
+
+- id: backpressure
+  name: Backpressure
+  category: concept
+  aliases:
+  - Backpressure
+  - back-pressure
+  - back pressure
+
+- id: gossip-protocols
+  name: Gossip protocols
+  category: concept
+  aliases:
+  - Gossip protocols
+  - gossip protocol
+
+- id: idempotency
+  name: Idempotency
+  category: concept
+  aliases:
+  - Idempotency
+
+- id: disaster-recovery
+  name: Disaster recovery
+  category: concept
+  aliases:
+  - Disaster recovery
+
+- id: relational-databases
+  name: Relational databases
+  category: concept
+  aliases:
+  - Relational databases
+
+- id: nosql-databases
+  name: NoSQL databases
+  category: concept
+  aliases:
+  - NoSQL databases
+
+- id: document-databases
+  name: Document databases
+  category: concept
+  aliases:
+  - Document databases
+
+- id: key-value-stores
+  name: Key-value stores
+  category: concept
+  aliases:
+  - Key value stores
+  - Key-value stores
+
+- id: graph-databases
+  name: Graph databases
+  category: concept
+  aliases:
+  - Graph databases
+
+- id: time-series-databases
+  name: Time-series databases
+  category: concept
+  aliases:
+  - Time series databases
+  - Time-series databases
+
+- id: in-memory-databases
+  name: In-memory databases
+  category: concept
+  aliases:
+  - In memory databases
+  - In-memory databases
+
+- id: data-warehouses
+  name: Data warehouses
+  category: concept
+  aliases:
+  - Data warehouses
+
+- id: data-lakes
+  name: Data lakes
+  category: concept
+  aliases:
+  - Data lakes
+
+- id: lakehouse-architecture
+  name: Lakehouse architecture
+  category: concept
+  aliases:
+  - Lakehouse architecture
+
+- id: data-marts
+  name: Data marts
+  category: concept
+  aliases:
+  - Data marts
+
+- id: object-storage
+  name: Object storage
+  category: concept
+  aliases:
+  - Object storage
+  - S3 API
+  - S3-compatible storage
+
+- id: online-transaction-processing
+  name: Online transaction processing (OLTP)
+  category: concept
+  aliases:
+  - OLTP
+  - transactional processing
+  - Online transaction processing
+  - Online transaction processing (OLTP)
+
+- id: online-analytical-processing
+  name: Online analytical processing (OLAP)
+  category: concept
+  aliases:
+  - OLAP
+  - analytical processing
+  - Online analytical processing
+  - Online analytical processing (OLAP)
+
+- id: acid-transactions
+  name: ACID transactions
+  category: concept
+  aliases:
+  - ACID transactions
+
+- id: transaction-isolation
+  name: Transaction isolation
+  category: concept
+  aliases:
+  - Transaction isolation
+
+- id: multiversion-concurrency-control
+  name: Multiversion concurrency control (MVCC)
+  category: concept
+  aliases:
+  - MVCC
+  - Multiversion concurrency control
+  - Multiversion concurrency control (MVCC)
+
+- id: indexing
+  name: Indexing
+  category: concept
+  aliases:
+  - Indexing
+  - b-tree
+  - b+tree
+  - lsm-tree
+  - lsm tree
+  - inverted index
+  - spatial index
+
+- id: query-optimization
+  name: Query optimization
+  category: concept
+  aliases:
+  - Query optimization
+
+- id: columnar-storage
+  name: Columnar storage
+  category: concept
+  aliases:
+  - Columnar storage
+
+- id: write-ahead-logging
+  name: Write-ahead logging
+  category: concept
+  aliases:
+  - Write ahead logging
+  - Write-ahead logging
+  case_sensitive_aliases:
+  - WAL
+
+- id: star-schema
+  name: Star schema
+  category: concept
+  aliases:
+  - Star schema
+
+- id: snowflake-schema
+  name: Snowflake schema
+  category: concept
+  aliases:
+  - Snowflake schema
+
+- id: data-partitioning
+  name: Data partitioning
+  category: concept
+  aliases:
+  - Partitioning
+  - Data partitioning
+
+- id: data-replication
+  name: Data replication
+  category: concept
+  aliases:
+  - Replication
+  - Data replication
+
+- id: data-governance
+  name: Data governance
+  category: concept
+  aliases:
+  - Data governance
+
+- id: data-lineage
+  name: Data lineage
+  category: concept
+  aliases:
+  - Data lineage
+
+- id: data-quality
+  name: Data quality
+  category: concept
+  aliases:
+  - Data quality
+
+- id: master-data-management
+  name: Master data management
+  category: concept
+  aliases:
+  - Master data management
+
+- id: structured-data
+  name: Structured data
+  category: concept
+  aliases:
+  - Structured data
+
+- id: semi-structured-data
+  name: Semi-structured data
+  category: concept
+  aliases:
+  - Semi structured data
+  - Semi-structured data
+
+- id: unstructured-data
+  name: Unstructured data
+  category: concept
+  aliases:
+  - Unstructured data
+
+- id: calculus
+  name: Calculus
+  category: concept
+  aliases:
+  - Calculus
+
+- id: multivariable-calculus
+  name: Multivariable calculus
+  category: concept
+  aliases:
+  - Multivariable calculus
+
+- id: linear-algebra
+  name: Linear algebra
+  category: concept
+  aliases:
+  - Linear algebra
+
+- id: numerical-linear-algebra
+  name: Numerical linear algebra
+  category: concept
+  aliases:
+  - Numerical linear algebra
+  - matrix decomposition
+  - singular value decomposition
+  - eigenvalue decomposition
+  - qr factorization
+  case_sensitive_aliases:
+  - SVD
+
+- id: differential-equations
+  name: Differential equations
+  category: concept
+  aliases:
+  - Differential equations
+
+- id: ordinary-differential-equations
+  name: Ordinary differential equations (ODEs)
+  category: concept
+  aliases:
+  - ODEs
+  - Ordinary differential equations
+  - Ordinary differential equations (ODEs)
+
+- id: partial-differential-equations
+  name: Partial differential equations (PDEs)
+  category: concept
+  aliases:
+  - PDEs
+  - Partial differential equations
+  - Partial differential equations (PDEs)
+
+- id: discrete-mathematics
+  name: Discrete mathematics
+  category: concept
+  aliases:
+  - Discrete mathematics
+
+- id: graph-theory
+  name: Graph theory
+  category: concept
+  aliases:
+  - Graph theory
+
+- id: combinatorics
+  name: Combinatorics
+  category: concept
+  aliases:
+  - Combinatorics
+
+- id: probability
+  name: Probability
+  category: concept
+  aliases:
+  - Probability
+  - Probability theory
+
+- id: statistics
+  name: Statistics
+  category: concept
+  aliases:
+  - Statistics
+
+- id: mathematical-statistics
+  name: Mathematical statistics
+  category: concept
+  aliases:
+  - Mathematical statistics
+
+- id: stochastic-processes
+  name: Stochastic processes
+  category: concept
+  aliases:
+  - Stochastic processes
+
+- id: stochastic-calculus
+  name: Stochastic calculus
+  category: concept
+  aliases:
+  - Stochastic calculus
+
+- id: markov-models
+  name: Markov models
+  category: concept
+  aliases:
+  - Markov model
+  - Markov models
+  - Markov chain
+  - Markov chains
+  - Hidden Markov Model
+  - Hidden Markov Models
+  - Markov Decision Process
+  - Markov Decision Processes
+  ambiguous_aliases:
+  - HMM
+  - MDP
+
+- id: martingales
+  name: Martingales
+  category: concept
+  aliases:
+  - martingale
+  - Martingales
+
+- id: bayesian-statistics
+  name: Bayesian statistics
+  category: concept
+  aliases:
+  - Bayesian statistics
+
+- id: frequentist-statistics
+  name: Frequentist statistics
+  category: concept
+  aliases:
+  - frequentist
+  - classical statistics
+  - Frequentist statistics
+
+- id: statistical-inference
+  name: Statistical inference
+  category: concept
+  aliases:
+  - Statistical inference
+
+- id: optimization-theory
+  name: Optimization theory
+  category: concept
+  aliases:
+  - Optimization theory
+
+- id: operations-research
+  name: Operations research
+  category: concept
+  aliases:
+  - Operations research
+
+- id: game-theory
+  name: Game theory
+  category: concept
+  aliases:
+  - Game theory
+
+- id: information-theory
+  name: Information theory
+  category: concept
+  aliases:
+  - Information theory
+
+- id: coding-theory
+  name: Coding theory
+  category: concept
+  aliases:
+  - Coding theory
+
+- id: queueing-theory
+  name: Queueing theory
+  category: concept
+  aliases:
+  - Queueing theory
+  - queuing theory
+
+- id: dynamical-systems
+  name: Dynamical systems
+  category: concept
+  aliases:
+  - Dynamical systems
+
+- id: control-theory
+  name: Control theory
+  category: concept
+  aliases:
+  - Control theory
+
+- id: numerical-methods
+  name: Numerical methods
+  category: concept
+  aliases:
+  - Numerical analysis
+  - Numerical methods
+
+- id: artificial-intelligence
+  name: Artificial intelligence (AI)
+  category: concept
+  aliases:
+  - Artificial intelligence
+  - Artificial intelligence (AI)
+  case_sensitive_aliases:
+  - AI
+
+- id: machine-learning
+  name: Machine learning (ML)
+  category: concept
+  aliases:
+  - Machine learning
+  - Machine learning (ML)
+  case_sensitive_aliases:
+  - ML
+
+- id: supervised-learning
+  name: Supervised learning
+  category: concept
+  aliases:
+  - Supervised learning
+
+- id: unsupervised-learning
+  name: Unsupervised learning
+  category: concept
+  aliases:
+  - Unsupervised learning
+
+- id: semi-supervised-learning
+  name: Semi-supervised learning
+  category: concept
+  aliases:
+  - Semi supervised learning
+  - Semi-supervised learning
+
+- id: self-supervised-learning
+  name: Self-supervised learning
+  category: concept
+  aliases:
+  - Self supervised learning
+  - Self-supervised learning
+
+- id: reinforcement-learning
+  name: Reinforcement learning
+  category: concept
+  aliases:
+  - Reinforcement learning
+
+- id: deep-learning
+  name: Deep learning
+  category: concept
+  aliases:
+  - Deep learning
+
+- id: neural-networks
+  name: Neural networks
+  category: concept
+  aliases:
+  - Neural networks
+
+- id: transformer-architecture
+  name: Transformer architecture
+  category: concept
+  aliases:
+  - Transformer architecture
+  - transformer model
+  - transformer models
+  - attention mechanism
+  - attention mechanisms
+  - multi-head attention
+  - cross-attention
+  - decoder-only
+
+- id: large-language-models
+  name: Large language models (LLMs)
+  category: concept
+  aliases:
+  - LLM
+  - LLMs
+  - large language model
+  - Large language models
+  - Large language models (LLMs)
+
+- id: generative-ai
+  name: Generative AI
+  category: concept
+  aliases:
+  - Generative AI
+
+- id: natural-language-processing
+  name: Natural language processing (NLP)
+  category: concept
+  aliases:
+  - NLP
+  - Natural language processing
+  - Natural language processing (NLP)
+
+- id: computer-vision
+  name: Computer vision
+  category: concept
+  aliases:
+  - Computer vision
+
+- id: speech-recognition
+  name: Speech recognition
+  category: concept
+  aliases:
+  - Speech recognition
+
+- id: recommender-systems
+  name: Recommender systems
+  category: concept
+  aliases:
+  - Recommender systems
+
+- id: information-retrieval
+  name: Information retrieval
+  category: concept
+  aliases:
+  - Information retrieval
+
+- id: ranking-systems
+  name: Ranking systems
+  category: concept
+  aliases:
+  - Ranking systems
+
+- id: representation-learning
+  name: Representation learning
+  category: concept
+  aliases:
+  - Representation learning
+
+- id: transfer-learning
+  name: Transfer learning
+  category: concept
+  aliases:
+  - Transfer learning
+
+- id: ensemble-learning
+  name: Ensemble learning
+  category: concept
+  aliases:
+  - Ensemble learning
+
+- id: gradient-boosting
+  name: Gradient boosting
+  category: concept
+  aliases:
+  - Gradient boosting
+
+- id: decision-trees
+  name: Decision trees
+  category: concept
+  aliases:
+  - Decision trees
+
+- id: random-forests
+  name: Random forests
+  category: concept
+  aliases:
+  - Random forests
+
+- id: support-vector-machines
+  name: Support vector machines
+  category: concept
+  aliases:
+  - Support vector machines
+
+- id: linear-models
+  name: Linear models
+  category: concept
+  aliases:
+  - Linear models
+
+- id: generalized-linear-models
+  name: Generalized linear models
+  category: concept
+  aliases:
+  - Generalized linear models
+
+- id: time-series-models
+  name: Time-series models
+  category: concept
+  aliases:
+  - Time series models
+  - Time-series models
+
+- id: explainable-ai
+  name: Explainable AI
+  category: concept
+  aliases:
+  - Explainable AI
+
+- id: responsible-ai
+  name: Responsible AI
+  category: concept
+  aliases:
+  - Responsible AI
+
+- id: ai-safety
+  name: AI safety
+  category: concept
+  aliases:
+  - AI safety
+
+- id: model-fairness
+  name: Model fairness
+  category: concept
+  aliases:
+  - Model fairness
+
+- id: feature-stores
+  name: Feature stores
+  category: concept
+  aliases:
+  - Feature stores
+
+- id: autoregressive-decoding
+  name: Autoregressive decoding
+  category: concept
+  aliases:
+  - Autoregressive decoding
+  - Autoregressive generation
+
+- id: memory-management
+  name: Memory management
+  category: concept
+  aliases:
+  - Memory management
+  - memory leak
+  - memory leaks
+  - memory pools
+
+- id: virtual-memory
+  name: Virtual memory
+  category: concept
+  aliases:
+  - Virtual memory
+
+- id: concurrency
+  name: Concurrency
+  category: concept
+  aliases:
+  - Concurrency
+  - Concurrent programming
+
+- id: synchronization
+  name: Synchronization
+  category: concept
+  aliases:
+  - Synchronization
+
+- id: race-conditions
+  name: Race conditions
+  category: concept
+  aliases:
+  - Race conditions
+
+- id: deadlocks
+  name: Deadlocks
+  category: concept
+  aliases:
+  - Deadlocks
+
+- id: atomics
+  name: Atomics
+  category: concept
+  aliases:
+  - Atomics
+  - atomic operation
+  - atomic operations
+  - compare-and-swap
+  - compare and swap
+  - std::atomic
+
+- id: mutexes
+  name: Mutexes
+  category: concept
+  aliases:
+  - Mutexes
+  - mutex
+
+- id: semaphores
+  name: Semaphores
+  category: concept
+  aliases:
+  - Semaphores
+  - semaphore
+
+- id: condition-variables
+  name: Condition variables
+  category: concept
+  aliases:
+  - Condition variables
+
+- id: coroutines
+  name: Coroutines
+  category: concept
+  aliases:
+  - Coroutines
+  - coroutine
+
+- id: posix-threads
+  name: POSIX threads
+  category: concept
+  aliases:
+  - POSIX threads
+  - pthread
+  - pthreads
+
+- id: inter-process-communication
+  name: Inter-process communication (IPC)
+  category: concept
+  aliases:
+  - IPC
+  - Inter process communication
+  - Inter-process communication
+  - Inter process communication (IPC)
+  - Inter-process communication (IPC)
+
+- id: asynchronous-i-o
+  name: Asynchronous I/O
+  category: concept
+  aliases:
+  - Asynchronous I/O
+
+- id: non-blocking-i-o
+  name: Non-blocking I/O
+  category: concept
+  aliases:
+  - Non blocking I/O
+  - Non-blocking I/O
+
+- id: cpu-cache-locality
+  name: CPU cache locality
+  category: concept
+  aliases:
+  - CPU cache locality
+  - cache locality
+  - cache line
+  - cache lines
+  - false sharing
+  - l1 cache
+  - l2 cache
+  - l3 cache
+
+- id: numa
+  name: NUMA
+  category: concept
+  aliases:
+  - NUMA
+
+- id: simd
+  name: SIMD
+  category: concept
+  aliases:
+  - SIMD
+
+- id: zero-copy-architecture
+  name: Zero-copy architecture
+  category: concept
+  aliases:
+  - Zero copy architecture
+  - Zero-copy architecture
+
+- id: kernel-bypass
+  name: Kernel bypass
+  category: concept
+  aliases:
+  - Kernel bypass
+  - kernel-bypass
+
+- id: udp-multicast
+  name: UDP multicast
+  category: concept
+  aliases:
+  - UDP multicast
+
+- id: gpu-architecture
+  name: GPU architecture
+  category: concept
+  aliases:
+  - GPU architecture
+
+- id: gpu-memory-hierarchy
+  name: GPU memory hierarchy
+  category: concept
+  aliases:
+  - GPU memory hierarchy
+
+- id: memory-coalescing
+  name: Memory coalescing
+  category: concept
+  aliases:
+  - Memory coalescing
+
+- id: memory-bandwidth
+  name: Memory bandwidth
+  category: concept
+  aliases:
+  - Memory bandwidth
+  - memory-bandwidth
+
+- id: gpu-virtualization
+  name: GPU virtualization
+  category: concept
+  aliases:
+  - GPU virtualization
+
+- id: floating-point-arithmetic
+  name: Floating-point arithmetic
+  category: concept
+  aliases:
+  - floating point
+  - floating-point
+  - Floating point arithmetic
+  - Floating-point arithmetic
+  case_sensitive_aliases:
+  - FP16
+  - BF16
+  - FP8
+
+- id: mixed-precision-computing
+  name: Mixed-precision computing
+  category: concept
+  aliases:
+  - mixed precision
+  - mixed-precision
+  - mixed precision training
+  - mixed-precision training
+  - automatic mixed precision
+  - Mixed precision computing
+  - Mixed-precision computing
+
+- id: roofline-model
+  name: Roofline model
+  category: concept
+  aliases:
+  - roofline
+  - Roofline model
+
+- id: real-time-scheduling
+  name: Real-time scheduling
+  category: concept
+  aliases:
+  - Real time scheduling
+  - Real-time scheduling
+
+- id: cybersecurity
+  name: Cybersecurity
+  category: concept
+  aliases:
+  - Cybersecurity
+  - Information security
+
+- id: application-security
+  name: Application security
+  category: concept
+  aliases:
+  - Application security
+
+- id: network-security
+  name: Network security
+  category: concept
+  aliases:
+  - Network security
+
+- id: cloud-security
+  name: Cloud security
+  category: concept
+  aliases:
+  - Cloud security
+
+- id: data-security
+  name: Data security
+  category: concept
+  aliases:
+  - Data security
+
+- id: systems-security
+  name: Systems security
+  category: concept
+  aliases:
+  - Systems security
+
+- id: software-supply-chain-security
+  name: Software supply-chain security
+  category: concept
+  aliases:
+  - Software supply chain security
+  - Software supply-chain security
+
+- id: zero-trust-architecture
+  name: Zero-trust architecture
+  category: concept
+  aliases:
+  - Zero trust architecture
+  - Zero-trust architecture
+
+- id: identity-and-access-management
+  name: Identity and access management (IAM)
+  category: concept
+  aliases:
+  - IAM
+  - Identity and access management
+  - Identity and access management (IAM)
+
+- id: authentication
+  name: Authentication
+  category: concept
+  aliases:
+  - Authentication
+  - Authentication implementation
+
+- id: authorization
+  name: Authorization
+  category: concept
+  aliases:
+  - access authorization
+  - authorization controls
+  - authentication and authorization
+  ambiguous_aliases:
+  - authorization
+
+- id: cryptography
+  name: Cryptography
+  category: concept
+  aliases:
+  - Cryptography
+
+- id: public-key-infrastructure
+  name: Public-key infrastructure (PKI)
+  category: concept
+  aliases:
+  - PKI
+  - Public key infrastructure
+  - Public-key infrastructure
+  - Public key infrastructure (PKI)
+  - Public-key infrastructure (PKI)
+
+- id: encryption
+  name: Encryption
+  category: concept
+  aliases:
+  - Encryption
+
+- id: hashing
+  name: Hashing
+  category: concept
+  aliases:
+  - Hashing
+
+- id: digital-signatures
+  name: Digital signatures
+  category: concept
+  aliases:
+  - Digital signatures
+
+- id: secure-software-development-lifecycle
+  name: Secure software development lifecycle (SSDLC)
+  category: concept
+  aliases:
+  - SSDLC
+  - Secure software development lifecycle
+  - Secure software development lifecycle (SSDLC)
+
+- id: security-information-and-event-management
+  name: Security information and event management (SIEM)
+  category: concept
+  aliases:
+  - SIEM
+  - Security information and event management
+  - Security information and event management (SIEM)
+
+- id: threat-intelligence
+  name: Threat intelligence
+  category: concept
+  aliases:
+  - Threat intelligence
+
+- id: incident-management
+  name: Incident management
+  category: concept
+  aliases:
+  - Incident management
+
+- id: privacy-engineering
+  name: Privacy engineering
+  category: concept
+  aliases:
+  - Privacy engineering
+
+- id: data-privacy
+  name: Data privacy
+  category: concept
+  aliases:
+  - Data privacy
+
+- id: quantitative-finance
+  name: Quantitative finance
+  category: concept
+  aliases:
+  - Quantitative finance
+
+- id: financial-mathematics
+  name: Financial mathematics
+  category: concept
+  aliases:
+  - Financial mathematics
+
+- id: financial-engineering
+  name: Financial engineering
+  category: concept
+  aliases:
+  - Financial engineering
+
+- id: econometrics
+  name: Econometrics
+  category: concept
+  aliases:
+  - Econometrics
+
+- id: economics
+  name: Economics
+  category: concept
+  aliases:
+  - Economics
+
+- id: microeconomics
+  name: Microeconomics
+  category: concept
+  aliases:
+  - Microeconomics
+
+- id: macroeconomics
+  name: Macroeconomics
+  category: concept
+  aliases:
+  - Macroeconomics
+
+- id: corporate-finance
+  name: Corporate finance
+  category: concept
+  aliases:
+  - Corporate finance
+
+- id: accounting
+  name: Accounting
+  category: concept
+  aliases:
+  - Accounting
+
+- id: financial-statements
+  name: Financial statements
+  category: concept
+  aliases:
+  - Financial statements
+
+- id: capital-markets
+  name: Capital markets
+  category: concept
+  aliases:
+  - Capital markets
+
+- id: equity-markets
+  name: Equity markets
+  category: concept
+  aliases:
+  - Equity markets
+
+- id: fixed-income-markets
+  name: Fixed-income markets
+  category: concept
+  aliases:
+  - Fixed income markets
+  - Fixed-income markets
+
+- id: foreign-exchange-markets
+  name: Foreign-exchange markets
+  category: concept
+  aliases:
+  - Foreign exchange markets
+  - Foreign-exchange markets
+
+- id: commodities-markets
+  name: Commodities markets
+  category: concept
+  aliases:
+  - Commodities markets
+
+- id: derivatives
+  name: Derivatives
+  category: concept
+  aliases:
+  - Derivatives
+
+- id: options
+  name: Options
+  category: concept
+  aliases:
+  - options pricing
+  - options trading
+  - financial options
+  ambiguous_aliases:
+  - options
+
+- id: futures
+  name: Futures
+  category: concept
+  aliases:
+  - Futures
+
+- id: swaps
+  name: Swaps
+  category: concept
+  aliases:
+  - Swaps
+
+- id: market-microstructure
+  name: Market microstructure
+  category: concept
+  aliases:
+  - Market microstructure
+  - order book dynamics
+  - bid-ask spread
+  - bid ask spread
+  - price formation
+
+- id: order-books
+  name: Order books
+  category: concept
+  aliases:
+  - orderbook
+  - order book
+  - order-book
+  - Order books
+  - limit order book
+
+- id: market-data
+  name: Market data
+  category: concept
+  aliases:
+  - Market data
+  - market-data
+
+- id: electronic-trading
+  name: Electronic trading
+  category: concept
+  aliases:
+  - Electronic trading
+
+- id: high-frequency-trading
+  name: High-frequency trading
+  category: concept
+  aliases:
+  - High frequency trading
+  - High-frequency trading
+  case_sensitive_aliases:
+  - HFT
+
+- id: quantitative-research
+  name: Quantitative research
+  category: concept
+  aliases:
+  - Quantitative research
+
+- id: portfolio-theory
+  name: Portfolio theory
+  category: concept
+  aliases:
+  - Portfolio theory
+
+- id: asset-pricing
+  name: Asset pricing
+  category: concept
+  aliases:
+  - Asset pricing
+
+- id: arbitrage
+  name: Arbitrage
+  category: concept
+  aliases:
+  - Arbitrage
+
+- id: risk-management
+  name: Risk management
+  category: concept
+  aliases:
+  - Risk management
+
+- id: market-risk
+  name: Market risk
+  category: concept
+  aliases:
+  - Market risk
+
+- id: credit-risk
+  name: Credit risk
+  category: concept
+  aliases:
+  - Credit risk
+
+- id: liquidity-risk
+  name: Liquidity risk
+  category: concept
+  aliases:
+  - Liquidity risk
+
+- id: operational-risk
+  name: Operational risk
+  category: concept
+  aliases:
+  - Operational risk
+
+- id: model-risk
+  name: Model risk
+  category: concept
+  aliases:
+  - Model risk
+
+- id: counterparty-risk
+  name: Counterparty risk
+  category: concept
+  aliases:
+  - Counterparty risk
+
+- id: volatility
+  name: Volatility
+  category: concept
+  aliases:
+  - Volatility
+
+- id: yield-curves
+  name: Yield curves
+  category: concept
+  aliases:
+  - Yield curves
+
+- id: term-structure
+  name: Term structure
+  category: concept
+  aliases:
+  - Term structure
+
+- id: actuarial-science
+  name: Actuarial science
+  category: concept
+  aliases:
+  - Actuarial science
+
+- id: computational-finance
+  name: Computational finance
+  category: concept
+  aliases:
+  - Computational finance
+
+- id: blockchain
+  name: Blockchain
+  category: concept
+  aliases:
+  - Blockchain
+
+- id: distributed-ledger-technology
+  name: Distributed ledger technology
+  category: concept
+  aliases:
+  - Distributed ledger technology
+
+- id: devops
+  name: DevOps
+  category: concept
+  aliases:
+  - DevOps
+
+- id: site-reliability-engineering
+  name: Site reliability engineering (SRE)
+  category: concept
+  aliases:
+  - SRE
+  - Site reliability engineering
+  - Site reliability engineering (SRE)
+
+- id: reliability-engineering
+  name: Reliability engineering
+  category: concept
+  aliases:
+  - Reliability engineering
+
+- id: quality-assurance
+  name: Quality assurance
+  category: concept
+  aliases:
+  - Quality assurance
+
+- id: technical-debt
+  name: Technical debt
+  category: concept
+  aliases:
+  - Technical debt
+
+- id: open-source-software
+  name: Open-source software
+  category: concept
+  aliases:
+  - Open source software
+  - Open-source software
+
+- id: matching-engines
+  name: Matching engines
+  category: concept
+  aliases:
+  - matching engines
+  - matching engine
+
+- id: circuit-breaker-pattern
+  name: Circuit breaker pattern
+  category: concept
+  aliases:
+  - circuit breaker
+  - circuit breakers
+
+- id: reverse-proxy
+  name: Reverse proxy
+  category: concept
+  aliases:
+  - reverse proxy
+  - reverse proxies
+
+- id: message-brokers
+  name: Message brokers
+  category: concept
+  aliases:
+  - message brokers
+  - message broker
+
+- id: event-loops
+  name: Event loops
+  category: concept
+  aliases:
+  - event loops
+  - event loop
+
+- id: io-uring
+  name: io_uring
+  category: concept
+  aliases:
+  - io_uring
+
+- id: epoll
+  name: epoll
+  category: concept
+  aliases:
+  - epoll
+
+- id: memory-mapped-i-o
+  name: Memory-mapped I/O
+  category: concept
+  aliases:
+  - memory-mapped i/o
+  - memory mapped io
+  - memory-mapped io
+  - mmap
+
+- id: shared-memory
+  name: Shared memory
+  category: concept
+  aliases:
+  - shared memory
+  - shared-memory
+
+- id: market-depth
+  name: Market depth
+  category: concept
+  aliases:
+  - market depth
+
+- id: strong-consistency
+  name: Strong consistency
+  category: concept
+  aliases:
+  - strong consistency
+
+- id: pacelc-theorem
+  name: PACELC theorem
+  category: concept
+  aliases:
+  - pacelc
+
+- id: immutability
+  name: Immutability
+  category: concept
+  aliases:
+  - immutability
+
+- id: pure-functions
+  name: Pure functions
+  category: concept
+  aliases:
+  - pure functions
+
+- id: stationarity
+  name: Stationarity
+  category: concept
+  aliases:
+  - stationarity
+
+- id: vector-databases
+  name: Vector databases
+  category: concept
+  aliases:
+  - vector database
+  - vector databases
+  - vector DB
+  - vector DBs
+  - vector store
+  - vector stores
+  - vector-db
+  - embedding stores
+
+- id: service-mesh
+  name: Service mesh
+  category: concept
+  aliases:
+  - service mesh
+  - service meshes
+
+- id: api-gateway
+  name: API gateway
+  category: concept
+  aliases:
+  - API gateway
+  - API gateways
+
+- id: streamlit
+  name: Streamlit
+  category: framework
+  aliases:
+  - Streamlit
+
+- id: gradio
+  name: Gradio
+  category: framework
+  aliases:
+  - Gradio
+
+- id: angular
+  name: Angular
+  category: framework
+  aliases:
+  - Angular
+
+- id: vue-js
+  name: Vue.js
+  category: framework
+  aliases:
+  - Vuejs
+  - Vue.js
+
+- id: next-js
+  name: Next.js
+  category: framework
+  aliases:
+  - Nextjs
+  - Next.js
+
+- id: nuxt
+  name: Nuxt
+  category: framework
+  aliases:
+  - Nuxt
+
+- id: express-js
+  name: Express.js
+  category: framework
+  aliases:
+  - Expressjs
+  - Express.js
+
+- id: nestjs
+  name: NestJS
+  category: framework
+  aliases:
+  - NestJS
+
+- id: django
+  name: Django
+  category: framework
+  aliases:
+  - Django
+
+- id: flask
+  name: Flask
+  category: framework
+  aliases:
+  - Python Flask
+  - Flask framework
+  case_sensitive_aliases:
+  - Flask
+  ambiguous_aliases:
+  - flask
+
+- id: fastapi
+  name: FastAPI
+  category: framework
+  aliases:
+  - FastAPI
+
+- id: ruby-on-rails
+  name: Ruby on Rails
+  category: framework
+  aliases:
+  - Ruby on Rails
+
+- id: spring
+  name: Spring
+  category: framework
+  aliases:
+  - Spring Framework
+  ambiguous_aliases:
+  - spring
+
+- id: spring-boot
+  name: Spring Boot
+  category: framework
+  aliases:
+  - Spring Boot
+
+- id: aspdotnet-core
+  name: ASP.NET Core
+  category: framework
+  aliases:
+  - ASP.NET Core
+
+- id: laravel
+  name: Laravel
+  category: framework
+  aliases:
+  - Laravel
+
+- id: symfony
+  name: Symfony
+  category: framework
+  aliases:
+  - Symfony
+
+- id: react-native
+  name: React Native
+  category: framework
+  aliases:
+  - React Native
+
+- id: flutter
+  name: Flutter
+  category: framework
+  aliases:
+  - Flutter
+
+- id: swiftui
+  name: SwiftUI
+  category: framework
+  aliases:
+  - SwiftUI
+
+- id: uikit
+  name: UIKit
+  category: framework
+  aliases:
+  - UIKit
+
+- id: qt
+  name: Qt
+  category: framework
+  aliases:
+  - Qt
+
+- id: dotnet-maui
+  name: .NET MAUI
+  category: framework
+  aliases:
+  - .NET MAUI
+
+- id: apache-beam
+  name: Apache Beam
+  category: framework
+  aliases:
+  - Apache Beam
+
+- id: celery
+  name: Celery
+  category: framework
+  aliases:
+  - Python Celery
+  - Celery task queue
+  case_sensitive_aliases:
+  - Celery
+  ambiguous_aliases:
+  - celery
+
+- id: ray
+  name: Ray
+  category: framework
+  aliases:
+  - ray.io
+  - Ray framework
+  - Ray Core
+  - Ray Train
+  - Ray Tune
+  - Ray Data
+  - Ray cluster
+  - Ray clusters
+  ambiguous_aliases:
+  - ray
+
+- id: langchain
+  name: LangChain
+  category: framework
+  aliases:
+  - LangChain
+
+- id: llamaindex
+  name: LlamaIndex
+  category: framework
+  aliases:
+  - LlamaIndex
+
+- id: hadoop-mapreduce
+  name: Hadoop MapReduce
+  category: framework
+  aliases:
+  - Hadoop MapReduce
+
+- id: megatron-lm
+  name: Megatron-LM
+  category: framework
+  aliases:
+  - Megatron LM
+  - Megatron-LM
+
+- id: deepspeed
+  name: DeepSpeed
+  category: framework
+  aliases:
+  - DeepSpeed
+
+- id: horovod
+  name: Horovod
+  category: framework
+  aliases:
+  - Horovod
+
+- id: pytorch-lightning
+  name: PyTorch Lightning
+  category: framework
+  aliases:
+  - PyTorch Lightning
+
+- id: ray-serve
+  name: Ray Serve
+  category: framework
+  aliases:
+  - Ray Serve
+
+- id: bentoml
+  name: BentoML
+  category: framework
+  aliases:
+  - BentoML
+
+- id: postgresql
+  name: PostgreSQL
+  category: datastore
+  aliases:
+  - Postgres
+  - PostgreSQL
+
+- id: mysql
+  name: MySQL
+  category: datastore
+  aliases:
+  - MySQL
+
+- id: mariadb
+  name: MariaDB
+  category: datastore
+  aliases:
+  - MariaDB
+
+- id: sqlite
+  name: SQLite
+  category: datastore
+  aliases:
+  - SQLite
+
+- id: microsoft-sql-server
+  name: Microsoft SQL Server
+  category: datastore
+  aliases:
+  - SQL Server
+  - MS SQL Server
+  - Microsoft SQL Server
+
+- id: oracle-database
+  name: Oracle Database
+  category: datastore
+  aliases:
+  - Oracle Database
+
+- id: ibm-db2
+  name: IBM Db2
+  category: datastore
+  aliases:
+  - IBM Db2
+
+- id: mongodb
+  name: MongoDB
+  category: datastore
+  aliases:
+  - MongoDB
+
+- id: redis
+  name: Redis
+  category: datastore
+  aliases:
+  - Redis
+
+- id: apache-cassandra
+  name: Apache Cassandra
+  category: datastore
+  aliases:
+  - Apache Cassandra
+
+- id: amazon-dynamodb
+  name: Amazon DynamoDB
+  category: datastore
+  aliases:
+  - DynamoDB
+  - Amazon DynamoDB
+
+- id: elasticsearch
+  name: Elasticsearch
+  category: datastore
+  aliases:
+  - Elasticsearch
+
+- id: opensearch
+  name: OpenSearch
+  category: datastore
+  aliases:
+  - OpenSearch
+
+- id: neo4j
+  name: Neo4j
+  category: datastore
+  aliases:
+  - Neo4j
+
+- id: duckdb
+  name: DuckDB
+  category: datastore
+  aliases:
+  - DuckDB
+
+- id: clickhouse
+  name: ClickHouse
+  category: datastore
+  aliases:
+  - ClickHouse
+
+- id: cockroachdb
+  name: CockroachDB
+  category: datastore
+  aliases:
+  - CockroachDB
+
+- id: influxdb
+  name: InfluxDB
+  category: datastore
+  aliases:
+  - InfluxDB
+
+- id: timescaledb
+  name: TimescaleDB
+  category: datastore
+  aliases:
+  - TimescaleDB
+
+- id: rocksdb
+  name: RocksDB
+  category: datastore
+  aliases:
+  - RocksDB
+
+- id: lmdb
+  name: LMDB
+  category: datastore
+  aliases:
+  - LMDB
+
+- id: pgvector
+  name: pgvector
+  category: datastore
+  aliases:
+  - pgvector
+
+- id: weaviate
+  name: Weaviate
+  category: datastore
+  aliases:
+  - Weaviate
+
+- id: milvus
+  name: Milvus
+  category: datastore
+  aliases:
+  - Milvus
+
+- id: qdrant
+  name: Qdrant
+  category: datastore
+  aliases:
+  - Qdrant
+
+- id: apache-druid
+  name: Apache Druid
+  category: datastore
+  aliases:
+  - Apache Druid
+  case_sensitive_aliases:
+  - Druid
+
+- id: chromadb
+  name: ChromaDB
+  category: datastore
+  aliases:
+  - ChromaDB
+
+- id: http-https
+  name: HTTP / HTTPS
+  category: protocol
+  aliases:
+  - HTTP
+  - HTTPS
+  - HTTP / HTTPS
+
+- id: tcp-ip
+  name: TCP/IP
+  category: protocol
+  aliases:
+  - TCP/IP
+  case_sensitive_aliases:
+  - TCP
+
+- id: udp
+  name: UDP
+  category: protocol
+  aliases:
+  - UDP
+
+- id: websockets
+  name: WebSockets
+  category: protocol
+  aliases:
+  - WebSockets
+  - websocket
+
+- id: grpc
+  name: gRPC
+  category: protocol
+  aliases:
+  - gRPC
+
+- id: oauth-2-0
+  name: OAuth 2.0
+  category: protocol
+  aliases:
+  - OAuth 2.0
+
+- id: openid-connect
+  name: OpenID Connect (OIDC)
+  category: protocol
+  aliases:
+  - OIDC
+  - OpenID Connect
+  - OpenID Connect (OIDC)
+
+- id: saml
+  name: SAML
+  category: protocol
+  aliases:
+  - SAML
+
+- id: ssh
+  name: SSH
+  category: protocol
+  aliases:
+  - SSH
+
+- id: tls-ssl
+  name: TLS / SSL
+  category: protocol
+  aliases:
+  - SSL
+  - TLS
+  - TLS / SSL
+
+- id: dns
+  name: DNS
+  category: protocol
+  aliases:
+  - DNS
+
+- id: dhcp
+  name: DHCP
+  category: protocol
+  aliases:
+  - DHCP
+
+- id: smtp
+  name: SMTP
+  category: protocol
+  aliases:
+  - SMTP
+
+- id: mqtt
+  name: MQTT
+  category: protocol
+  aliases:
+  - MQTT
+
+- id: amqp
+  name: AMQP
+  category: protocol
+  aliases:
+  - AMQP
+
+- id: fix-protocol
+  name: FIX Protocol
+  category: protocol
+  aliases:
+  - FIX Protocol
+
+- id: precision-time-protocol
+  name: Precision Time Protocol
+  category: protocol
+  aliases:
+  - precision time protocol
+  - IEEE 1588
+  - PTP clock
+
+- id: itch-ouch-protocols
+  name: ITCH/OUCH Protocols
+  category: protocol
+  aliases:
+  - ITCH/OUCH Protocols
+  case_sensitive_aliases:
+  - ITCH
+  - OUCH
+
+- id: simple-binary-encoding
+  name: Simple Binary Encoding (SBE)
+  category: protocol
+  aliases:
+  - SBE
+  - Simple Binary Encoding
+  - Simple Binary Encoding (SBE)
+
+- id: rdma
+  name: RDMA
+  category: protocol
+  aliases:
+  - RDMA
+
+- id: pci-express
+  name: PCI Express (PCIe)
+  category: protocol
+  aliases:
+  - PCIe
+  - PCI Express
+  - PCI Express (PCIe)
+
+- id: nvlink
+  name: NVLink
+  category: protocol
+  aliases:
+  - NVLink
+
+- id: infiniband
+  name: InfiniBand
+  category: protocol
+  aliases:
+  - InfiniBand
+
+- id: roce
+  name: RoCE
+  category: protocol
+  aliases:
+  - RoCE
+
+- id: json
+  name: JSON
+  category: format
+  aliases:
+  - JSON
+
+- id: xml
+  name: XML
+  category: format
+  aliases:
+  - XML
+
+- id: yaml
+  name: YAML
+  category: format
+  aliases:
+  - YAML
+
+- id: csv
+  name: CSV
+  category: format
+  aliases:
+  - CSV
+
+- id: apache-parquet
+  name: Apache Parquet
+  category: format
+  aliases:
+  - Parquet
+  - Apache Parquet
+
+- id: apache-arrow
+  name: Apache Arrow
+  category: format
+  aliases:
+  - Apache Arrow
+
+- id: apache-orc
+  name: Apache ORC
+  category: format
+  aliases:
+  - Apache ORC
+  - ORC format
+  case_sensitive_aliases:
+  - ORC
+
+- id: apache-avro
+  name: Apache Avro
+  category: format
+  aliases:
+  - Apache Avro
+
+- id: protocol-buffers
+  name: Protocol Buffers
+  category: format
+  aliases:
+  - Protobuf
+  - Protocol Buffer
+  - Protocol Buffers
+
+- id: flatbuffers
+  name: FlatBuffers
+  category: format
+  aliases:
+  - FlatBuffers
+
+- id: onnx
+  name: ONNX
+  category: format
+  aliases:
+  - ONNX
+
+- id: gguf
+  name: GGUF
+  category: format
+  aliases:
+  - GGUF
+
+- id: hdf5
+  name: HDF5
+  category: format
+  aliases:
+  - HDF5
+
+- id: netcdf
+  name: NetCDF
+  category: format
+  aliases:
+  - NetCDF
+
+- id: delta-lake
+  name: Delta Lake
+  category: format
+  aliases:
+  - Delta Lake
+  - Delta table
+  - Delta tables
+
+- id: apache-iceberg
+  name: Apache Iceberg
+  category: format
+  aliases:
+  - Apache Iceberg
+  - Iceberg tables
+  - Iceberg format
+  - Iceberg catalog
+  case_sensitive_aliases:
+  - Iceberg
+
+- id: openapi
+  name: OpenAPI
+  category: format
+  aliases:
+  - OpenAPI
+  - Open API spec
+
+- id: apache-hudi
+  name: Apache Hudi
+  category: format
+  aliases:
+  - Apache Hudi
+  case_sensitive_aliases:
+  - Hudi
+
+- id: fpga
+  name: FPGA
+  category: hardware
+  aliases:
+  - FPGA
+
+- id: asic
+  name: ASIC
+  category: hardware
+  aliases:
+  - ASIC
+
+- id: microcontrollers
+  name: Microcontrollers
+  category: hardware
+  aliases:
+  - Microcontrollers
+
+- id: arm-architecture
+  name: ARM architecture
+  category: hardware
+  aliases:
+  - ARM architecture
+
+- id: x86-architecture
+  name: x86 architecture
+  category: hardware
+  aliases:
+  - x86 architecture
+
+- id: tensor-cores
+  name: Tensor Cores
+  category: hardware
+  aliases:
+  - Tensor Cores
+  - tensor core
+
+- id: high-bandwidth-memory
+  name: High Bandwidth Memory (HBM)
+  category: hardware
+  aliases:
+  - HBM
+  - High Bandwidth Memory
+  - High Bandwidth Memory (HBM)
+  case_sensitive_aliases:
+  - HBM3
+
+- id: nvswitch
+  name: NVSwitch
+  category: hardware
+  aliases:
+  - NVSwitch
