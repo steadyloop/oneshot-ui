@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 import os
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 
 def _repo_root() -> Path:
@@ -62,6 +63,23 @@ def _flag(raw: str, *, default: bool) -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _database_url(raw: str) -> str:
+    """Adapt a libpq-style URL for asyncpg without weakening TLS."""
+    value = raw.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        value = value[1:-1]
+    if not value:
+        return ""
+
+    parsed = urlsplit(value)
+    query = urlencode([
+        (key, item)
+        for key, item in parse_qsl(parsed.query, keep_blank_values=True)
+        if key != "channel_binding"
+    ])
+    return urlunsplit(parsed._replace(query=query))
+
+
 @dataclass(frozen=True, slots=True)
 class Settings:
     dsn: str
@@ -84,7 +102,7 @@ class Settings:
 def load_settings() -> Settings:
     load_dotenv_files()
     return Settings(
-        dsn=os.environ.get("DATABASE_URL", ""),
+        dsn=_database_url(os.environ.get("DATABASE_URL", "")),
         host=os.environ.get("ONESHOT_HOST", "127.0.0.1"),
         port=int(os.environ.get("ONESHOT_PORT", "8766")),
         static_dir=os.environ.get("ONESHOT_STATIC_DIR") or _default_static_dir(),
