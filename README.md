@@ -29,39 +29,14 @@ cd frontend && node --test
 
 ## Sample data
 
-`sample-data.js` is a complete in-browser fake of the API. With it on, a page
-works with no server and no database — useful for design work and for previewing
-a deploy before a backend exists. `transport()` short-circuits to the fake before
-`fetch` is reached, so nothing in sample mode reaches the network.
+`sample-data.js` retains deterministic fixtures for tests, but production pages
+never enable them. Opportunities and Feed Status always use the live API.
+Opportunities, Applications, and Resume load the file only for
+`OneShotVisitorData`, the separate browser-local guest workspace described
+below.
 
-**Fixture mode is Applications-only, and there is no switch.** Opportunities
-always talks to the real API. Feed Status is a read-only report on the
-harvest itself, and a demo mode there would only hide what the page exists to
-show. Resume serves signed-out visitors from their own empty browser-local
-workspace instead of a fixture persona — the sample resume content is gone.
-Opportunities and Resume still load `sample-data.js`, but only for
-`OneShotVisitorData`, the separate browser-local guest workspace — see Sign-in
-below. Feed Status loads neither.
-
-The Resume page does have an explicit, browser-local **interactive mockup** for
-design review. An empty signed-out workspace offers “Load sample workspace,” and
-`/resume/?demo=1` performs the same opt-in load. It seeds fictional content into
-`OneShotVisitorData`; from that point every edit uses the normal guest CRUD
-routes. This is not fixture mode, never replaces a non-empty workspace, and is
-not available for a signed-in account.
-
-`PAGES` in `sample-data.js` maps a pathname to a storage key
-(`oneshot.sample-data.enabled.application`), which is what makes fixture mode
-resolvable on Applications at all. Every caller is unchanged by this: a page
-only ever requests its own data, so "is sample mode on" and "is it on for this
-page" are the same question at the one place that asks — `transport()` in
-`api-client.js`.
-
-**Fixture mode is guest-only.** With nobody signed in and nothing of your own on
-the board, Applications opens on the fixtures; real browser-local work is never
-hidden behind them. If a session does turn up while the fixture flag is on — you
-signed in from another tab — `disableAll()` clears it and the page reloads if it
-was this page's.
+Signed-out Applications starts empty. Jobs added from Opportunities and manually
+created applications are persisted in the visitor workspace and appear there.
 
 ## Sign-in
 
@@ -72,10 +47,8 @@ workspace, and it does not synchronize across browsers. Signing in swaps private
 CRUD to the account-scoped PostgreSQL API; the browser-local workspace is kept
 but is not merged automatically.
 
-`sample-data.js` owns both in-browser transports because they implement the same
-request contract, but sample and visitor state use different keys. Browser-local
-resumes can run content and coverage checks; export renders through the public
-`/api/resume/render/*` routes either way.
+A browser-local resume exports through the public `POST /api/resume/render/pdf`
+route, which takes the whole document in the request.
 
 The 401 → `/login/` handlers cover a signed-in session expiring between the
 shared identity probe and a private request. Anonymous private requests are

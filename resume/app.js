@@ -1,4 +1,4 @@
-/* OneShot Resume Studio: reusable proof -> target role -> tailored document. */
+/* OneShot resumes: one master profile, many tailored documents. */
 (() => {
   "use strict";
 
@@ -7,82 +7,69 @@
     entries: [],
     skills: [],
     variants: [],
-    vocabulary: [],
     jobs: [],
     resumes: [],
-    typstAvailable: false,
-    browserLocal: false,
-    tab: "bank",
     resumeId: null,
-    bankKind: "all",
-    bankQuery: "",
-    coverage: null,
-    check: null,
+    browserLocal: false,
+    tab: "profile",
+    mode: "content",
+    addingKind: null,
+    addingSkill: false,
+    addingCourse: false,
+    addingBulletEntry: null,
+    renamingResumeId: null,
+    openSections: new Set(["skills", "experience", "project", "research", "leadership"]),
+    pdfUrl: null,
   };
-
-  const KIND_TITLES = {
-    education: "Education",
-    experience: "Experience",
-    research: "Research",
-    project: "Projects",
-    leadership: "Leadership",
-  };
-  const KIND_SINGULAR = {
-    education: "Education",
-    experience: "Experience",
-    research: "Research",
-    project: "Project",
-    leadership: "Leadership",
-  };
-  const SKILL_TITLES = {
-    language: "Languages",
-    framework: "Frameworks & Libraries",
-    tool: "Tools",
-    math: "Methods",
-  };
-  const PREVIEW_KIND_ORDER = ["education", "experience", "research", "project", "leadership"];
 
   const view = document.getElementById("view");
+  const tabAction = document.getElementById("tab-action");
   const toast = document.getElementById("toast");
   let toastTimer = null;
+
+  const KIND = {
+    education: { title: "Education", add: "Add education" },
+    experience: { title: "Experience", add: "Add experience" },
+    project: { title: "Projects", add: "Add project" },
+    research: { title: "Research", add: "Add research" },
+    leadership: { title: "Leadership", add: "Add leadership" },
+  };
+  const SECTION_ORDER = ["education", "skills", "experience", "project", "research", "leadership"];
+  const COLLAPSIBLE = new Set(["skills", "experience", "project", "research", "leadership"]);
+  const SKILL_GROUPS = [
+    { key: "language", title: "Languages", categories: ["language"] },
+    { key: "framework", title: "Frameworks & Libraries", categories: ["framework"] },
+    { key: "tool", title: "Tools & Systems", categories: ["tool", "math"] },
+  ];
 
   const esc = value => String(value ?? "").replace(/[&<>"']/g, character => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
   }[character]));
+  // People paste "github.com/name" far more often than they type a scheme, so a
+  // missing one is filled in rather than rejected. Parsing with no base keeps a
+  // schemeless value from resolving against this origin as a same-site path.
+  const webUrl = value => {
+    const raw = String(value || "").trim();
+    if (!raw) return null;
+    try {
+      const url = new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`);
+      return ["http:", "https:"].includes(url.protocol) && url.hostname.includes(".") ? url : null;
+    } catch (_) {
+      return null;
+    }
+  };
+  const href = value => {
+    const url = webUrl(value);
+    return url ? esc(url.href) : "#";
+  };
+  const icon = name => `<svg aria-hidden="true"><use href="#icon-${name}"/></svg>`;
+  const localMode = () => state.browserLocal;
 
   function say(message) {
     toast.textContent = message;
     toast.classList.add("show");
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toast.classList.remove("show"), 2800);
-  }
-
-  const icon = name => `<svg aria-hidden="true"><use href="#icon-${name}"/></svg>`;
-  const localMode = () => state.browserLocal;
-  const renderPayload = resume => ({
-    profile: state.profile,
-    resume,
-    entries: state.entries,
-    skills: state.skills,
-  });
-
-  async function renderLocally(kind, resume, asJson = false) {
-    const response = await fetch(`/api/resume/render/${kind}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(renderPayload(resume)),
-    });
-    if (!response.ok) {
-      const payload = await response.json().catch(() => null);
-      throw new Error(typeof payload?.detail === "string" ? payload.detail : `Export failed (${response.status})`);
-    }
-    return asJson ? response.json() : response.blob();
-  }
-
-  async function openRendered(kind, resume) {
-    const url = URL.createObjectURL(await renderLocally(kind, resume));
-    if (!window.open(url, "_blank")) say("Allow pop-ups to open the export.");
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    toastTimer = setTimeout(() => toast.classList.remove("show"), 2400);
   }
 
   async function api(path, options = {}) {
@@ -95,694 +82,510 @@
       ? await window.OneShotVisitorData.request(`/resume${path}`, init)
       : await fetch(`/api/resume${path}`, init);
     if (response.status === 401) {
-      if (window.location.pathname !== "/login/") window.location.assign("/login/");
+      if (location.pathname !== "/login/") location.assign("/login/");
       return new Promise(() => {});
     }
     if (response.status === 204) return null;
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(typeof payload.detail === "string" ? payload.detail : "Request failed");
-    }
+    if (!response.ok) throw new Error(typeof payload.detail === "string" ? payload.detail : "Request failed");
     return payload;
   }
 
   async function loadAll() {
-    const [profile, entries, skills, variants, vocabulary, jobs, resumes] = await Promise.all([
+    const [profile, entries, skills, variants, jobs, resumes] = await Promise.all([
       api("/profile"), api("/entries"), api("/skills"), api("/variants"),
-      api("/vocabulary"), api("/jobs"), api("/resumes"),
+      api("/jobs"), api("/resumes"),
     ]);
     state.profile = profile;
-    state.entries = entries.entries;
-    state.skills = skills.skills;
+    state.entries = entries.entries || [];
+    state.skills = skills.skills || [];
     state.variants = variants.variants || [];
-    state.vocabulary = vocabulary.terms || [];
-    state.jobs = jobs.jobs;
-    state.resumes = resumes.resumes;
-    state.typstAvailable = resumes.typst_available;
-    if (state.resumeId === null && state.resumes.length) state.resumeId = state.resumes[0].id;
-
-    state.browserLocal = Boolean(
-      window.OneShotVisitorData && await window.OneShotVisitorData.isLocal()
-    );
-    if (localMode()) {
-      state.typstAvailable = await fetch("/api/resume/render/status")
-        .then(response => response.ok ? response.json() : { typst_available: false })
-        .then(payload => Boolean(payload.typst_available))
-        .catch(() => false);
-    }
-    const badge = document.getElementById("typst-badge");
-    badge.hidden = state.typstAvailable;
-    badge.textContent = "Typst not installed · PDF export unavailable";
+    state.jobs = jobs.jobs || [];
+    state.resumes = resumes.resumes || [];
+    state.browserLocal = Boolean(window.OneShotVisitorData && await window.OneShotVisitorData.isLocal());
+    if (!state.resumes.some(resume => resume.id === state.resumeId)) state.resumeId = state.resumes[0]?.id ?? null;
   }
 
   const currentResume = () => state.resumes.find(resume => resume.id === state.resumeId) || null;
-  const bulletCount = () => state.entries.reduce((total, entry) => total + entry.bullets.length, 0);
-  const workspaceIsEmpty = () => !state.profile?.full_name && !state.entries.length
-    && !state.skills.length && !state.jobs.length && !state.resumes.length;
-
-  function profileCompletion() {
-    const profile = state.profile || {};
-    const values = [profile.full_name, profile.email, profile.phone, profile.location, profile.links?.length];
-    return Math.round(values.filter(Boolean).length / values.length * 100);
-  }
-
-  function updateChrome() {
-    const counts = {
-      bank: bulletCount() + state.skills.length,
-      targets: state.jobs.length,
-      builder: state.resumes.length,
-    };
-    document.querySelectorAll("[data-tab]").forEach(button => {
-      const active = button.dataset.tab === state.tab;
-      button.setAttribute("aria-selected", String(active));
-      button.tabIndex = active ? 0 : -1;
-    });
-    document.querySelectorAll("[data-tab-count]").forEach(node => {
-      node.textContent = counts[node.dataset.tabCount];
-    });
-    const selected = document.querySelector(`[data-tab="${state.tab}"]`);
-    view.setAttribute("aria-labelledby", selected?.id || "tab-bank");
-  }
-
-  function render() {
-    updateChrome();
-    if (state.tab === "bank") renderBank();
-    else if (state.tab === "targets") renderTargets();
-    else renderBuilder();
-  }
-
-  function selectTab(tab) {
-    state.tab = tab;
-    render();
-  }
-
-  function demoCallout() {
-    if (!state.browserLocal || !workspaceIsEmpty()) return "";
-    return `
-      <section class="demo-callout">
-        <div class="demo-icon">${icon("spark")}</div>
-        <div><p class="eyebrow">Interactive mockup</p><h2>See the full workflow with sample data</h2>
-          <p>Load a fictional profile, proof points, target roles, and two tailored resumes. Everything remains editable and stays in this browser.</p></div>
-        <button class="button primary" data-action="load-demo">Load sample workspace</button>
-      </section>`;
-  }
-
-  function overviewStrip() {
-    const cards = [
-      ["Profile", `${profileCompletion()}%`, "complete"],
-      ["Proof points", bulletCount(), `across ${state.entries.length} entries`],
-      ["Skills", state.skills.length, `${state.variants.length} variants`],
-      ["Tailored resumes", state.resumes.length, `${state.jobs.length} target roles`],
-    ];
-    return `<section class="overview-strip" aria-label="Resume workspace summary">${cards.map(([label, value, note]) => `
-      <div class="overview-stat"><span>${esc(label)}</span><strong>${esc(value)}</strong><small>${esc(note)}</small></div>`).join("")}</section>`;
-  }
-
-  /* ---------- content library ---------- */
-
-  function renderBank() {
-    const profile = state.profile || {};
-    const links = (profile.links || []).map(link => `${link.label || ""} ${link.url}`.trim()).join("\n");
-    const variantRows = state.variants.map(variantEditorRow).join("");
-    const groups = Object.keys(KIND_TITLES).map(kind => {
-      const siblings = state.entries.filter(entry => entry.kind === kind);
-      const cards = siblings.map((entry, index) => entryCard(entry, index, siblings)).join("");
-      return `
-        <section class="story-group" data-story-group="${kind}">
-          <header class="story-group-head">
-            <div><p class="eyebrow">${KIND_TITLES[kind]}</p><span>${siblings.length} ${siblings.length === 1 ? "entry" : "entries"}</span></div>
-            <button class="button small" data-action="add-entry" data-kind="${kind}">${icon("plus")}Add ${KIND_SINGULAR[kind]}</button>
-          </header>
-          <div class="story-list">${cards || `<div class="group-empty">No ${KIND_TITLES[kind].toLowerCase()} yet.</div>`}</div>
-        </section>`;
-    }).join("");
-
-    const skillGroups = Object.keys(SKILL_TITLES).map(category => {
-      const skills = state.skills.filter(skill => skill.category === category);
-      return `<div class="skill-group"><div class="skill-group-title"><h3>${SKILL_TITLES[category]}</h3><span>${skills.length}</span></div>
-        <div class="skill-chips">${skills.map(skill => `
-          <span class="skill" title="${esc(audienceLabel(skill.audience))}">${esc(skill.name)}
-            <button type="button" data-action="delete-skill" data-id="${skill.id}" aria-label="Remove ${esc(skill.name)}">×</button>
-          </span>`).join("") || '<p class="empty-inline">None yet</p>'}</div></div>`;
-    }).join("");
-
-    view.innerHTML = `${demoCallout()}${overviewStrip()}
-      <div class="bank-layout">
-        <div class="bank-main">
-          <section class="panel profile-panel">
-            <header class="panel-head">
-              <div><p class="eyebrow">Identity</p><h2>Contact profile</h2><p>Shared by every tailored resume.</p></div>
-              <span class="completion-badge">${profileCompletion()}% complete</span>
-            </header>
-            <form id="profile-form" class="profile-grid">
-              <label>Full name<input name="full_name" autocomplete="name" value="${esc(profile.full_name)}" placeholder="Your name"></label>
-              <label>Email<input name="email" type="email" autocomplete="email" value="${esc(profile.email)}" placeholder="you@example.com"></label>
-              <label>Phone<input name="phone" autocomplete="tel" value="${esc(profile.phone)}" placeholder="+1 555 555 5555"></label>
-              <label>Location<input name="location" autocomplete="address-level2" value="${esc(profile.location)}" placeholder="City, State"></label>
-              <label class="full">Links <span>one per line · label then URL</span><textarea name="links" rows="3" placeholder="Portfolio https://you.example\nGitHub https://github.com/you">${esc(links)}</textarea></label>
-              <footer class="form-footer full"><span>Used in the document header.</span><button class="button primary" type="submit">Save profile</button></footer>
-            </form>
-          </section>
-
-          <section class="panel library-panel">
-            <header class="panel-head library-heading">
-              <div><p class="eyebrow">Reusable proof</p><h2>Story library</h2><p>Keep the strongest version of each accomplishment, then reuse it across applications.</p></div>
-              <button class="button primary" data-action="add-entry" data-kind="experience">${icon("plus")}Add entry</button>
-            </header>
-            <div class="library-toolbar">
-              <label class="search-field">${icon("search")}<input id="bank-search" value="${esc(state.bankQuery)}" placeholder="Search roles, bullets, or tags" aria-label="Search story library"></label>
-              <div class="kind-filters" role="group" aria-label="Filter story type">
-                ${[{ key: "all", label: "All" }, ...Object.entries(KIND_TITLES).map(([key, label]) => ({ key, label }))]
-                  .map(item => `<button class="filter-pill ${state.bankKind === item.key ? "active" : ""}" data-action="filter-kind" data-kind="${item.key}" aria-pressed="${state.bankKind === item.key}">${item.label}</button>`).join("")}
-              </div>
-              <span id="library-result-count" class="result-count"></span>
-            </div>
-            <div class="story-groups">${groups}</div>
-          </section>
-        </div>
-
-        <aside class="bank-sidebar">
-          <section class="panel variant-panel">
-            <header class="panel-head"><div><p class="eyebrow">Focus</p><h2>Resume variants</h2><p>Tag proof for the roles you pursue.</p></div></header>
-            <form id="variants-form">
-              <div id="variant-rows" class="variant-rows">${variantRows || '<p class="empty-inline" data-empty-variants>No variants yet.</p>'}</div>
-              <button class="text-button" type="button" data-action="add-variant-row">${icon("plus")}Add variant</button>
-              <button class="button full-button" type="submit">Save variants</button>
-            </form>
-          </section>
-
-          <section class="panel skill-panel">
-            <header class="panel-head"><div><p class="eyebrow">Capabilities</p><h2>Skill bank</h2><p>Only list what you can defend in an interview.</p></div><span class="panel-count">${state.skills.length}</span></header>
-            ${skillGroups}
-            <form id="skill-form" class="skill-add">
-              <div class="row">
-                <select name="category" aria-label="Skill category">${Object.entries(SKILL_TITLES).map(([value, title]) => `<option value="${value}">${title}</option>`).join("")}</select>
-                <select name="audience">${audienceOptions("all")}</select>
-              </div>
-              <div class="row"><input name="name" required maxlength="120" placeholder="Add a skill">
-                <button class="button primary" type="submit" aria-label="Add skill">${icon("plus")}</button></div>
-            </form>
-          </section>
-
-          <details class="panel advanced-panel">
-            <summary><span>${icon("target")}</span><span><strong>Coverage dictionary</strong><small>${state.vocabulary.length} terms watched in job descriptions</small></span></summary>
-            <form id="vocabulary-form">
-              <p>Comma-separated terms OneShot should flag when a job description mentions them but your bank does not.</p>
-              <textarea name="terms" rows="7">${esc(state.vocabulary.join(", "))}</textarea>
-              <button class="button full-button" type="submit">Save dictionary</button>
-            </form>
-          </details>
-        </aside>
-      </div>`;
-    applyBankFilters();
-  }
-
-  function variantEditorRow(variant = { key: "", label: "" }) {
-    return `<div class="variant-row">
-      <label><span>Key</span><input data-variant-key maxlength="40" value="${esc(variant.key)}" placeholder="platform"></label>
-      <label><span>Label</span><input data-variant-label maxlength="80" value="${esc(variant.label)}" placeholder="Platform engineering"></label>
-      <button class="icon-button mini" type="button" data-action="remove-variant-row" aria-label="Remove variant">${icon("close")}</button>
-    </div>`;
-  }
+  const entriesOf = kind => state.entries.filter(entry => entry.kind === kind);
+  const dates = entry => [entry.start_date, entry.end_date].filter(Boolean).join(" – ");
+  const targetFor = resume => state.jobs.find(job => job.id === resume?.target_job_id) || null;
+  const selectedEntry = (resume, entryId) => (resume.selection?.entries || []).find(pick => pick.entry_id === entryId);
+  const selectedBullet = (resume, bulletId) => (resume.selection?.entries || []).some(pick =>
+    (pick.bullets || []).some(bullet => bullet.bullet_id === bulletId));
+  const selectedSkill = (resume, skillId) => (resume.selection?.skills || []).includes(skillId);
+  const showsDetail = (resume, entryId) => (resume.selection?.entries || []).find(item => item.entry_id === entryId)?.show_detail !== false;
 
   function audienceOptions(selected, { includeAll = true } = {}) {
-    const options = includeAll
-      ? [{ key: "all", label: "All variants" }]
-      : [{ key: "", label: "— No variant —" }];
+    const options = includeAll ? [{ key: "all", label: "All resumes" }] : [{ key: "", label: "No variant" }];
     return options.concat(state.variants).map(({ key, label }) =>
       `<option value="${esc(key)}" ${key === (selected ?? "") ? "selected" : ""}>${esc(label || key)}</option>`
     ).join("");
   }
 
-  function audienceLabel(key) {
-    if (!key || key === "all") return "All variants";
-    return state.variants.find(variant => variant.key === key)?.label || key;
-  }
-
-  function audienceChip(key) {
-    return `<span class="chip" title="Audience: ${esc(audienceLabel(key))}">${esc(audienceLabel(key))}</span>`;
-  }
-
-  function moveButtons(what, id, index, total, extra = "") {
-    const arrow = (delta, label, name) => `<button class="icon-button mini" data-action="move-${what}" data-id="${id}" data-delta="${delta}" ${extra} aria-label="Move ${what} ${label}">${icon(name)}</button>`;
-    return [
-      index > 0 ? arrow(-1, "up", "arrow-up") : "",
-      index < total - 1 ? arrow(1, "down", "arrow-down") : "",
-    ].join("");
-  }
-
-  function entryCard(entry, index, siblings) {
-    const dates = [entry.start_date, entry.end_date].filter(Boolean).join(" – ");
-    const searchable = [entry.org, entry.role, entry.location, entry.detail]
-      .concat(entry.bullets.flatMap(bullet => [bullet.text, ...(bullet.tags || [])])).join(" ").toLowerCase();
-    const bullets = entry.bullets.map((bullet, bulletIndex) => `
-      <li class="bullet-row">
-        <span class="bullet-dot" aria-hidden="true"></span>
-        <div class="bullet-copy"><p>${esc(bullet.text)}</p>
-          <div class="bullet-meta">${audienceChip(bullet.audience)}
-            ${(bullet.tags || []).slice(0, 4).map(tag => `<span class="tag">${esc(tag)}</span>`).join("")}
-            ${bullet.defense_notes ? '<span class="defense-ready">Interview note ready</span>' : ""}
-          </div></div>
-        <span class="entry-tools">
-          ${moveButtons("bullet", bullet.id, bulletIndex, entry.bullets.length, `data-entry="${entry.id}"`)}
-          <button class="icon-button mini" data-action="edit-bullet" data-id="${bullet.id}" data-entry="${entry.id}" aria-label="Edit bullet">${icon("edit")}</button>
-          <button class="icon-button mini danger-icon" data-action="delete-bullet" data-id="${bullet.id}" aria-label="Delete bullet">${icon("trash")}</button>
-        </span>
-      </li>`).join("");
-    return `
-      <article class="entry-card" data-entry-id="${entry.id}" data-kind="${entry.kind}" data-search="${esc(searchable)}">
-        <header class="entry-card-head">
-          <div class="entry-mark">${String(KIND_TITLES[entry.kind] || "E").slice(0, 1)}</div>
-          <div class="entry-title"><h3>${esc(entry.org)}</h3><p>${esc(entry.role || KIND_SINGULAR[entry.kind])}</p></div>
-          <div class="entry-dates"><strong>${esc(dates || "Dates not set")}</strong><span>${esc(entry.location)}</span></div>
-          <div class="entry-tools">
-            ${moveButtons("entry", entry.id, index, siblings.length)}
-            <button class="icon-button mini" data-action="edit-entry" data-id="${entry.id}" aria-label="Edit entry">${icon("edit")}</button>
-            <button class="icon-button mini danger-icon" data-action="delete-entry" data-id="${entry.id}" aria-label="Delete entry">${icon("trash")}</button>
-          </div>
-        </header>
-        ${entry.detail || entry.url ? `<div class="entry-detail">${entry.detail ? `<span>${esc(entry.detail)}</span>` : ""}${entry.url ? `<a href="${esc(entry.url)}" target="_blank" rel="noopener">View project ${icon("external")}</a>` : ""}</div>` : ""}
-        ${bullets ? `<ul class="bullet-list">${bullets}</ul>` : '<p class="entry-empty">No proof points yet. Add one if this entry needs supporting detail.</p>'}
-        <footer class="entry-card-foot"><span>${entry.bullets.length} proof point${entry.bullets.length === 1 ? "" : "s"}</span>
-          <button class="text-button" data-action="add-bullet" data-entry="${entry.id}">${icon("plus")}Add proof point</button></footer>
-      </article>`;
-  }
-
-  function applyBankFilters() {
-    const query = state.bankQuery.trim().toLowerCase();
-    let visible = 0;
-    view.querySelectorAll(".entry-card").forEach(card => {
-      const kindMatch = state.bankKind === "all" || card.dataset.kind === state.bankKind;
-      const queryMatch = !query || card.dataset.search.includes(query);
-      card.hidden = !(kindMatch && queryMatch);
-      if (!card.hidden) visible += 1;
+  function updateChrome() {
+    document.querySelectorAll("[data-tab]").forEach(button => {
+      const selected = button.dataset.tab === state.tab;
+      button.setAttribute("aria-selected", String(selected));
+      button.tabIndex = selected ? 0 : -1;
     });
-    view.querySelectorAll("[data-story-group]").forEach(group => {
-      const kindMatch = state.bankKind === "all" || group.dataset.storyGroup === state.bankKind;
-      const hasVisibleCard = [...group.querySelectorAll(".entry-card")].some(card => !card.hidden);
-      group.hidden = !kindMatch || (Boolean(query) && !hasVisibleCard);
+    document.querySelector("[data-resume-count]").textContent = state.resumes.length;
+    view.setAttribute("aria-labelledby", state.tab === "profile" ? "profile-tab" : "resumes-tab");
+    renderTabAction();
+  }
+
+  function missingSections() {
+    const missing = [];
+    if (!state.addingSkill && !state.skills.some(skill => skill.category !== "coursework")) missing.push({ key: "skills", label: "Skills" });
+    ["experience", "project", "research", "leadership"].forEach(kind => {
+      if (state.addingKind !== kind && !entriesOf(kind).length) missing.push({ key: kind, label: KIND[kind].title });
     });
-    const result = document.getElementById("library-result-count");
-    if (result) result.textContent = `${visible} of ${state.entries.length} entries`;
+    return missing;
   }
 
-  /* ---------- target roles ---------- */
-
-  function ageBadge(job) {
-    if (!job.date_posted) return '<span class="age-badge unknown">Date unknown</span>';
-    const days = Math.max(0, Math.floor((Date.now() - new Date(`${job.date_posted}T00:00:00`)) / 86400000));
-    if (Number.isNaN(days)) return '<span class="age-badge unknown">Date unknown</span>';
-    const bucket = days <= 7 ? "fresh" : days <= 21 ? "warm" : "stale";
-    const label = days === 0 ? "Posted today" : `Posted ${days}d ago`;
-    return `<span class="age-badge ${bucket}">${label}</span>`;
-  }
-
-  function targetOverlap(job) {
-    const jd = (job.jd_text || "").toLowerCase();
-    return state.skills.filter(skill => jd.includes(skill.name.toLowerCase()));
-  }
-
-  function renderTargets() {
-    const ready = state.jobs.filter(job => job.jd_text).length;
-    const linked = new Set(state.resumes.map(resume => resume.target_job_id).filter(Boolean));
-    const cards = state.jobs.map(job => {
-      const overlap = targetOverlap(job);
-      const linkedResume = state.resumes.find(resume => resume.target_job_id === job.id);
-      return `
-        <article class="target-card">
-          <header>
-            <div class="company-mark">${esc(job.company.slice(0, 2).toUpperCase())}</div>
-            <div class="target-title"><p>${esc(job.company)}</p><h3>${esc(job.title)}</h3></div>
-            <div class="tools">
-              <button class="icon-button mini" data-action="edit-job" data-id="${job.id}" aria-label="Edit target">${icon("edit")}</button>
-              <button class="icon-button mini danger-icon" data-action="delete-job" data-id="${job.id}" aria-label="Delete target">${icon("trash")}</button>
-            </div>
-          </header>
-          <div class="target-status-row">${ageBadge(job)}
-            <span class="readiness ${job.jd_text ? "ready" : "needs-work"}">${job.jd_text ? "JD ready" : "Add job description"}</span>
-            ${linkedResume ? '<span class="readiness linked">Resume linked</span>' : ""}
-          </div>
-          <div class="target-metrics">
-            <div><strong>${overlap.length}</strong><span>bank skills found</span></div>
-            <div><strong>${job.jd_text ? job.jd_text.split(/\s+/).filter(Boolean).length : 0}</strong><span>JD words</span></div>
-            <div><strong>${linkedResume ? selectedBulletCount(linkedResume.selection) : 0}</strong><span>proof points used</span></div>
-          </div>
-          ${overlap.length ? `<div class="overlap-skills">${overlap.slice(0, 6).map(skill => `<span>${esc(skill.name)}</span>`).join("")}</div>` : '<p class="target-empty-note">Paste the full job description to see overlap with your bank.</p>'}
-          ${job.note ? `<p class="target-note"><strong>Note</strong>${esc(job.note)}</p>` : ""}
-          <footer>
-            ${job.url ? `<a class="text-link" href="${esc(job.url)}" target="_blank" rel="noopener">Open posting ${icon("external")}</a>` : '<span></span>'}
-            <button class="button primary" data-action="tailor-job" data-id="${job.id}">${linkedResume ? icon("edit") + "Continue tailoring" : icon("spark") + "Tailor resume"}</button>
-          </footer>
-        </article>`;
-    }).join("");
-
-    view.innerHTML = `${demoCallout()}
-      <section class="section-intro">
-        <div><p class="eyebrow">Role intelligence</p><h2>Target roles</h2><p>Keep the job description beside the proof you will use to answer it.</p></div>
-        <button class="button primary" data-action="add-job">${icon("plus")}Add target role</button>
-      </section>
-      <section class="target-summary" aria-label="Target role summary">
-        <div><strong>${state.jobs.length}</strong><span>saved roles</span></div>
-        <div><strong>${ready}</strong><span>descriptions ready</span></div>
-        <div><strong>${linked.size}</strong><span>resumes linked</span></div>
-        <p><span class="pulse-dot"></span>Best practice: tailor and apply during the first 2–3 weeks.</p>
-      </section>
-      ${cards ? `<div class="target-grid">${cards}</div>` : `
-        <section class="empty-state"><div>${icon("target")}</div><p class="eyebrow">No targets yet</p><h2>Bring the role into the room</h2>
-          <p>Paste a job description to compare its language with your proof and skills.</p>
-          <button class="button primary" data-action="add-job">${icon("plus")}Add your first target</button></section>`}`;
-  }
-
-  /* ---------- builder and live preview ---------- */
-
-  function selectedBulletCount(selection) {
-    return (selection?.entries || []).reduce((total, entry) => total + (entry.bullets || []).length, 0);
-  }
-
-  function renderBuilder() {
-    const resume = currentResume();
-    if (!resume) {
-      view.innerHTML = `${demoCallout()}
-        <section class="empty-state builder-empty"><div>${icon("doc")}</div><p class="eyebrow">Tailor &amp; preview</p><h2>Create your first tailored resume</h2>
-          <p>Choose a target and a variant, then assemble the most relevant proof from your library.</p>
-          <button class="button primary" data-action="new-resume">${icon("plus")}Create resume</button></section>`;
+  function renderTabAction() {
+    if (state.tab !== "profile") {
+      tabAction.innerHTML = "";
       return;
     }
-
-    const selection = resume.selection || { entries: [], skills: [] };
-    const pickedBullets = new Set((selection.entries || []).flatMap(pick => (pick.bullets || []).map(bullet => bullet.bullet_id)));
-    const pickedSkills = new Set(selection.skills || []);
-    const pickedEntries = new Set((selection.entries || []).map(pick => pick.entry_id));
-    const resumeOptions = state.resumes.map(item => `<option value="${item.id}" ${item.id === state.resumeId ? "selected" : ""}>${esc(item.name)}</option>`).join("");
-    const jobOptions = ['<option value="">No target role</option>'].concat(state.jobs.map(job =>
-      `<option value="${job.id}" ${job.id === resume.target_job_id ? "selected" : ""}>${esc(job.company)} · ${esc(job.title)}</option>`
-    )).join("");
-
-    const entryPicks = state.entries.map(entry => {
-      const rows = entry.bullets.map(bullet => {
-        const offAudience = bullet.audience !== "all" && bullet.audience !== resume.variant;
-        return `<li class="pick-bullet ${offAudience ? "off-audience" : ""}" data-audience="${esc(bullet.audience)}">
-          <label><input type="checkbox" data-pick-bullet="${bullet.id}" data-pick-entry="${entry.id}" ${pickedBullets.has(bullet.id) ? "checked" : ""}>
-            <span class="custom-check">${icon("check")}</span><span class="pick-copy">${esc(bullet.text)}<span>${audienceChip(bullet.audience)} ${(bullet.tags || []).slice(0, 3).map(tag => `<em>${esc(tag)}</em>`).join("")}</span></span>
-          </label></li>`;
-      }).join("");
-      const dates = [entry.start_date, entry.end_date].filter(Boolean).join(" – ");
-      const bulletless = entry.bullets.length === 0;
-      const toggle = bulletless
-        ? `<input type="checkbox" data-pick-entry-only="${entry.id}" ${pickedEntries.has(entry.id) ? "checked" : ""}>`
-        : `<input type="checkbox" data-pick-entry-toggle="${entry.id}" ${entry.bullets.length && entry.bullets.every(bullet => pickedBullets.has(bullet.id)) ? "checked" : ""}>`;
-      return `<article class="pick-entry" data-kind="${entry.kind}" data-entry="${entry.id}">
-        <header><label>${toggle}<span class="custom-check">${icon("check")}</span></label>
-          <div><p>${esc(entry.org)}</p><span>${esc(entry.role || KIND_SINGULAR[entry.kind])}</span></div>
-          <span class="pick-kind">${KIND_SINGULAR[entry.kind]}</span><time>${esc(dates)}</time></header>
-        ${bulletless ? '<p class="bulletless-note">Include this entry as a single résumé line.</p>' : `<ul>${rows}</ul>`}
-      </article>`;
-    }).join("");
-
-    const skillPicks = Object.keys(SKILL_TITLES).map(category => {
-      const skills = state.skills.filter(skill => skill.category === category);
-      if (!skills.length) return "";
-      return `<div class="skill-pick-group"><h4>${SKILL_TITLES[category]}</h4><div>${skills.map(skill => `
-        <label class="skill-pick ${pickedSkills.has(skill.id) ? "selected" : ""}"><input type="checkbox" data-pick-skill="${skill.id}" ${pickedSkills.has(skill.id) ? "checked" : ""}>
-          <span class="custom-check">${icon("check")}</span>${esc(skill.name)}</label>`).join("")}</div></div>`;
-    }).join("");
-    const canSource = true;
-    const canPdf = state.typstAvailable;
-
-    view.innerHTML = `
-      <section class="builder-bar">
-        <div class="resume-switcher"><label for="resume-select">Working resume</label><select id="resume-select">${resumeOptions}</select></div>
-        <div class="builder-bar-actions">
-          <button class="button" data-action="new-resume">${icon("plus")}New</button>
-          <button class="button danger" data-action="delete-resume">${icon("trash")}Delete</button>
-          <span class="bar-divider"></span>
-          <button class="button" data-action="check-resume">Run checks</button>
-          <button class="button" data-action="download-typ" ${canSource ? "" : "disabled"}>${icon("download")}.typ</button>
-          <button class="button" data-action="open-pdf" ${canPdf ? "" : "disabled title='Install Typst to export PDF'"}>${icon("eye")}Open PDF</button>
-          <button class="button primary" data-action="save-resume">${icon("check")}Save resume</button>
-        </div>
-      </section>
-
-      <div class="builder-workbench">
-        <div class="builder-editor">
-          <section class="panel builder-setup">
-            <header class="panel-head"><div><p class="eyebrow">Document setup</p><h2>Tailoring brief</h2><p>Name this version and keep its role context attached.</p></div></header>
-            <div class="builder-settings">
-              <label>Resume name<input id="rs-name" value="${esc(resume.name)}"></label>
-              <label>Variant<select id="rs-variant">${audienceOptions(resume.variant, { includeAll: false })}</select></label>
-              <label class="full">Target role<select id="rs-job">${jobOptions}</select></label>
-              <label>Availability<input id="rs-availability" value="${esc(resume.availability_line)}" placeholder="Available June–September 2027"></label>
-              <label>Education note<input id="rs-eduemph" value="${esc(resume.education_note)}" placeholder="GPA: 3.8 / 4.0"></label>
-            </div>
-          </section>
-
-          <section class="panel proof-picker">
-            <header class="panel-head"><div><p class="eyebrow">Evidence</p><h2>Choose proof points</h2><p>Start with relevance. Keep only the evidence that earns its space.</p></div>
-              <div class="selection-tally"><strong id="selected-bullet-count">${selectedBulletCount(selection)}</strong><span>proof points</span></div></header>
-            <div class="pick-list">${entryPicks || '<p class="empty">Your content library is empty. Add entries before building.</p>'}</div>
-          </section>
-
-          <section class="panel skills-picker-panel">
-            <header class="panel-head"><div><p class="eyebrow">Keywords</p><h2>Choose skills</h2><p>Prioritize the target’s language without claiming anything you cannot defend.</p></div>
-              <div class="selection-tally"><strong id="selected-skill-count">${pickedSkills.size}</strong><span>skills</span></div></header>
-            <div class="skills-pick">${skillPicks || '<p class="empty">No skills in the bank.</p>'}</div>
-          </section>
-        </div>
-
-        <aside class="preview-column">
-          <div class="preview-label"><span>${icon("eye")}Live document preview</span><small>Content preview · final typesetting may differ</small></div>
-          <article id="resume-preview" class="resume-preview">${previewDocument(resume, selection)}</article>
-          <section class="panel fit-panel">
-            <header class="panel-head"><div><p class="eyebrow">Quality control</p><h2>Fit &amp; checks</h2></div>
-              <button class="button small" data-action="check-resume">Run checks</button></header>
-            <div id="coverage" class="coverage">${coverageHtml()}</div>
-            <div id="lint" class="lint">${lintHtml()}</div>
-          </section>
-        </aside>
-      </div>`;
-    syncParentCheckboxes();
+    const missing = missingSections();
+    tabAction.innerHTML = missing.length ? `<div class="add-section">
+      <button type="button" data-action="toggle-add-section" aria-expanded="false">${icon("plus")}Add Section</button>
+      <div class="popover" data-add-section-menu hidden>${missing.map(item =>
+        `<button type="button" data-action="add-section" data-section="${item.key}">${esc(item.label)}</button>`).join("")}</div>
+    </div>` : "";
   }
 
-  function previewDocument(resume, selection, live = {}) {
-    const picks = new Map((selection.entries || []).map(pick => [pick.entry_id, pick]));
-    const bulletById = new Map(state.entries.flatMap(entry => entry.bullets).map(bullet => [bullet.id, bullet]));
-    const chosenSkills = new Set(selection.skills || []);
-    const groups = PREVIEW_KIND_ORDER.map(kind => {
-      const rows = state.entries.filter(entry => entry.kind === kind && picks.has(entry.id)).map(entry => {
-        const pick = picks.get(entry.id);
-        const bulletRows = (pick.bullets || []).map(item => {
-          const bullet = bulletById.get(item.bullet_id);
-          const text = item.text_override || bullet?.text;
-          return text ? `<li>${esc(text)}</li>` : "";
-        }).join("");
-        const dates = [entry.start_date, entry.end_date].filter(Boolean).join(" – ");
-        return `<div class="preview-entry">
-          <div class="preview-entry-head"><strong>${esc(entry.org)}</strong><span>${esc(dates)}</span></div>
-          <div class="preview-entry-sub"><em>${esc(entry.role)}</em><span>${esc(entry.location)}</span></div>
-          ${entry.detail ? `<p class="preview-detail">${esc(entry.detail)}</p>` : ""}
-          ${bulletRows ? `<ul>${bulletRows}</ul>` : ""}
-        </div>`;
-      }).join("");
-      return rows ? `<section class="preview-section"><h3>${KIND_TITLES[kind]}</h3>${rows}</section>` : "";
-    }).join("");
+  function render() {
+    updateChrome();
+    if (state.tab === "profile") renderProfile();
+    else renderResumes();
+  }
 
-    const skillGroups = Object.keys(SKILL_TITLES).map(category => {
-      const names = state.skills.filter(skill => skill.category === category && chosenSkills.has(skill.id)).map(skill => skill.name);
-      return names.length ? `<p><strong>${SKILL_TITLES[category]}:</strong> ${esc(names.join(", "))}</p>` : "";
-    }).join("");
+  function sectionBar(key, title, addLabel = "", fixed = false) {
+    const open = fixed || state.openSections.has(key);
+    return `<header class="section-bar">
+      ${fixed ? "" : `<button class="section-toggle" type="button" data-action="toggle-section" data-section="${key}" aria-label="${open ? "Collapse" : "Expand"} ${esc(title)}">${icon("down")}</button>`}
+      <h2>${esc(title)}</h2>
+      ${addLabel ? `<button class="section-add" type="button" data-action="section-add" data-section="${key}">${icon("plus")}${esc(addLabel)}</button>` : ""}
+    </header>`;
+  }
+
+  function editableValue(label, value, type, id = "", empty = "Add") {
+    const attrs = type === "profile"
+      ? `data-action="edit-profile-field" data-field="${esc(id)}"`
+      : type === "entry" ? `data-action="edit-entry-field" data-entry="${esc(id.split(":")[0])}" data-field="${esc(id.split(":")[1])}"`
+        : type === "resume" ? `data-action="edit-resume-field" data-field="${esc(id)}"`
+          : "";
+    return `<div class="field-value ${value ? "" : "is-empty"}"><strong>${esc(value || empty)}</strong>
+      <button class="field-pencil" type="button" ${attrs} aria-label="Edit ${esc(label)}">${icon("edit")}</button></div>`;
+  }
+
+  function contactSection(readOnly = false, resume = null) {
     const profile = state.profile || {};
-    const contacts = [profile.email, profile.phone, profile.location]
-      .concat((profile.links || []).map(link => link.label || link.url)).filter(Boolean);
-    const availability = live.availability ?? resume.availability_line;
-    const educationNote = live.educationNote ?? resume.education_note;
-    const hasContent = Boolean(groups || skillGroups);
-    return `
-      <header class="preview-header"><h2>${esc(profile.full_name || "Your Name")}</h2>
-        <p>${contacts.map(esc).join("  ·  ") || "email · phone · location · portfolio"}</p>
-        ${availability ? `<span>${esc(availability)}</span>` : ""}</header>
-      ${hasContent ? groups : '<div class="preview-empty"><span>Start selecting proof points</span><p>Your tailored resume will take shape here.</p></div>'}
-      ${skillGroups ? `<section class="preview-section preview-skills"><h3>Skills</h3>${skillGroups}</section>` : ""}
-      ${educationNote ? `<p class="preview-footnote">${esc(educationNote)}</p>` : ""}`;
+    // Availability belongs to the resume, not the profile: an internship and
+    // a full-time document say different things. It renders under the
+    // contacts in the PDF, so it lives with them here.
+    const availability = resume ? `<div class="display-field resume-field"><span class="field-label">Availability</span>${editableValue("Availability", resume.availability_line, "resume", "availability_line", "Add availability")}</div>` : "";
+    const field = (label, key, empty) => `<div class="display-field"><span class="field-label">${label}</span>${readOnly
+      ? `<div class="field-value ${profile[key] ? "" : "is-empty"}"><strong>${esc(profile[key] || "—")}</strong></div>`
+      : editableValue(label, profile[key], "profile", key, empty)}</div>`;
+    const links = (profile.links || []).map((link, index) => `<span class="link-item"><a href="${href(link.url)}" target="_blank" rel="noreferrer">${esc(link.label || link.url)}</a>${readOnly ? "" : `<button class="field-pencil" type="button" data-action="edit-link" data-index="${index}" aria-label="Edit ${esc(link.label || "link")}">${icon("edit")}</button>`}</span>`).join("");
+    return `<article class="resume-section contact-section">
+      ${sectionBar("contact", "Contact", "", true)}
+      <div class="section-body">
+        <div class="contact-grid">${field("Name", "full_name", "Add name")}${field("Email", "email", "Add email")}${field("Phone", "phone", "Add phone")}${field("Location", "location", "Add location")}${availability}</div>
+        <div class="profile-links"><span class="field-label">Links</span>${links || `<span class="readonly-note">${readOnly ? "—" : "No links"}</span>`}${readOnly ? "" : `<button class="link-add" type="button" data-action="add-link" aria-label="Add link">${icon("plus")}</button>`}</div>
+      </div>
+    </article>`;
   }
 
-  function coverageHtml() {
-    const resume = currentResume();
-    if (!resume?.target_job_id) {
-      return '<div class="check-placeholder"><span class="check-icon neutral">—</span><p><strong>No target linked</strong><small>Choose a role above to compare its language.</small></p></div>';
-    }
-    if (!state.coverage || state.coverage.job_id !== resume.target_job_id) {
-      return '<div class="check-placeholder"><span class="check-icon pending">?</span><p><strong>Coverage not checked</strong><small>Save and run checks to analyze the job description.</small></p></div>';
-    }
-    const { matched, have_not_shown, missing } = state.coverage;
-    const bucket = (title, tone, values, note) => values.length ? `
-      <div class="coverage-bucket ${tone}"><header><span></span><strong>${title}</strong><b>${values.length}</b></header>
-        <div>${values.map(value => `<span title="${esc(note)}">${esc(value.name || value)}</span>`).join("")}</div></div>` : "";
-    return `<div class="coverage-results">
-      ${bucket("On resume", "matched", matched, "Found in the target and selected resume")}
-      ${bucket("In bank, not used", "gap", have_not_shown, "Consider adding if relevant")}
-      ${bucket("Missing from bank", "missing", missing, "Never claim it unless it is true")}
+  function educationSection(readOnly = false, resume = null) {
+    const education = entriesOf("education");
+    const courses = state.skills.filter(skill => skill.category === "coursework");
+    const entries = education.map(entry => educationEntry(entry, readOnly, resume)).join("");
+    const courseItems = courses.map(course => {
+      const picked = !resume || selectedSkill(resume, course.id);
+      return `<span class="course-item ${resume && !picked ? "not-selected" : ""} ${resume ? "selectable" : ""}" ${resume ? `role="button" tabindex="0" data-action="toggle-skill" data-id="${course.id}"` : ""}>
+        <span>${esc(course.name)}</span>${readOnly ? "" : `<button class="field-pencil" type="button" data-action="edit-skill" data-id="${course.id}" aria-label="Edit ${esc(course.name)}">${icon("edit")}</button>`}</span>`;
+    }).join("");
+    const addForm = state.addingKind === "education" && !readOnly ? newEntryForm("education") : "";
+    const courseForm = state.addingCourse && !readOnly ? skillForm(true) : "";
+    return `<article class="resume-section education-section">
+      ${sectionBar("education", "Education", readOnly ? "" : KIND.education.add, true)}
+      <div class="section-body">${addForm}${entries || `<p class="readonly-note">No education added.</p>`}
+        <div class="coursework"><div class="coursework-head"><span class="coursework-label">Coursework</span>${readOnly ? "" : `<button class="section-add" type="button" data-action="add-course">${icon("plus")}Add course</button>`}</div>
+          ${courseForm}<div class="course-list">${courseItems || `<span class="readonly-note">No coursework added.</span>`}</div></div>
+      </div>
+    </article>`;
+  }
+
+  function educationEntry(entry, readOnly, resume = null) {
+    const gpaShown = !resume || showsDetail(resume, entry.id);
+    const gpaAttrs = resume ? `class="display-field selectable ${gpaShown ? "" : "not-selected"}" role="button" tabindex="0" data-action="toggle-detail" data-id="${entry.id}" aria-pressed="${gpaShown}" title="${gpaShown ? "Hide GPA on this resume" : "Show GPA on this resume"}"` : `class="display-field"`;
+    const value = (label, field, shown, empty) => readOnly
+      ? `<div class="field-value ${shown ? "" : "is-empty"}"><strong>${esc(shown || "—")}</strong></div>`
+      : editableValue(label, shown, "entry", `${entry.id}:${field}`, empty);
+    return `<div class="entry-block" data-entry-id="${entry.id}">
+      <div class="entry-head"><div class="entry-heading"><div class="entry-title-line">${value("School", "org", entry.org, "Add school")}</div></div>
+        ${readOnly ? "" : entryActions(entry)}</div>
+      <div class="education-fields">
+        <div class="display-field"><span class="field-label">Degree</span>${value("Degree", "role", entry.role, "Add degree")}</div>
+        <div class="display-field"><span class="field-label">Location</span>${value("Location", "location", entry.location, "Add location")}</div>
+        <div class="display-field"><span class="field-label">Dates</span>${value("Dates", "dates", dates(entry), "Add dates")}</div>
+        <div ${gpaAttrs}><span class="field-label">GPA</span>${value("GPA", "detail", String(entry.detail || "").replace(/^GPA\s*:\s*/i, ""), "Add GPA")}</div>
+      </div>
     </div>`;
   }
 
-  function lintHtml() {
-    if (!state.check) return "";
-    const { problems, page_count: pageCount } = state.check;
-    const pageBadge = pageCount
-      ? `<span class="page-count ${pageCount > 1 ? "bad" : "good"}">${pageCount} page${pageCount > 1 ? "s" : ""}</span>`
-      : "";
-    return `<div class="lint-results"><header><h3>Document checks</h3>${pageBadge}</header><ul>
-      ${problems.map(problem => `<li class="${esc(problem.level)}"><span>${problem.level === "error" ? "!" : problem.level === "warn" ? "△" : "i"}</span>${esc(problem.message)}</li>`).join("") || '<li class="success"><span>✓</span>All checks pass.</li>'}
-    </ul></div>`;
+  function skillsSection(readOnly = false, resume = null) {
+    const open = state.openSections.has("skills");
+    const rows = SKILL_GROUPS.map(group => {
+      const skills = state.skills.filter(skill => group.categories.includes(skill.category));
+      return `<div class="skill-row"><span class="skill-label">${esc(group.title)}</span><div class="skill-list">${skills.map(skill => {
+        const picked = !resume || selectedSkill(resume, skill.id);
+        return `<span class="skill-item ${resume && !picked ? "not-selected" : ""} ${resume ? "selectable" : ""}" ${resume ? `role="button" tabindex="0" data-action="toggle-skill" data-id="${skill.id}"` : ""}>
+          <span>${esc(skill.name)}</span>${readOnly ? "" : `<button class="field-pencil" type="button" data-action="edit-skill" data-id="${skill.id}" aria-label="Edit ${esc(skill.name)}">${icon("edit")}</button>`}</span>`;
+      }).join("") || `<span class="readonly-note">—</span>`}</div></div>`;
+    }).join("");
+    return `<article class="resume-section ${open ? "" : "collapsed"}">${sectionBar("skills", "Skills", readOnly ? "" : "Add skill")}
+      <div class="section-body">${state.addingSkill && !readOnly ? skillForm(false) : ""}<div class="skill-rows">${rows}</div></div></article>`;
   }
 
-  function collectSelection() {
-    const stored = (currentResume()?.selection || {}).entries || [];
-    const overrides = new Map(stored.flatMap(pick =>
-      (pick.bullets || []).map(bullet => [bullet.bullet_id, bullet.text_override ?? null])));
-    const picks = new Map();
-    view.querySelectorAll("[data-pick-bullet]:checked").forEach(box => {
-      const entryId = Number(box.dataset.pickEntry);
-      const bulletId = Number(box.dataset.pickBullet);
-      if (!picks.has(entryId)) picks.set(entryId, []);
-      picks.get(entryId).push({ bullet_id: bulletId, text_override: overrides.get(bulletId) ?? null });
-    });
-    view.querySelectorAll("[data-pick-entry-only]:checked").forEach(box => {
-      const entryId = Number(box.dataset.pickEntryOnly);
-      if (!picks.has(entryId)) picks.set(entryId, []);
-    });
-    const skills = [...view.querySelectorAll("[data-pick-skill]:checked")].map(box => Number(box.dataset.pickSkill));
-    return {
-      entries: [...picks.entries()].map(([entry_id, bullets]) => ({ entry_id, bullets })),
-      skills,
-    };
+  function profileEntrySection(kind) {
+    const open = state.openSections.has(kind);
+    const records = entriesOf(kind);
+    return `<article class="resume-section ${open ? "" : "collapsed"}">${sectionBar(kind, KIND[kind].title, KIND[kind].add)}
+      <div class="section-body">${state.addingKind === kind ? newEntryForm(kind) : ""}${records.map(entry => entryBlock(entry, false, null)).join("")}</div></article>`;
   }
 
-  function updateLiveBuilder() {
+  function entryActions(entry) {
+    return `<div class="entry-actions"><button class="entry-more" type="button" data-action="toggle-entry-menu" aria-label="Entry actions" aria-expanded="false">${icon("more")}</button>
+      <div class="popover entry-menu" hidden><button class="danger" type="button" data-action="delete-entry" data-id="${entry.id}">Delete</button></div></div>`;
+  }
+
+  // Header fields a resume may reword for itself (resume_models.EntryPick).
+  const ENTRY_OVERRIDES = ["org", "role", "location", "start_date", "end_date", "detail"];
+  const shownEntry = (entry, resume) => {
+    const pick = resume && selectedEntry(resume, entry.id);
+    if (!pick) return entry;
+    const shown = { ...entry };
+    ENTRY_OVERRIDES.forEach(field => { if (pick[field] != null) shown[field] = pick[field]; });
+    return shown;
+  };
+
+  function entryBlock(entry, readOnly, resume) {
+    entry = shownEntry(entry, resume);
+    const picked = !resume || Boolean(selectedEntry(resume, entry.id));
+    const titleFields = entry.kind === "project" ? ["org", "role"] : ["role", "org"];
+    const labels = entry.kind === "project" ? ["Project", "Description"] : ["Role", entry.kind === "experience" ? "Company" : "Organization"];
+    const title = titleFields.map((field, index) => {
+      const value = entry[field];
+      const display = readOnly ? `<div class="field-value"><strong>${esc(value || "—")}</strong></div>` : editableValue(labels[index], value, "entry", `${entry.id}:${field}`, `Add ${labels[index].toLowerCase()}`);
+      return `${index ? '<span class="separator">·</span>' : ""}${display}`;
+    }).join("");
+    const meta = [
+      ["Location", "location", entry.location],
+      ["Dates", "dates", dates(entry)],
+      ["Link", "url", entry.url ? "View link" : "Add link"],
+    ].map(([label, field, value], index) => {
+      const shown = field === "url" && entry.url ? `<a href="${href(entry.url)}" target="_blank" rel="noreferrer">${esc(value)}</a>` : esc(value || `Add ${label.toLowerCase()}`);
+      const display = readOnly ? `<span>${shown}</span>` : `<span class="field-value ${entry[field] || field === "dates" && dates(entry) ? "" : "is-empty"}"><strong>${shown}</strong><button class="field-pencil" type="button" data-action="edit-entry-field" data-entry="${entry.id}" data-field="${field}" aria-label="Edit ${label}">${icon("edit")}</button></span>`;
+      return `${index ? '<span class="separator">·</span>' : ""}${display}`;
+    }).join("");
+    const pickedCount = resume ? entry.bullets.filter(bullet => selectedBullet(resume, bullet.id)).length : 0;
+    const headAttrs = resume ? `role="button" tabindex="0" data-action="toggle-entry" data-id="${entry.id}"` : "";
+    return `<div class="entry-block ${resume && !picked ? "not-selected" : ""}" data-entry-id="${entry.id}">
+      <div class="entry-head ${resume ? "selectable" : ""}" ${headAttrs}><div class="entry-heading"><div class="entry-title-line">${title}</div><div class="entry-meta">${meta}</div></div>
+        ${resume ? `<span class="entry-pick-count">${pickedCount}/${entry.bullets.length}</span>` : entryActions(entry)}</div>
+      <div class="bullet-list">${entry.bullets.map(bullet => bulletRow(entry, bullet, readOnly, resume)).join("")}</div>
+      ${readOnly ? "" : state.addingBulletEntry === entry.id ? bulletForm(entry.id) : `<button class="bullet-add-tail" type="button" data-action="add-bullet" data-entry="${entry.id}" aria-label="Add bullet">${icon("plus")}</button>`}
+    </div>`;
+  }
+
+  function bulletRow(entry, bullet, readOnly, resume) {
+    const pick = resume ? selectedEntry(resume, entry.id)?.bullets?.find(item => item.bullet_id === bullet.id) : null;
+    const selected = !resume || Boolean(pick);
+    const text = pick?.text_override || bullet.text;
+    return `<div class="bullet-row ${resume && !selected ? "not-selected" : ""} ${resume ? "selectable" : ""}" ${resume ? `role="button" tabindex="0" data-action="toggle-bullet" data-entry="${entry.id}" data-id="${bullet.id}"` : ""}>
+      <span class="bullet-mark" aria-hidden="true">•</span><div class="bullet-value"><p>${esc(text)}</p>
+      <button class="field-pencil" type="button" data-action="${resume ? "edit-resume-bullet" : "edit-bullet"}" data-entry="${entry.id}" data-id="${bullet.id}" aria-label="Edit bullet">${icon("edit")}</button></div></div>`;
+  }
+
+  function newEntryForm(kind) {
+    const project = kind === "project";
+    const education = kind === "education";
+    const first = project ? "Project name" : education ? "School" : "Role";
+    const second = project ? "Description" : education ? "Degree" : kind === "experience" ? "Company" : "Organization";
+    return `<form class="inline-add" data-form="entry" data-kind="${kind}"><div class="inline-add-grid">
+      <label>${first}<input name="primary" required autofocus></label><label>${second}<input name="secondary"></label>
+      <label>Location<input name="location" placeholder="City, State"></label><label>Dates<input name="dates" placeholder="Start – end"></label>
+      ${education ? `<label>GPA<input name="detail"></label>` : `<label>Link<input name="url" placeholder="https://"></label>`}
+      </div><div class="inline-add-actions"><button type="submit">Add</button><button class="cancel" type="button" data-action="cancel-add">Cancel</button></div></form>`;
+  }
+
+  function skillForm(coursework) {
+    return `<form class="inline-skill-form" data-form="skill" data-coursework="${coursework}">
+      ${coursework ? "" : `<select name="category" aria-label="Skill category"><option value="language">Languages</option><option value="framework">Frameworks & Libraries</option><option value="tool">Tools & Systems</option></select>`}
+      <input name="name" required placeholder="${coursework ? "Course name" : "Skill"}" autofocus>
+      <div class="inline-add-actions"><button type="submit">Add</button><button class="cancel" type="button" data-action="cancel-add">Cancel</button></div></form>`;
+  }
+
+  function bulletForm(entryId) {
+    return `<form class="inline-add" data-form="bullet" data-entry="${entryId}"><div class="inline-editor"><textarea name="text" required autofocus placeholder="Add a bullet point"></textarea></div>
+      <div class="inline-add-actions"><button type="submit">Add</button><button class="cancel" type="button" data-action="cancel-add">Cancel</button></div></form>`;
+  }
+
+  function renderProfile() {
+    const visible = new Set(["education", ...state.entries.map(entry => entry.kind)]);
+    if (state.skills.some(skill => skill.category !== "coursework") || state.addingSkill) visible.add("skills");
+    if (state.addingKind) visible.add(state.addingKind);
+    const sections = [contactSection(false)];
+    SECTION_ORDER.forEach(key => {
+      if (!visible.has(key)) return;
+      if (key === "education") sections.push(educationSection(false));
+      else if (key === "skills") sections.push(skillsSection(false));
+      else sections.push(profileEntrySection(key));
+    });
+    view.innerHTML = `<article class="profile-document"><div class="section-list">${sections.join("")}</div></article>`;
+    queueMicrotask(() => { growAll(); view.querySelector("[autofocus]")?.focus(); });
+  }
+
+  function resumeEntrySection(kind, resume) {
+    const records = entriesOf(kind);
+    if (!records.length) return "";
+    const open = state.openSections.has(kind);
+    return `<article class="resume-section ${open ? "" : "collapsed"}">${sectionBar(kind, KIND[kind].title)}
+      <div class="section-body">${records.map(entry => entryBlock(entry, true, resume)).join("")}</div></article>`;
+  }
+
+  function resumePicker(resume) {
+    const cards = state.resumes.map(item => {
+      const target = targetFor(item);
+      const date = item.updated_at ? new Date(item.updated_at).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "";
+      if (state.renamingResumeId === item.id) return `<div class="resume-card ${item.id === resume.id ? "selected" : ""}"><form data-form="rename-resume" data-id="${item.id}" class="inline-editor"><input name="name" value="${esc(item.name)}" required autofocus><button class="inline-icon" type="submit" aria-label="Save">${icon("check")}</button><button class="inline-icon cancel" type="button" data-action="cancel-rename" aria-label="Cancel">${icon("close")}</button></form></div>`;
+      return `<div class="resume-card ${item.id === resume.id ? "selected" : ""}"><button class="resume-card-main" type="button" data-action="choose-resume" data-id="${item.id}"><strong>${esc(item.name)}</strong><span>${esc(target ? `${target.company} · ${target.title}` : "No target role")}${date ? ` · Edited ${date}` : ""}</span></button>
+        <span class="card-menu"><button class="entry-more" type="button" data-action="toggle-resume-menu" aria-label="Resume actions" aria-expanded="false">${icon("more")}</button><span class="popover" hidden><button type="button" data-action="rename-resume" data-id="${item.id}">Rename</button><button class="danger" type="button" data-action="delete-resume" data-id="${item.id}">Delete</button></span></span></div>`;
+    }).join("");
+    return `<div class="resume-picker"><button class="resume-picker-trigger" type="button" data-action="toggle-resume-picker" aria-label="Choose resume" aria-expanded="false" title="Choose resume">${icon("copy")}</button><div class="popover resume-list" hidden>${cards}</div></div>`;
+  }
+
+  function renderResumes() {
     const resume = currentResume();
-    if (!resume || !document.getElementById("resume-preview")) return;
-    const selection = collectSelection();
-    document.getElementById("resume-preview").innerHTML = previewDocument(resume, selection, {
-      availability: document.getElementById("rs-availability")?.value || "",
-      educationNote: document.getElementById("rs-eduemph")?.value || "",
+    if (!resume) {
+      view.innerHTML = `<section class="empty-state"><h2>No resumes yet</h2><p>Create a resume, then choose exactly what from your Profile belongs in it.</p><button class="button primary" data-action="new-resume">${icon("plus")}New resume</button></section>`;
+      return;
+    }
+    const target = targetFor(resume);
+    const content = [contactSection(true, resume), educationSection(true, resume)];
+    if (state.skills.some(skill => skill.category !== "coursework")) content.push(skillsSection(true, resume));
+    ["experience", "project", "research", "leadership"].forEach(kind => content.push(resumeEntrySection(kind, resume)));
+    view.innerHTML = `<article class="resume-document">
+      <header class="document-head">${resumePicker(resume)}<div class="document-title"><span class="autosave">${icon("check")}Saved automatically</span><h2>${esc(resume.name)}</h2></div>
+        <div class="document-actions"><select class="design-select" data-resume-template aria-label="Design">${[["main", "Main"], ["barlow", "Barlow"]].map(([value, label]) => `<option value="${value}" ${(resume.template || "main") === value ? "selected" : ""}>${label} design</option>`).join("")}</select><div class="mode-switch" aria-label="Resume display"><button type="button" data-action="show-content" aria-pressed="${state.mode === "content"}">${icon("edit")}Content</button><button type="button" data-action="show-pdf" aria-pressed="${state.mode === "pdf"}">${icon("eye")}PDF</button></div><button class="button primary small" type="button" data-action="export-pdf">${icon("download")}Export PDF</button></div>
+      </header>
+      ${target ? `<div class="target-line"><span>Target</span><strong>${esc(target.company)} · ${esc(target.title)}</strong>${target.url ? `<a href="${href(target.url)}" target="_blank" rel="noreferrer">View role ${icon("external")}</a>` : ""}</div>` : ""}
+      ${state.mode === "content" ? `<div class="resume-content section-list">${content.join("")}</div>` : `<div class="pdf-stage"><p class="pdf-loading">Building preview…</p><iframe class="pdf-frame" title="Resume PDF preview" hidden></iframe></div>`}
+    </article>`;
+    queueMicrotask(() => {
+      growAll();
+      view.querySelector("[autofocus]")?.focus();
+      if (state.mode === "pdf") loadPdfPreview();
     });
-    document.getElementById("selected-bullet-count").textContent = selectedBulletCount(selection);
-    document.getElementById("selected-skill-count").textContent = selection.skills.length;
-    view.querySelectorAll(".skill-pick").forEach(label => label.classList.toggle("selected", label.querySelector("input").checked));
-    syncParentCheckboxes();
   }
 
-  function syncParentCheckboxes() {
-    view.querySelectorAll("[data-pick-entry-toggle]").forEach(parent => {
-      const children = [...parent.closest(".pick-entry").querySelectorAll("[data-pick-bullet]")];
-      const checked = children.filter(child => child.checked).length;
-      parent.checked = Boolean(children.length) && checked === children.length;
-      parent.indeterminate = checked > 0 && checked < children.length;
+  function closeMenus(except = null) {
+    document.querySelectorAll(".popover").forEach(menu => {
+      // Skip ancestors too: the resume card menu lives inside the picker popover.
+      if (menu !== except && !menu.contains(except)) {
+        menu.hidden = true;
+        menu.previousElementSibling?.setAttribute("aria-expanded", "false");
+      }
     });
   }
 
-  async function saveResume() {
-    const resume = currentResume();
-    if (!resume) return null;
-    const jobValue = document.getElementById("rs-job").value;
-    const updated = await api(`/resumes/${resume.id}`, {
-      method: "PATCH",
-      body: {
-        name: document.getElementById("rs-name").value || resume.name,
-        variant: document.getElementById("rs-variant").value,
-        target_job_id: jobValue ? Number(jobValue) : null,
-        availability_line: document.getElementById("rs-availability").value,
-        education_note: document.getElementById("rs-eduemph").value,
-        selection: collectSelection(),
-      },
-    });
+  function cloneSelection(resume) {
+    return JSON.parse(JSON.stringify(resume.selection || { entries: [], skills: [] }));
+  }
+
+  async function patchResume(resume, fields, message = "Saved automatically") {
+    const updated = await api(`/resumes/${resume.id}`, { method: "PATCH", body: fields });
     state.resumes[state.resumes.findIndex(item => item.id === resume.id)] = updated;
-    say("Resume saved");
-    updateChrome();
+    if (message) say(message);
     return updated;
   }
 
-  async function checkResume() {
-    const resume = await saveResume();
-    if (!resume) return;
-    state.check = localMode()
-      ? await renderLocally("check", resume, true)
-      : await api(`/resumes/${resume.id}/check`);
-    state.coverage = resume.target_job_id
-      ? await api(`/jobs/${resume.target_job_id}/coverage?resume_id=${resume.id}`)
-      : null;
-    renderBuilder();
+  async function toggleSkill(skillId) {
+    const resume = currentResume();
+    const selection = cloneSelection(resume);
+    const set = new Set(selection.skills || []);
+    if (set.has(skillId)) set.delete(skillId); else set.add(skillId);
+    selection.skills = [...set];
+    await patchResume(resume, { selection }, "");
+    renderResumes();
   }
 
-  /* ---------- dialogs and mutations ---------- */
+  async function toggleBullet(entryId, bulletId) {
+    const resume = currentResume();
+    const selection = cloneSelection(resume);
+    let pick = selection.entries.find(item => item.entry_id === entryId);
+    if (!pick) { pick = { entry_id: entryId, bullets: [] }; selection.entries.push(pick); }
+    const index = pick.bullets.findIndex(item => item.bullet_id === bulletId);
+    if (index >= 0) pick.bullets.splice(index, 1); else pick.bullets.push({ bullet_id: bulletId, text_override: null });
+    if (!pick.bullets.length) selection.entries = selection.entries.filter(item => item.entry_id !== entryId);
+    await patchResume(resume, { selection }, "");
+    renderResumes();
+  }
 
-  function openDialog(id, values = {}, onSubmit) {
-    const dialog = document.getElementById(id);
-    const form = dialog.querySelector("form");
-    form.reset();
-    dialog.querySelectorAll("[data-audience-select]").forEach(select => {
-      select.innerHTML = audienceOptions(values.audience ?? "all");
+  async function toggleDetail(entryId) {
+    const resume = currentResume();
+    const selection = cloneSelection(resume);
+    const pick = selection.entries.find(item => item.entry_id === entryId);
+    if (pick) pick.show_detail = pick.show_detail === false;
+    else selection.entries.push({ entry_id: entryId, bullets: [], show_detail: false });
+    await patchResume(resume, { selection }, "");
+    renderResumes();
+  }
+
+  function startResumeField(button) {
+    const resume = currentResume();
+    const field = button.dataset.field;
+    startInlineEditor(button, {
+      scope: ".field-value", value: resume[field] || "", label: field,
+      save: async value => { await patchResume(resume, { [field]: value }); renderResumes(); },
     });
-    dialog.querySelectorAll("[data-variant-select]").forEach(select => {
-      select.innerHTML = audienceOptions(values.variant ?? state.variants[0]?.key ?? "", { includeAll: false });
-    });
-    dialog.querySelectorAll("[data-target-select]").forEach(select => {
-      select.innerHTML = ['<option value="">No target role</option>'].concat(state.jobs.map(job =>
-        `<option value="${job.id}">${esc(job.company)} · ${esc(job.title)}</option>`)).join("");
-    });
-    Object.entries(values).forEach(([key, value]) => {
-      if (form.elements[key] !== undefined) form.elements[key].value = value ?? "";
-    });
+  }
+
+  async function toggleEntry(entryId) {
+    const resume = currentResume();
+    const entry = state.entries.find(item => item.id === entryId);
+    const selection = cloneSelection(resume);
+    const existing = selection.entries.find(item => item.entry_id === entryId);
+    if (!entry.bullets.length) {
+      selection.entries = existing ? selection.entries.filter(item => item.entry_id !== entryId) : selection.entries.concat({ entry_id: entryId, bullets: [] });
+    } else {
+      const all = existing && existing.bullets.length === entry.bullets.length;
+      if (all) selection.entries = selection.entries.filter(item => item.entry_id !== entryId);
+      else {
+        const overrides = new Map((existing?.bullets || []).map(item => [item.bullet_id, item.text_override ?? null]));
+        // Spread the old pick so its header overrides and show_detail survive.
+        const replacement = { ...existing, entry_id: entryId, bullets: entry.bullets.map(bullet => ({ bullet_id: bullet.id, text_override: overrides.get(bullet.id) ?? null })) };
+        selection.entries = selection.entries.filter(item => item.entry_id !== entryId).concat(replacement);
+      }
+    }
+    await patchResume(resume, { selection }, "");
+    renderResumes();
+  }
+
+  function parseDateRange(raw) {
+    const parts = raw.split(/\s+[–—-]\s+/).map(value => value.trim());
+    return parts.length > 1 ? { start_date: parts[0], end_date: parts.slice(1).join(" – ") } : { start_date: "", end_date: raw.trim() };
+  }
+
+  function startInlineEditor(button, config) {
+    const scope = button.closest(config.scope);
+    if (!scope || scope.querySelector(".inline-editor")) return;
+    const original = scope.innerHTML;
+    scope.innerHTML = `<form class="inline-editor"><input name="value" value="${esc(config.value)}" aria-label="${esc(config.label)}" autofocus><button class="inline-icon" type="submit" aria-label="Save">${icon("check")}</button><button class="inline-icon cancel" type="button" aria-label="Cancel">${icon("close")}</button>${config.remove ? `<button class="inline-icon cancel remove" type="button" aria-label="Delete">${icon("trash")}</button>` : ""}</form>`;
+    const form = scope.querySelector("form");
+    form.querySelector(".cancel").onclick = () => { scope.innerHTML = original; };
+    if (config.remove) form.querySelector(".remove").onclick = config.remove;
     form.onsubmit = async event => {
       event.preventDefault();
-      const submit = form.querySelector('[type="submit"]');
-      submit.disabled = true;
-      try {
-        await onSubmit(Object.fromEntries(new FormData(form).entries()));
-        dialog.close();
-        await refresh();
-      } catch (error) {
-        say(error.message);
-      } finally {
-        submit.disabled = false;
-      }
+      const value = form.elements.value.value.trim();
+      try { await config.save(value); } catch (error) { say(error.message); scope.innerHTML = original; }
     };
-    dialog.querySelectorAll("[data-action=close]").forEach(button => {
-      button.onclick = () => dialog.close();
-    });
-    dialog.showModal();
+    const input = form.elements.value;
+    const fit = () => { input.size = Math.max(6, input.value.length + 2); };
+    fit();
+    input.addEventListener("input", fit);
+    input.focus();
+    input.select();
   }
 
-  function openResumeDialog(values = {}) {
-    openDialog("resume-dialog", {
-      name: values.name || "",
-      target_job_id: values.target_job_id || "",
-      variant: values.variant ?? state.variants[0]?.key ?? "",
-    }, async data => {
-      const created = await api("/resumes", {
-        method: "POST",
-        body: {
-          name: data.name,
-          target_job_id: data.target_job_id ? Number(data.target_job_id) : null,
-          variant: data.variant,
-        },
-      });
-      state.resumeId = created.id;
-      state.tab = "builder";
-      state.check = null;
-      state.coverage = null;
+  function startProfileField(button) {
+    const field = button.dataset.field;
+    startInlineEditor(button, {
+      scope: ".field-value", value: state.profile[field] || "", label: field,
+      save: async value => { state.profile = await api("/profile", { method: "PUT", body: { [field]: value } }); renderProfile(); say("Saved automatically"); },
     });
   }
 
-  const parseTags = raw => raw.split(",").map(tag => tag.trim()).filter(Boolean);
+  function startEntryField(button) {
+    const entry = state.entries.find(item => item.id === Number(button.dataset.entry));
+    const field = button.dataset.field;
+    if (!entry) return;
+    const value = field === "dates" ? dates(entry) : entry[field] || "";
+    startInlineEditor(button, {
+      scope: ".field-value", value, label: field,
+      save: async next => {
+        const body = field === "dates" ? parseDateRange(next) : { [field]: next };
+        await api(`/entries/${entry.id}`, { method: "PATCH", body });
+        await refresh(); say("Saved automatically");
+      },
+    });
+  }
 
-  async function swapWithNeighbour(peers, id, delta, patchPosition) {
-    const ordered = [...peers].sort((a, b) => a.position - b.position || a.id - b.id);
-    const index = ordered.findIndex(item => item.id === id);
-    const neighbour = ordered[index + delta];
-    if (index < 0 || !neighbour) return;
-    await patchPosition(id, neighbour.position);
-    await patchPosition(neighbour.id, ordered[index].position);
-    await refresh();
+  function startBulletEditor(button, resumeOverride) {
+    const entry = state.entries.find(item => item.id === Number(button.dataset.entry));
+    const bullet = entry?.bullets.find(item => item.id === Number(button.dataset.id));
+    const row = button.closest(".bullet-row");
+    if (!bullet || !row) return;
+    const resume = currentResume();
+    const pick = resumeOverride ? selectedEntry(resume, entry.id)?.bullets?.find(item => item.bullet_id === bullet.id) : null;
+    const value = pick?.text_override || bullet.text;
+    const original = row.innerHTML;
+    row.innerHTML = `<span class="bullet-mark">•</span><form class="inline-editor"><textarea name="text" autofocus>${esc(value)}</textarea><button class="inline-icon" type="submit" aria-label="Save">${icon("check")}</button><button class="inline-icon cancel" type="button" aria-label="Cancel">${icon("close")}</button>${resumeOverride ? "" : `<button class="inline-icon cancel remove" type="button" aria-label="Delete bullet">${icon("trash")}</button>`}</form>`;
+    const form = row.querySelector("form");
+    growAll(row);
+    form.querySelector(".cancel").onclick = () => { row.innerHTML = original; };
+    if (!resumeOverride) form.querySelector(".remove").onclick = async () => {
+      if (!confirm("Delete this bullet?")) return;
+      await api(`/bullets/${bullet.id}`, { method: "DELETE" });
+      await refresh();
+    };
+    form.onsubmit = async event => {
+      event.preventDefault();
+      const text = form.elements.text.value.trim();
+      if (!text) return;
+      try {
+        if (!resumeOverride) await api(`/bullets/${bullet.id}`, { method: "PATCH", body: { text } });
+        else {
+          const selection = cloneSelection(resume);
+          let entryPick = selection.entries.find(item => item.entry_id === entry.id);
+          if (!entryPick) { entryPick = { entry_id: entry.id, bullets: [] }; selection.entries.push(entryPick); }
+          let bulletPick = entryPick.bullets.find(item => item.bullet_id === bullet.id);
+          if (!bulletPick) { bulletPick = { bullet_id: bullet.id, text_override: null }; entryPick.bullets.push(bulletPick); }
+          bulletPick.text_override = text === bullet.text ? null : text;
+          await patchResume(resume, { selection }, "");
+        }
+        await refresh(); say("Saved automatically");
+      } catch (error) { say(error.message); row.innerHTML = original; }
+    };
+    form.elements.text.focus();
+  }
+
+  function startLinkEditor(index = null) {
+    renderProfile();
+    const links = state.profile.links || [];
+    const link = index === null ? { label: "", url: "" } : links[index];
+    const region = view.querySelector(".profile-links");
+    region.insertAdjacentHTML("beforeend", `<form class="inline-link-form" data-form="link" data-index="${index ?? ""}"><input name="label" value="${esc(link.label)}" placeholder="Label" aria-label="Link label" autofocus><input name="url" value="${esc(link.url)}" placeholder="github.com/you" type="text" inputmode="url" required aria-label="Link URL"><button class="inline-icon" type="submit" aria-label="Save">${icon("check")}</button><button class="inline-icon cancel" type="button" data-action="cancel-add" aria-label="Cancel">${icon("close")}</button>${index === null ? "" : `<button class="inline-icon cancel" type="button" data-action="delete-link" data-index="${index}" aria-label="Delete link">${icon("trash")}</button>`}</form>`);
+    region.querySelector("[autofocus]").focus();
+  }
+
+  function startSkillEditor(button) {
+    const skill = state.skills.find(item => item.id === Number(button.dataset.id));
+    if (!skill) return;
+    startInlineEditor(button, {
+      scope: ".skill-item, .course-item", value: skill.name, label: "skill",
+      save: async name => { await api(`/skills/${skill.id}`, { method: "PATCH", body: { name } }); await refresh(); say("Saved automatically"); },
+      remove: async () => {
+        if (!confirm(`Delete ${skill.name}?`)) return;
+        await api(`/skills/${skill.id}`, { method: "DELETE" });
+        await refresh();
+      },
+    });
   }
 
   async function refresh() {
@@ -790,243 +593,265 @@
     render();
   }
 
-  async function handleAction(button) {
-    const { action, id, kind, entry, delta } = button.dataset;
-    const numericId = Number(id);
-    if (action === "load-demo") {
-      if (!localMode() || !window.OneShotVisitorData?.loadResumeDemo) throw new Error("Sample workspace is available while signed out.");
-      window.OneShotVisitorData.loadResumeDemo();
-      state.resumeId = null;
-      state.tab = "builder";
-      await refresh();
-      say("Sample workspace loaded");
-    } else if (action === "filter-kind") {
-      state.bankKind = kind;
-      renderBank();
-    } else if (action === "add-variant-row") {
-      document.querySelector("[data-empty-variants]")?.remove();
-      document.getElementById("variant-rows").insertAdjacentHTML("beforeend", variantEditorRow());
-      document.querySelector("#variant-rows .variant-row:last-child [data-variant-key]").focus();
-    } else if (action === "remove-variant-row") {
-      button.closest(".variant-row").remove();
-    } else if (action === "add-entry") {
-      openDialog("entry-dialog", { kind }, data => api("/entries", { method: "POST", body: data }));
-    } else if (action === "edit-entry") {
-      const record = state.entries.find(item => item.id === numericId);
-      openDialog("entry-dialog", record, data => api(`/entries/${numericId}`, { method: "PATCH", body: data }));
-    } else if (action === "delete-entry") {
-      if (confirm("Delete this entry and all of its proof points?")) {
-        await api(`/entries/${numericId}`, { method: "DELETE" });
-        await refresh();
-      }
-    } else if (action === "add-bullet") {
-      const entryId = Number(entry);
-      openDialog("bullet-dialog", {}, data => api(`/entries/${entryId}/bullets`, {
-        method: "POST", body: { ...data, tags: parseTags(data.tags || "") },
-      }));
-    } else if (action === "edit-bullet") {
-      const parent = state.entries.find(item => item.id === Number(entry));
-      const record = parent.bullets.find(bullet => bullet.id === numericId);
-      openDialog("bullet-dialog", { ...record, tags: record.tags.join(", ") }, data => api(`/bullets/${numericId}`, {
-        method: "PATCH", body: { ...data, tags: parseTags(data.tags || "") },
-      }));
-    } else if (action === "move-entry") {
-      const record = state.entries.find(item => item.id === numericId);
-      await swapWithNeighbour(state.entries.filter(item => item.kind === record.kind), numericId, Number(delta),
-        (target, position) => api(`/entries/${target}`, { method: "PATCH", body: { position } }));
-    } else if (action === "move-bullet") {
-      const parent = state.entries.find(item => item.id === Number(entry));
-      await swapWithNeighbour(parent.bullets, numericId, Number(delta),
-        (target, position) => api(`/bullets/${target}`, { method: "PATCH", body: { position } }));
-    } else if (action === "delete-bullet") {
-      await api(`/bullets/${numericId}`, { method: "DELETE" });
-      await refresh();
-    } else if (action === "delete-skill") {
-      await api(`/skills/${numericId}`, { method: "DELETE" });
-      await refresh();
-    } else if (action === "add-job") {
-      openDialog("job-dialog", {}, data => api("/jobs", { method: "POST", body: data }));
-    } else if (action === "edit-job") {
-      const record = state.jobs.find(job => job.id === numericId);
-      openDialog("job-dialog", record, data => api(`/jobs/${numericId}`, { method: "PATCH", body: data }));
-    } else if (action === "delete-job") {
-      if (confirm("Delete this target role? Linked resumes will keep their content.")) {
-        await api(`/jobs/${numericId}`, { method: "DELETE" });
-        await refresh();
-      }
-    } else if (action === "tailor-job") {
-      const existing = state.resumes.find(resume => resume.target_job_id === numericId);
-      if (existing) {
-        state.resumeId = existing.id;
-        state.tab = "builder";
-        state.check = null;
-        state.coverage = null;
-        render();
-      } else {
-        const job = state.jobs.find(item => item.id === numericId);
-        openResumeDialog({ name: `${job.company} · ${job.title}`, target_job_id: job.id });
-      }
-    } else if (action === "new-resume") {
-      openResumeDialog();
-    } else if (action === "delete-resume") {
-      if (confirm("Delete this tailored resume? Your content library will stay intact.")) {
-        await api(`/resumes/${state.resumeId}`, { method: "DELETE" });
-        state.resumeId = null;
-        state.check = null;
-        state.coverage = null;
-        await refresh();
-      }
-    } else if (action === "save-resume") {
-      await saveResume();
-    } else if (action === "check-resume") {
-      await checkResume();
-    } else if (action === "download-typ" || action === "open-pdf") {
-      const exportKind = action === "open-pdf" ? "pdf" : "source";
-      const resume = await saveResume();
-      if (resume && localMode()) await openRendered(exportKind, resume);
-      else if (resume) window.open(`/api/resume/resumes/${resume.id}/${exportKind}`, "_blank");
+  async function loadPdfBlob(resume) {
+    // Signed out there is no stored resume to render, so the document travels
+    // with the request instead.
+    const response = localMode()
+      ? await fetch("/api/resume/render/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profile: state.profile, resume, entries: state.entries, skills: state.skills }),
+      })
+      : await fetch(`/api/resume/resumes/${resume.id}/pdf`);
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.detail || "Could not build PDF");
+    }
+    return response.blob();
+  }
+
+  async function loadPdfPreview() {
+    const frame = view.querySelector(".pdf-frame");
+    const loading = view.querySelector(".pdf-loading");
+    if (!frame) return;
+    try {
+      const blob = await loadPdfBlob(currentResume());
+      if (state.pdfUrl) URL.revokeObjectURL(state.pdfUrl);
+      state.pdfUrl = URL.createObjectURL(blob);
+      frame.src = state.pdfUrl;
+      frame.hidden = false;
+      loading.hidden = true;
+    } catch (error) {
+      loading.textContent = error.message;
     }
   }
 
-  document.querySelector(".view-tabs").addEventListener("click", event => {
-    const button = event.target.closest("[data-tab]");
-    if (button) selectTab(button.dataset.tab);
-  });
+  async function exportPdf() {
+    const resume = currentResume();
+    const blob = await loadPdfBlob(resume);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${(resume.name || "resume").replace(/[^a-z0-9]+/gi, "_")}.pdf`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  }
 
-  document.querySelector(".view-tabs").addEventListener("keydown", event => {
-    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-    const tabs = [...document.querySelectorAll("[data-tab]")];
-    const index = tabs.indexOf(document.activeElement);
-    const nextIndex = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1
-      : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
-    event.preventDefault();
-    selectTab(tabs[nextIndex].dataset.tab);
-    tabs[nextIndex].focus();
-  });
+  function buildInitialSelection(variant) {
+    const matches = audience => !audience || audience === "all" || audience === variant;
+    return {
+      entries: state.entries.filter(entry => entry.kind !== "education").map(entry => ({
+        entry_id: entry.id,
+        bullets: entry.bullets.filter(bullet => matches(bullet.audience)).map(bullet => ({ bullet_id: bullet.id, text_override: null })),
+      })).filter(pick => pick.bullets.length || !state.entries.find(entry => entry.id === pick.entry_id)?.bullets.length),
+      skills: state.skills.filter(skill => matches(skill.audience)).map(skill => skill.id),
+    };
+  }
 
-  document.querySelector("[data-global-action=new-resume]").addEventListener("click", () => openResumeDialog());
+  function openResumeDialog(values = {}) {
+    const dialog = document.getElementById("resume-dialog");
+    const form = dialog.querySelector("form");
+    form.reset();
+    form.elements.name.value = values.name || "";
+    form.elements.target_job_id.innerHTML = `<option value="">No target role</option>${state.jobs.map(job => `<option value="${job.id}">${esc(job.company)} · ${esc(job.title)}</option>`).join("")}`;
+    form.elements.variant.innerHTML = audienceOptions(values.variant ?? state.variants[0]?.key ?? "", { includeAll: false });
+    form.elements.target_job_id.value = values.target_job_id || "";
+    dialog.showModal();
+    form.elements.name.focus();
+  }
 
-  view.addEventListener("submit", async event => {
-    const form = event.target;
-    event.preventDefault();
-    try {
-      if (form.id === "profile-form") {
-        const data = Object.fromEntries(new FormData(form).entries());
-        const links = data.links.split("\n").map(line => line.trim()).filter(Boolean).map(line => {
-          const match = line.match(/^(.*?)\s*(\S+)$/);
-          return { label: (match?.[1] || "").trim(), url: match?.[2] || line };
-        });
-        state.profile = await api("/profile", {
-          method: "PUT",
-          body: { full_name: data.full_name, email: data.email, phone: data.phone, location: data.location, links },
-        });
-        say("Profile saved");
-        renderBank();
-      } else if (form.id === "variants-form") {
-        const variants = [...form.querySelectorAll(".variant-row")].map(row => ({
-          key: row.querySelector("[data-variant-key]").value,
-          label: row.querySelector("[data-variant-label]").value,
-        })).filter(variant => variant.key.trim());
-        const saved = await api("/variants", { method: "PUT", body: { variants } });
-        state.variants = saved.variants;
-        say("Variants saved");
-        await refresh();
-      } else if (form.id === "vocabulary-form") {
-        const raw = Object.fromEntries(new FormData(form).entries()).terms || "";
-        const saved = await api("/vocabulary", { method: "PUT", body: { terms: parseTags(raw) } });
-        state.vocabulary = saved.terms;
-        say(`Coverage dictionary saved · ${saved.terms.length} terms`);
-        renderBank();
-      } else if (form.id === "skill-form") {
-        const data = Object.fromEntries(new FormData(form).entries());
-        await api("/skills", { method: "POST", body: data });
-        await refresh();
-      }
-    } catch (error) {
-      say(error.message);
+  async function handleAction(button) {
+    const action = button.dataset.action;
+    if (action === "new-resume") return openResumeDialog();
+    if (action === "toggle-add-section") {
+      const menu = button.nextElementSibling; const opening = menu.hidden; closeMenus(menu); menu.hidden = !opening; button.setAttribute("aria-expanded", String(opening)); return;
     }
+    if (action === "add-section") {
+      closeMenus();
+      if (button.dataset.section === "skills") state.addingSkill = true; else state.addingKind = button.dataset.section;
+      state.openSections.add(button.dataset.section); render(); return;
+    }
+    if (action === "toggle-section") {
+      const key = button.dataset.section; state.openSections.has(key) ? state.openSections.delete(key) : state.openSections.add(key); render(); return;
+    }
+    if (action === "section-add") {
+      const key = button.dataset.section;
+      if (key === "skills") state.addingSkill = true; else state.addingKind = key;
+      state.openSections.add(key); renderProfile(); return;
+    }
+    if (action === "add-course") { state.addingCourse = true; renderProfile(); return; }
+    if (action === "add-bullet") { state.addingBulletEntry = Number(button.dataset.entry); renderProfile(); return; }
+    if (action === "cancel-add") { state.addingKind = null; state.addingSkill = false; state.addingCourse = false; state.addingBulletEntry = null; render(); return; }
+    if (action === "edit-profile-field") return startProfileField(button);
+    if (action === "edit-entry-field") return startEntryField(button);
+    if (action === "edit-resume-field") return startResumeField(button);
+    if (action === "edit-bullet") return startBulletEditor(button, false);
+    if (action === "edit-resume-bullet") return startBulletEditor(button, true);
+    if (action === "edit-link") return startLinkEditor(Number(button.dataset.index));
+    if (action === "add-link") return startLinkEditor();
+    if (action === "delete-link") {
+      const links = [...(state.profile.links || [])];
+      links.splice(Number(button.dataset.index), 1);
+      state.profile = await api("/profile", { method: "PUT", body: { links } });
+      renderProfile(); say("Link deleted"); return;
+    }
+    if (action === "edit-skill") return startSkillEditor(button);
+    if (action === "toggle-entry-menu" || action === "toggle-resume-menu") {
+      const menu = button.nextElementSibling; const opening = menu.hidden; closeMenus(menu); menu.hidden = !opening; button.setAttribute("aria-expanded", String(opening)); return;
+    }
+    if (action === "delete-entry") {
+      if (confirm("Delete this entry and its bullets?")) { await api(`/entries/${Number(button.dataset.id)}`, { method: "DELETE" }); await refresh(); }
+      return;
+    }
+    if (action === "toggle-resume-picker") {
+      const menu = button.nextElementSibling; const opening = menu.hidden; closeMenus(menu); menu.hidden = !opening; button.setAttribute("aria-expanded", String(opening)); return;
+    }
+    if (action === "choose-resume") { state.resumeId = Number(button.dataset.id); state.mode = "content"; state.renamingResumeId = null; renderResumes(); return; }
+    if (action === "rename-resume") { state.renamingResumeId = Number(button.dataset.id); renderResumes(); view.querySelector("[data-action=toggle-resume-picker]").click(); return; }
+    if (action === "cancel-rename") { state.renamingResumeId = null; renderResumes(); view.querySelector("[data-action=toggle-resume-picker]").click(); return; }
+    if (action === "delete-resume") {
+      const id = Number(button.dataset.id);
+      if (confirm("Delete this resume? Your Profile content will stay intact.")) { await api(`/resumes/${id}`, { method: "DELETE" }); if (state.resumeId === id) state.resumeId = null; await refresh(); }
+      return;
+    }
+    if (action === "toggle-skill") return toggleSkill(Number(button.dataset.id));
+    if (action === "toggle-bullet") return toggleBullet(Number(button.dataset.entry), Number(button.dataset.id));
+    if (action === "toggle-entry") return toggleEntry(Number(button.dataset.id));
+    if (action === "toggle-detail") return toggleDetail(Number(button.dataset.id));
+    if (action === "show-content") { state.mode = "content"; renderResumes(); return; }
+    if (action === "show-pdf") { state.mode = "pdf"; renderResumes(); return; }
+    if (action === "export-pdf") return exportPdf();
+  }
+
+  // A bullet is one or two lines far more often than four, so the box opens at a
+  // single row and follows the text rather than reserving height for it.
+  function grow(area) {
+    if (!area) return;
+    area.style.height = "auto";
+    area.style.height = `${area.scrollHeight}px`;
+  }
+  function growAll(root) { (root || view).querySelectorAll("textarea").forEach(grow); }
+
+  view.addEventListener("input", event => {
+    if (event.target instanceof HTMLTextAreaElement) grow(event.target);
+  });
+
+  view.addEventListener("change", async event => {
+    if (!event.target.matches("[data-resume-template]")) return;
+    try { await patchResume(currentResume(), { template: event.target.value }); renderResumes(); } catch (error) { say(error.message); }
   });
 
   view.addEventListener("click", async event => {
     const button = event.target.closest("[data-action]");
     if (!button) return;
+    event.preventDefault();
+    event.stopPropagation();
+    try { await handleAction(button); } catch (error) { say(error.message); }
+  });
+
+  tabAction.addEventListener("click", async event => {
+    const button = event.target.closest("[data-action]");
+    if (!button) return;
+    event.preventDefault();
+    event.stopPropagation();
+    try { await handleAction(button); } catch (error) { say(error.message); }
+  });
+
+  view.addEventListener("keydown", event => {
+    if (!["Enter", " "].includes(event.key) || !event.target.matches('[role="button"][data-action]')) return;
+    event.preventDefault(); event.target.click();
+  });
+
+  view.addEventListener("submit", async event => {
+    const form = event.target;
+    event.preventDefault();
     try {
-      await handleAction(button);
-    } catch (error) {
-      say(error.message);
-    }
+      if (form.dataset.form === "entry") {
+        const data = Object.fromEntries(new FormData(form).entries());
+        const kind = form.dataset.kind;
+        const project = kind === "project";
+        const education = kind === "education";
+        const range = parseDateRange(data.dates || "");
+        await api("/entries", { method: "POST", body: {
+          kind, org: project || education ? data.primary : data.secondary,
+          role: project || education ? data.secondary : data.primary,
+          location: data.location || "", ...range, url: education ? "" : data.url || "", detail: data.detail || "",
+        } });
+        state.addingKind = null; await refresh(); say(`${KIND[kind].title} added`);
+      } else if (form.dataset.form === "bullet") {
+        const text = new FormData(form).get("text").trim();
+        await api(`/entries/${Number(form.dataset.entry)}/bullets`, { method: "POST", body: { text, audience: "all", tags: [], defense_notes: "" } });
+        state.addingBulletEntry = null; await refresh(); say("Bullet added");
+      } else if (form.dataset.form === "skill") {
+        const data = Object.fromEntries(new FormData(form).entries());
+        const coursework = form.dataset.coursework === "true";
+        await api("/skills", { method: "POST", body: { category: coursework ? "coursework" : data.category, name: data.name.trim(), audience: "all" } });
+        state.addingCourse = false; state.addingSkill = false; await refresh(); say(coursework ? "Course added" : "Skill added");
+      } else if (form.dataset.form === "link") {
+        const data = Object.fromEntries(new FormData(form).entries());
+        const links = [...(state.profile.links || [])];
+        const index = form.dataset.index === "" ? null : Number(form.dataset.index);
+        const url = webUrl(data.url);
+        if (!url) { say("Enter a link like github.com/you"); return; }
+        const value = { label: data.label.trim(), url: url.href };
+        if (index === null) links.push(value); else links[index] = value;
+        state.profile = await api("/profile", { method: "PUT", body: { links } }); renderProfile(); say("Saved automatically");
+      } else if (form.dataset.form === "rename-resume") {
+        const resume = state.resumes.find(item => item.id === Number(form.dataset.id));
+        await patchResume(resume, { name: new FormData(form).get("name").trim() });
+        state.renamingResumeId = null; renderResumes();
+      }
+    } catch (error) { say(error.message); }
   });
 
-  view.addEventListener("input", event => {
-    if (event.target.id === "bank-search") {
-      state.bankQuery = event.target.value;
-      applyBankFilters();
-    } else if (["rs-name", "rs-availability", "rs-eduemph"].includes(event.target.id)) {
-      updateLiveBuilder();
-    }
+  document.querySelector(".page-tabs").addEventListener("click", event => {
+    const button = event.target.closest("[data-tab]");
+    if (!button) return;
+    state.tab = button.dataset.tab; state.mode = "content"; render();
   });
 
-  view.addEventListener("change", event => {
-    if (event.target.id === "resume-select") {
-      state.resumeId = Number(event.target.value);
-      state.check = null;
-      state.coverage = null;
-      renderBuilder();
-      return;
-    }
-    if (event.target.matches("[data-pick-entry-toggle]")) {
-      event.target.closest(".pick-entry").querySelectorAll("[data-pick-bullet]").forEach(box => {
-        box.checked = event.target.checked;
-      });
-    }
-    if (event.target.id === "rs-variant") {
-      const variant = event.target.value;
-      view.querySelectorAll("[data-audience]").forEach(row => {
-        row.classList.toggle("off-audience", row.dataset.audience !== "all" && row.dataset.audience !== variant);
-      });
-    }
-    if (event.target.matches("[data-pick-bullet], [data-pick-entry-only], [data-pick-entry-toggle], [data-pick-skill], #rs-variant, #rs-job")) {
-      updateLiveBuilder();
-    }
+  document.querySelector("[data-action=new-resume]").addEventListener("click", () => openResumeDialog());
+  document.querySelectorAll("[data-close-dialog]").forEach(button => button.addEventListener("click", () => button.closest("dialog").close()));
+  document.getElementById("resume-form").addEventListener("submit", async event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = Object.fromEntries(new FormData(form).entries());
+    try {
+      const created = await api("/resumes", { method: "POST", body: {
+        name: data.name.trim(), target_job_id: data.target_job_id ? Number(data.target_job_id) : null,
+        variant: data.variant, selection: buildInitialSelection(data.variant),
+      } });
+      state.resumes.unshift(created); state.resumeId = created.id; state.tab = "resumes"; state.mode = "content";
+      document.getElementById("resume-dialog").close(); render(); say("Resume created");
+    } catch (error) { say(error.message); }
   });
 
-  // Applications hands off with `#target=<resume_target id>`. Reuse an existing
-  // linked resume or create one, then land directly in the builder.
+  document.addEventListener("click", event => {
+    if (!event.target.closest(".add-section, .resume-picker, .entry-actions, .card-menu")) closeMenus();
+  });
+
   async function openHandoffTarget() {
     const requested = Number(new URLSearchParams(location.hash.replace(/^#/, "")).get("target"));
     if (!requested || !state.jobs.some(job => job.id === requested)) return;
     const existing = state.resumes.find(resume => resume.target_job_id === requested);
-    if (existing) {
-      state.resumeId = existing.id;
-    } else {
+    if (existing) state.resumeId = existing.id;
+    else {
       const job = state.jobs.find(item => item.id === requested);
-      const created = await api("/resumes", {
-        method: "POST",
-        body: {
-          name: `${job.company} — ${job.title}`.slice(0, 300),
-          target_job_id: requested,
-          variant: state.variants[0]?.key || "",
-        },
-      });
-      state.resumes.unshift(created);
-      state.resumeId = created.id;
+      const created = await api("/resumes", { method: "POST", body: {
+        name: `${job.company} · ${job.title}`.slice(0, 300), target_job_id: requested,
+        variant: state.variants[0]?.key || "", selection: buildInitialSelection(state.variants[0]?.key || ""),
+      } });
+      state.resumes.unshift(created); state.resumeId = created.id;
     }
-    state.tab = "builder";
+    state.tab = "resumes";
     history.replaceState(null, "", location.pathname + location.search);
   }
 
   (async () => {
-    await refresh();
-    const demoRequested = new URLSearchParams(location.search).get("demo") === "1";
-    if (demoRequested && state.browserLocal && workspaceIsEmpty() && window.OneShotVisitorData?.loadResumeDemo) {
-      window.OneShotVisitorData.loadResumeDemo();
-      state.resumeId = null;
-      state.tab = "builder";
-      await refresh();
-    }
+    await loadAll();
     await openHandoffTarget();
     render();
   })().catch(error => {
-    view.innerHTML = `<section class="empty-state"><div>!</div><h2>Resume studio could not load</h2><p>${esc(error.message)}</p></section>`;
+    view.innerHTML = `<section class="empty-state"><h2>Resumes could not load</h2><p>${esc(error.message)}</p></section>`;
   });
 })();

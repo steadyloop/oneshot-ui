@@ -5,9 +5,13 @@
     health: "/health",
     jobs: "/jobs",
     addToApplications: id => `/jobs/${encodeURIComponent(id)}/applications`,
+    feedback: id => `/jobs/${encodeURIComponent(id)}/feedback`,
+    feedbackList: "/feedback",
     applications: "/applications",
     application: id => `/applications/${encodeURIComponent(id)}`,
     externalApplications: "/applications/external",
+    autoApplyPreview: id => `/applications/${encodeURIComponent(id)}/auto-apply/preview`,
+    autoApply: id => `/applications/${encodeURIComponent(id)}/auto-apply`,
     resumes: "/resume/resumes",
     targetFromApplication: id => `/resume/jobs/from-application/${encodeURIComponent(id)}`,
     sourceCoverage: "/source-coverage",
@@ -19,10 +23,6 @@
     ...options,
   });
   async function transport(path, options = {}, privateData = false) {
-    await root.OneShotSampleData?.ready?.();
-    if (root.OneShotSampleData?.servesFixtures?.(path)) {
-      return root.OneShotSampleData.request(path, options);
-    }
     if (privateData && root.OneShotVisitorData && await root.OneShotVisitorData.isLocal()) {
       return root.OneShotVisitorData.request(path, options);
     }
@@ -75,41 +75,48 @@
     return encoded ? `?${encoded}` : "";
   };
 
-  // Which browser-side store backs the tracker right now, or null when a real
-  // session means the tracker lives on the server. Opportunities asks from a
-  // page that is not itself a fixture page, so this cannot be a page question.
-  const applicationStore = () => {
-    if (root.OneShotSampleData?.servesFixtures?.(ROUTES.applications)) return root.OneShotSampleData;
-    return null;
-  };
+  // Signed-out application tracking is browser-local. Signed-in tracking lives
+  // in PostgreSQL, so it has no browser-side store.
+  const applicationStore = async () => (
+    root.OneShotVisitorData && await root.OneShotVisitorData.isLocal()
+      ? root.OneShotVisitorData
+      : null
+  );
 
   root.OneShotAPI = {
     health: () => request(ROUTES.health),
     jobs: {
       list: async filters => {
         const values = { ...(filters || {}) };
-        await root.OneShotSampleData?.ready?.();
-        // Whichever store answers /applications is the one that knows what is
-        // already tracked, so the two always agree on what to hide here.
-        const tracker = applicationStore();
+        const tracker = await applicationStore();
         if (tracker) {
-          // The fixture board uses readable ids such as `sample-quant`, while
-          // the public Postgres jobs route accepts integer ids. Those fixture-
-          // only values can never match a live row and used to make the whole
-          // sidebar-count request fail validation on every signed-out page.
-          const liveIds = tracker.applicationJobIds().filter(id =>
-            String(id).trim() !== "" && Number.isSafeInteger(Number(id)));
+          // Tracked and hidden (skipped or mislabeled) postings both leave a
+          // guest's feed; a signed-in feed is filtered in PostgreSQL instead.
+          const ids = [...tracker.applicationJobIds(), ...(tracker.hiddenJobIds?.() || [])];
+          const liveIds = [...new Set(ids.filter(id =>
+            String(id).trim() !== "" && Number.isSafeInteger(Number(id))).map(String))];
           if (liveIds.length) values.exclude_job_id = liveIds;
         }
         return request(`${ROUTES.jobs}${query(values)}`);
       },
       addToApplications: async (id, job) => {
-        await root.OneShotSampleData?.ready?.();
-        // The tracker snapshots the posting from its own store, so the job has
-        // to be there before the POST or it comes back 404.
-        applicationStore()?.rememberJob(job);
+        // The browser-local tracker snapshots the public posting before its
+        // private POST; a signed-in tracker reads the posting from PostgreSQL.
+        const tracker = await applicationStore();
+        tracker?.rememberJob(job);
         return request(ROUTES.addToApplications(id), { method: "POST" }, true);
       },
+      // Skip or Mislabeled. Like an add, the guest store snapshots the posting
+      // first so its Hidden list can still show it after it leaves the feed.
+      setFeedback: async (id, body, job) => {
+        const tracker = await applicationStore();
+        tracker?.rememberJob(job);
+        return request(ROUTES.feedback(id), { method: "PUT", body: JSON.stringify(body) }, true);
+      },
+      clearFeedback: id => request(ROUTES.feedback(id), { method: "DELETE" }, true),
+    },
+    feedback: {
+      list: filters => request(`${ROUTES.feedbackList}${query(filters)}`, {}, true),
     },
     applications: {
       list: () => request(ROUTES.applications, {}, true),
@@ -117,6 +124,11 @@
       createExternal: body => request(ROUTES.externalApplications, { method: "POST", body: JSON.stringify(body) }, true),
       update: (id, body) => request(ROUTES.application(id), { method: "PATCH", body: JSON.stringify(body) }, true),
       remove: id => request(ROUTES.application(id), { method: "DELETE" }, true),
+      // Auto-apply is server-only: it needs the account's resume and a
+      // browser on the server, so the guest (browser-local) tracker never
+      // handles it and a signed-out reader is sent to the login page.
+      autoApplyPreview: id => request(ROUTES.autoApplyPreview(id), { method: "POST" }),
+      autoApply: (id, body) => request(ROUTES.autoApply(id), { method: "POST", body: JSON.stringify(body) }),
     },
     resumes: {
       list: () => request(ROUTES.resumes, {}, true),

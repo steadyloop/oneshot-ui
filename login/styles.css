@@ -1,5 +1,5 @@
-/* Standalone sign-in page. Tokens mirror app.css rather than importing it, so
-   this page carries no dependency on the signed-in stylesheet. */
+/* Standalone sign-in page. Tokens are defined here rather than imported, so
+   this page carries no dependency on the signed-in stylesheets. */
 :root {
   --paper: #fffefa;
   --ground: #f5f4ef;

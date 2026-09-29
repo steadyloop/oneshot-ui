@@ -80,7 +80,11 @@ def create_app(
         if resume_store is not None:
             resumes = await _open(resume_store)
         elif repository is None:
-            resumes = await _open(PostgresResumeStore(resolved.dsn))
+            # The resume workspace uses the same database and can share the
+            # request pool. Opening a second pool doubled every cold start.
+            resumes = await _open(
+                PostgresResumeStore(resolved.dsn, pool=store._ready())
+            )
         else:
             resumes = None
 

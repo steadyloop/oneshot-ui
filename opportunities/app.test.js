@@ -8,6 +8,8 @@ const fs = require("node:fs");
 const {
   FILTERS,
   DEGREE_FILTERS,
+  seasonFilter,
+  sortOrder,
   SKILL_CATEGORIES,
   SKILL_BUNDLES,
   degreeFields,
@@ -19,37 +21,33 @@ const {
   skillBundles,
   listTags,
   sourceLabel,
-  sourceChoices,
-  sourceDisclosureMarkup,
-  relativeTime,
+  linkChoices,
+  placeList,
+  commonTerms,
+  openMarkup,
+  detailPaneMarkup,
+  reportRows,
+  hiddenReason,
+  SKIP_REASONS,
   workplaceLabel,
-  listFacts,
-  deadlineLabel,
-  detailMetaMarkup,
   cardMetaMarkup,
-  openPostingLabel,
-  detailHeadMarkup,
   detailPostedMarkup,
-  summaryMarkup,
   initials,
   logoSrc,
   logoMarkup,
-  cardStatusLine,
   recencyBucket,
 } = require("./app.js");
 
-test("V2 job type tabs default to all student opportunities", () => {
+test("V2 job type tabs cover every student job type exactly once", () => {
   const counts = { intern: 42, coop: 7, student: 11, new_grad: 5, research: 3 };
-  assert.deepEqual(FILTERS.map(filter => filter.label), ["All", "Internships", "Co-ops", "Student Jobs", "New Grad"]);
-  assert.equal(tabCount(counts, FILTERS[0]), 68);
-  assert.equal(tabCount(counts, FILTERS[1]), 42);
-  assert.equal(tabCount(counts, FILTERS[2]), 7);
-  assert.equal(tabCount(counts, FILTERS[3]), 11);
-  assert.equal(tabCount(counts, FILTERS[4]), 5);
+  assert.deepEqual(FILTERS.map(filter => filter.label), ["Internships", "Co-ops", "Student Jobs", "New Grad", "Research"]);
+  // One tab per type, so the counts partition the corpus and sum to the total.
+  assert.deepEqual(FILTERS.map(filter => tabCount(counts, filter)), [42, 7, 11, 5, 3]);
+  assert.equal(FILTERS.reduce((total, filter) => total + tabCount(counts, filter), 0), 68);
   const design = fs.readFileSync(require.resolve("./app.js"), "utf8");
   assert.match(design, /class="filter-count"/);
   assert.match(design, /payload\.job_type_counts/);
-  assert.match(design, /filters: \["all"\]/);
+  assert.match(design, /filters: \["internships"\]/);
 });
 
 test("V2 labels the outer recency buckets by calendar day", () => {
@@ -64,6 +62,25 @@ test("V2 labels the outer recency buckets by calendar day", () => {
   assert.equal(recencyBucket({}, now).label, "Date unavailable");
   const design = fs.readFileSync(require.resolve("./app.js"), "utf8");
   assert.match(design, /class="recency-bucket"/);
+});
+
+test("V2 offers oldest-first sorting while retaining date buckets", () => {
+  const design = fs.readFileSync(require.resolve("./app.js"), "utf8");
+  assert.match(design, /<option value="oldest"[^>]*>Oldest first<\/option>/);
+  assert.match(design, /\["fresh", "oldest"\]\.includes\(sortOrder\(state\.sort\)\)/);
+});
+
+test("V2 replaces alphabetical sorts with seasonal title/description filters", () => {
+  const design = fs.readFileSync(require.resolve("./app.js"), "utf8");
+  assert.match(design, /<option value="fall"[^>]*>Fall Only<\/option>/);
+  assert.match(design, /<option value="winter"[^>]*>Winter Only<\/option>/);
+  assert.doesNotMatch(design, />Company A–Z<|>Role title A–Z</);
+  assert.equal(seasonFilter("fall"), "fall");
+  assert.equal(seasonFilter("winter"), "winter");
+  assert.equal(seasonFilter("fresh"), "");
+  assert.equal(sortOrder("fall"), "fresh");
+  assert.equal(sortOrder("oldest"), "oldest");
+  assert.match(design, /season: seasonFilter\(state\.sort\)/);
 });
 
 test("V2 exposes the three bio-career focus filters", () => {
@@ -182,9 +199,9 @@ test("V2 detail presents methods and concepts as one low-emphasis expertise flow
   assert.doesNotMatch(markup, /data-skill-(?:group|section)="(?:method|concept)"/);
 
   const styles = fs.readFileSync(require.resolve("./styles.css"), "utf8");
-  assert.match(styles, /\.detail-skill-section \.skill-list \{[^}]*display: flex[^}]*flex-wrap: wrap[^}]*margin-top: 9px/);
-  assert.match(styles, /\.expertise-list \{[^}]*display: flex[^}]*flex-wrap: wrap[^}]*gap: 5px[^}]*color: #667168[^}]*font: 500 10px\/1\.4 var\(--sans\)/);
-  assert.match(styles, /\.expertise-term \{[^}]*max-width: 100%[^}]*display: inline-flex[^}]*border-radius: 4px[^}]*background: #f1f3ef[^}]*padding: 2px 6px[^}]*white-space: normal/);
+  assert.match(styles, /\.detail-skill-section \.skill-list \{[^}]*display: flex[^}]*flex-wrap: wrap[^}]*margin-top: 8px/);
+  assert.match(styles, /\.expertise-list \{[^}]*display: flex[^}]*flex-wrap: wrap[^}]*gap: 5px[^}]*color: #667168[^}]*font: 500 12px\/1\.4 var\(--sans\)/);
+  assert.match(styles, /\.expertise-term \{[^}]*max-width: 100%[^}]*display: inline-flex[^}]*border-radius: 5px[^}]*background: #f1f3ef[^}]*padding: 2px 7px[^}]*white-space: normal/);
   assert.doesNotMatch(styles, /\.expertise-term[^}]*::(?:before|after)/);
   assert.doesNotMatch(styles, /\.expertise-term\[data-skill-category="method"\]/);
   assert.doesNotMatch(styles, /\.expertise-term(?:\[[^\]]+\])? \{[^}]*linear-gradient/);
@@ -279,193 +296,133 @@ test("V2 formats public job metadata into reader-facing labels", () => {
   assert.equal(workplaceLabel("unknown"), "");
 });
 
-test("V2 quietly reduces alternate postings to usable distinct providers", () => {
-  const choices = sourceChoices({
-    source: "greenhouse:acme",
-    apply_url: "https://greenhouse.example/job",
+test("every distinct posting URL is a way in, vendor repeats included", () => {
+  const choices = linkChoices({
+    source: "oracle:eevd.fa.us6/cx_14001",
+    apply_url: "https://eevd.example/cx_14001/job",
     posted_at: "2026-08-18T00:00:00Z",
     other_sources: [
-      { source: "greenhouse:mirror", url: "https://greenhouse.example/mirror" },
-      { source: "workday:acme", url: "https://workday.example/job", posted_at: "2026-08-17T00:00:00Z" },
+      { source: "oracle:eevd.fa.us6/cx_1", url: "https://eevd.example/cx_1/job" },
+      { source: "workday:acme", url: "https://workday.example/job" },
       { source: "lever:acme", url: "javascript:alert(1)" },
-      { source: "custom_board:acme", url: "https://custom.example/job" },
-      { source: "workday:older", url: "https://workday.example/older" },
+      { source: "workday:mirror", url: "https://workday.example/job" },
     ],
   });
-  assert.deepEqual(choices.map(choice => choice.label), ["Greenhouse", "Workday", "Custom Board"]);
   assert.deepEqual(choices.map(choice => choice.url), [
-    "https://greenhouse.example/job",
+    "https://eevd.example/cx_14001/job",
+    "https://eevd.example/cx_1/job",
     "https://workday.example/job",
-    "https://custom.example/job",
   ]);
+  // Two career sites of one tenant read the same by name, so the board says which.
+  assert.deepEqual(choices.map(choice => choice.board), ["cx_14001", "cx_1", ""]);
 });
 
-test("V2 source disclosure is absent for one provider and muted behind an accessible control", () => {
-  assert.deepEqual(sourceDisclosureMarkup({
-    id: 1,
-    source: "greenhouse:acme",
-    apply_url: "https://greenhouse.example/job",
-    other_sources: [{ source: "greenhouse:mirror", url: "https://greenhouse.example/mirror" }],
-  }), { inline: "", panel: "" });
-
+test("the posting link is one click, and a chevron appears only when it is listed twice", () => {
   const now = new Date("2026-08-18T12:00:00Z");
-  const markup = detailPostedMarkup({
-    id: 'unsafe"id',
+  const single = openMarkup({ id: 1, source: "greenhouse:acme", apply_url: "https://greenhouse.example/job" }, {}, now);
+  assert.match(single, /^<a class="button open-link" href="https:\/\/greenhouse\.example\/job" target="_blank" rel="noopener noreferrer"[^>]*><span>Greenhouse<\/span>/);
+  assert.doesNotMatch(single, /open-more|open-split/);
+
+  const job = {
+    id: 2,
     source: "greenhouse:acme",
     apply_url: "https://greenhouse.example/job",
-    posted_at: "2026-08-18T00:00:00Z",
-    other_sources: [
-      { source: "workday:acme", url: "https://workday.example/job", posted_at: "2026-08-17T00:00:00Z" },
-    ],
-  }, now);
-  assert.match(markup, />2 sources<\/button>/);
-  assert.match(markup, /data-action="toggle-sources"/);
-  assert.match(markup, /aria-expanded="false"/);
-  assert.match(markup, /aria-controls="job-sources-unsafe-id"/);
-  assert.match(markup, /id="job-sources-unsafe-id"[^>]*hidden/);
-  assert.match(markup, /Also available on/);
-  assert.match(markup, /Workday ↗/);
-  assert.match(markup, /Posted yesterday/);
-  assert.doesNotMatch(markup, /duplicate|primary/i);
+    last_seen_at: "2026-08-18T07:00:00Z",
+    other_sources: [{ source: "lever:acme", url: "https://lever.example/job", posted_at: "2026-08-17T00:00:00Z" }],
+  };
+  const split = openMarkup(job, {}, now);
+  assert.match(split, /class="open-split"><a class="button open-link" href="https:\/\/greenhouse\.example\/job"/);
+  assert.match(split, /class="button open-more"[^>]*aria-haspopup="menu" aria-expanded="false" aria-label="1 other link"/);
+  // No count on the button itself: the chevron's presence says it all.
+  assert.doesNotMatch(split, /\+1|link-menu/);
+
+  const open = openMarkup(job, { links: true }, now);
+  assert.match(open, /class="pop link-menu" role="menu"[^>]*><p>Listed 2 times<\/p>/);
+  assert.match(open, /<b>Greenhouse<\/b><small>checked 5h ago<\/small>/);
+  assert.match(open, /<b>Lever<\/b><small>Posted yesterday<\/small>/);
+  assert.equal(openMarkup({ id: 3 }, {}, now), "");
 });
 
-test("V2 omits the old type badge and fact-grid treatment", () => {
-  const design = fs.readFileSync(require.resolve("./app.js"), "utf8");
-  const styles = fs.readFileSync(require.resolve("./styles.css"), "utf8");
-  assert.doesNotMatch(design, /Summer internship|At a glance|badgesMarkup|factsMarkup/);
-  assert.doesNotMatch(styles, /detail-badge|fact-grid/);
+test("the action row reads Add, the posting link, then Skip, with the flag up in the header", () => {
+  const job = {
+    id: 7,
+    company: "Lyft",
+    title: "Applied Scientist Intern",
+    source: "greenhouse:lyft",
+    apply_url: "https://greenhouse.example/7",
+    locations: [{ country: "US", state: "CA", city: "San Francisco" }, { country: "US", state: "NY", city: "New York" }],
+    summary: "Build rider agents.",
+  };
+  const pane = detailPaneMarkup(job);
+  assert.match(pane, /<div class="detail-actions"><button class="button primary" type="button" data-action="add-to-applications" data-id="7"[^>]*>.*<span>Add to Applications<\/span><\/button><a class="button open-link"[^>]*>.*<\/a><button class="button skip" type="button" data-action="skip" data-id="7"/);
+  assert.match(pane, /class="detail-flag" type="button" data-action="report" aria-expanded="false" aria-label="Mislabeled"/);
+  assert.match(pane, /<div class="detail-company" title="Lyft">Lyft<\/div><div class="detail-place"><span>San Francisco, CA<\/span><button class="place-more"[^>]*aria-label="Show all 2 locations">\+1<\/button>/);
+  assert.match(pane, /class="section-kicker">Role summary<\/div><p class="role-summary">Build rider agents\.<\/p>/);
+  assert.doesNotMatch(pane, /data-key="[^"]*"[^>]*>[^<]*<kbd/, "key hints live in tooltips, never inside a button");
+
+  const places = detailPaneMarkup(job, { ui: { places: true } });
+  assert.match(places, /class="pop place-menu" role="dialog" aria-label="Locations"><p>2 locations<\/p>/);
+
+  const report = detailPaneMarkup(job, { ui: { report: { rows: { focus: { on: true, to: "Finance" } } } } });
+  assert.match(report, /<strong id="report-title">What's wrong\?<\/strong>/);
+  assert.match(report, /data-fix="focus" data-value="Finance" aria-pressed="true"/);
+  assert.match(report, /data-action="report-submit">/);
+  assert.match(detailPaneMarkup(job, { ui: { report: { rows: {} } } }), /data-action="report-submit" disabled>/);
+
+  const hidden = detailPaneMarkup(job, { hidden: { kind: "skip", skip_reason: "level" } });
+  assert.match(hidden, /class="hidden-banner"><p>Skipped · Level<\/p><button class="button" type="button" data-action="restore" data-id="7"/);
+  assert.doesNotMatch(hidden, /detail-actions|detail-flag/);
 });
 
-test("V2 renders only the deterministic role summary", () => {
-  assert.equal(
-    summaryMarkup({ summary: "Build <safe> services & ship them." }),
-    '<p class="role-summary">Build &lt;safe&gt; services &amp; ship them.</p>',
-  );
-  assert.match(summaryMarkup({ summary: null }), /Summary unavailable/);
-
-  const design = fs.readFileSync(require.resolve("./app.js"), "utf8");
-  const styles = fs.readFileSync(require.resolve("./styles.css"), "utf8");
-  assert.match(design, /Role summary/);
-  assert.doesNotMatch(design, /job\.description|Show full description|toggle-description|expandedDescriptions/);
-  assert.match(styles, /\.role-summary/);
-  assert.doesNotMatch(styles, /description-shell|description-toggle|description-body/);
+test("locations come from the full array, so every place can be listed", () => {
+  assert.deepEqual(placeList({ locations: [
+    { country: "US", state: "CA", city: "San Jose" },
+    { country: "US", state: "IA", city: null },
+    { country: "US", state: "CA", city: "San Jose" },
+    { country: "GB", state: null, city: "London" },
+    { country: "US", state: null, city: null },
+  ] }), ["San Jose, CA", "Iowa", "London, GB", "United States"]);
+  assert.deepEqual(placeList({ locations: [], location: "Remote" }), ["Remote"]);
+  assert.deepEqual(placeList({}), ["Location not listed"]);
+  const card = cardMetaMarkup({ locations: [
+    { country: "US", state: "VA", city: "Chantilly" },
+    { country: "US", state: "CA", city: "El Segundo" },
+  ] });
+  assert.match(card, /<span class="card-location">Chantilly, VA \+1<\/span>/);
 });
 
-test("V2 provenance protects links and handles verification failures", () => {
-  assert.equal(safeHref("https://example.com/job"), "https://example.com/job");
-  assert.equal(safeHref("javascript:alert(1)"), "");
-  assert.equal(relativeTime("not-a-date"), "Verification unavailable");
+test("expertise on a quarter of loaded postings folds behind +N common", () => {
+  const ai = { id: "ai", name: "Artificial intelligence (AI)", label: "AI", category: "concept" };
+  const causal = { id: "causal", name: "Causal inference", label: "CausalInference", category: "method" };
+  const python = { id: "python", name: "Python", label: "Python", category: "language" };
+  const jobs = Array.from({ length: 60 }, (_, index) => ({ skills: index < 20 ? [ai, python] : [python] }));
+  jobs[0].skills.push(causal);
+  const common = commonTerms(jobs);
+  assert.deepEqual([...common.keys()], ["ai"], "python is a skill, not expertise, and causal inference is rare");
+  assert.equal(Math.round(common.get("ai") * 100), 33);
+  assert.equal(commonTerms(jobs.slice(0, 49)).size, 0, "too few postings to call anything common");
+
+  const folded = detailSkillsMarkup(jobs[0], { common });
+  assert.match(folded, />Causal inference<\/span><button class="more-link" type="button" data-action="toggle-common" aria-expanded="false">\+1 common<\/button>/);
+  assert.doesNotMatch(folded, />AI</);
+  const expanded = detailSkillsMarkup(jobs[0], { common, expanded: true });
+  assert.match(expanded, /class="expertise-term common"[^>]*title="Artificial intelligence \(AI\) · on 33% of loaded postings"[^>]*>AI<\/span><button[^>]*>Hide common</);
+  assert.match(detailSkillsMarkup({ skills: [ai] }, { common }), />Show 1 common term</);
 });
 
-test("V2 leads the detail with the posted date, not an always-true liveness chip", () => {
-  const design = fs.readFileSync(require.resolve("./app.js"), "utf8");
-  const styles = fs.readFileSync(require.resolve("./styles.css"), "utf8");
-  assert.doesNotMatch(design, /detail-freshness/);
-  assert.doesNotMatch(styles, /detail-freshness/);
-  assert.doesNotMatch(design, /class="provenance"/);
+test("the Hidden list names why each posting left the feed", () => {
+  assert.deepEqual(SKIP_REASONS.map(reason => reason.key), ["level", "location", "field", "company"]);
+  assert.equal(hiddenReason({ kind: "skip" }), "Skipped");
+  assert.equal(hiddenReason({ kind: "skip", skip_reason: "location" }), "Skipped · Location");
+  assert.equal(hiddenReason({ kind: "mislabeled", corrections: [{ field: "focus", from: "Software", to: "Finance" }] }), "Mislabeled · Focus: Software → Finance");
+  assert.equal(hiddenReason({ kind: "mislabeled", corrections: [{ field: "company", from: "x", to: null }] }), "Mislabeled · Company");
+  assert.equal(hiddenReason({ kind: "mislabeled", corrections: [{ field: "type", from: "a" }, { field: "skills", from: "b" }] }), "Mislabeled · Job type, Skills");
 
-  // Polling makes every listing active, so the chip and its green are gone everywhere.
-  assert.doesNotMatch(design, /status-chip/);
-  assert.doesNotMatch(styles, /status-chip/);
-  assert.doesNotMatch(design, /Active · confirmed/);
-  assert.doesNotMatch(design, /live-dot/);
-  assert.doesNotMatch(styles, /live-dot/);
-
-  assert.match(styles, /\.posted-when \{[^}]*var\(--ink\)/);
-  assert.match(styles, /\.posted-checked \{[^}]*var\(--faint\)/);
-  assert.match(design, /detailHeadMarkup\(job\)\}<h2>/);
-  assert.match(design, /detailMetaMarkup\(job\)\}\$\{detailPostedMarkup\(job\)\}<div class="detail-actions"/);
-});
-
-test("V2 action row ends where the role summary wraps instead of tracking the pane", () => {
-  const styles = fs.readFileSync(require.resolve("./styles.css"), "utf8");
-  // Both measures are 55ch at 11px, so the buttons and the summary share a right edge.
-  assert.match(styles, /\.detail-actions \{[^}]*max-width: 55ch[^}]*font-size: 11px/);
-  assert.match(styles, /\.role-summary \{[^}]*max-width: 55ch[^}]*font-size: 11px/);
-  // Below 560px the row stacks and goes back to full width.
-  assert.match(styles, /@media \(max-width: 560px\)[\s\S]*\.detail-actions \{ grid-template-columns: 1fr; max-width: none; \}/);
-  // The pane column has a pixel ceiling and the canvas is sized to it, so neither
-  // the sticky pane nor the cards stretch around empty space on wide screens.
-  assert.match(styles, /\.view \{[^}]*max-width: 1320px[^}]*margin: 0;/);
-  assert.match(styles, /\.discover-grid \{[^}]*grid-template-columns: minmax\(430px, 1fr\) minmax\(360px, 460px\)/);
-});
-
-test("V2 detail header carries the company and the location on one line, with no initials mark", () => {
-  const markup = detailHeadMarkup({ company: "Manatal", location: "Bangkok, Thailand" });
-  assert.match(markup, /class="detail-headline"/);
-  assert.match(markup, /class="detail-company">Manatal</);
-  assert.match(markup, /class="detail-fact detail-place">.*Bangkok, Thailand/);
-  assert.match(markup, /#icon-pin/);
-  assert.doesNotMatch(markup, /job-logo/);
-
-  assert.match(detailHeadMarkup({ company: "Acme" }), /Location not listed/);
-
-  const escaped = detailHeadMarkup({ company: "<b>", location: "<i>" });
-  assert.match(escaped, /&lt;b&gt;/);
-  assert.match(escaped, /&lt;i&gt;/);
-  assert.doesNotMatch(escaped, /<b>|<i>/);
-});
-
-test("V2 detail meta row carries every fact the header does not, shown with scan icons, and formats the apply deadline", () => {
-  assert.equal(deadlineLabel("2027-01-15"), "Apply by Jan 15, 2027");
-  assert.equal(deadlineLabel(""), "");
-  assert.equal(deadlineLabel("not-a-date"), "");
-
-  const job = { location: "NYC", remote: "yes", attributes: { term: "Summer 2027", deadline_at: "2027-01-15" } };
-  const markup = detailMetaMarkup(job);
-  assert.match(markup, /class="detail-meta"/);
-  ["Summer 2027", "Remote", "Apply by Jan 15, 2027"].forEach(label => assert.match(markup, new RegExp(label)));
-  ["icon-calendar", "icon-globe", "icon-clock"].forEach(icon => assert.match(markup, new RegExp(`#${icon}`)));
-
-  // Location moved up into the header, so it is the one fact the row must not repeat.
-  assert.doesNotMatch(markup, /#icon-pin/);
-  assert.doesNotMatch(markup, /NYC/);
-  assert.match(detailHeadMarkup(job), /NYC/);
-  listFacts(job).filter(fact => fact !== job.location).forEach(fact => assert.match(markup, new RegExp(fact.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))));
-
-  // With nothing but a location, the row disappears rather than rendering empty.
-  assert.equal(detailMetaMarkup({ location: "NYC", attributes: {} }), "");
-  assert.equal(detailMetaMarkup({}), "");
-
-  const escaped = detailMetaMarkup({ attributes: { term: "<b>" } });
-  assert.match(escaped, /&lt;b&gt;/);
-  assert.doesNotMatch(escaped, /<b>/);
-});
-
-test("V2 card gives remote work a quiet cue distinct from skill chips", () => {
-  const remote = cardMetaMarkup({
-    location: "United States",
-    remote: "yes",
-    attributes: { term: "Summer 2027" },
-  });
-  assert.match(remote, /class="card-location">United States</);
-  assert.match(remote, /class="workplace-cue" data-workplace="yes">/);
-  assert.match(remote, /#icon-globe/);
-  assert.match(remote, />Remote</);
-  assert.match(remote, /class="card-term">Summer 2027</);
-  assert.doesNotMatch(remote, /class="(?:tag|skill)"/);
-
-  assert.match(cardMetaMarkup({ remote: "hybrid" }), /data-workplace="hybrid".*Hybrid/);
-  assert.doesNotMatch(cardMetaMarkup({ remote: "unknown" }), /workplace-cue|icon-globe/);
-
-  const escaped = cardMetaMarkup({ location: "<Anywhere>", remote: "yes" });
-  assert.match(escaped, /&lt;Anywhere&gt;/);
-  assert.doesNotMatch(escaped, /<Anywhere>/);
-});
-
-test("V2 opportunity metadata icons are defined in the shared icon sprite", () => {
-  for (const page of ["../index.html"]) {
-    const html = fs.readFileSync(require.resolve(page), "utf8");
-    for (const icon of ["icon-pin", "icon-calendar", "icon-globe", "icon-clock"]) {
-      assert.match(html, new RegExp(`id="${icon}"`));
-    }
-  }
-});
-
-test("V2 open-posting link states its source", () => {
-  assert.equal(openPostingLabel({ source: "greenhouse:acme" }), "Open on Greenhouse");
-  assert.equal(openPostingLabel({}), "Open posting");
-  assert.equal(openPostingLabel({ source: "" }), "Open posting");
+  const rows = reportRows({ job_type: "intern", job_domain: null, company: "Lyft", locations: [] , location: "Remote" });
+  assert.deepEqual(rows.map(row => [row.field, row.value]), [
+    ["type", "Internship"], ["focus", "Unlabeled"], ["company", "Lyft"], ["location", "Remote"], ["skills", "Skills and expertise list"],
+  ]);
+  assert.ok(!rows[0].options.includes("Internship"));
 });
 
 test("V2 posted row weights the date and trails the check only when last_seen_at is known", () => {
@@ -483,30 +440,31 @@ test("V2 posted row weights the date and trails the check only when last_seen_at
   assert.match(detailPostedMarkup({ first_seen_at: "2026-08-17T00:00:00Z" }, now), /Added yesterday/);
 });
 
-test("V2 list card leads with company, drops the left accent, and states the posted date", () => {
+test("V2 list card leads with company, drops the left accent, and carries no footline", () => {
   assert.equal(initials({ company: "SAP" }), "SA");
   assert.equal(initials({ company: "Jane Street" }), "JS");
   assert.equal(initials({ company: "" }), "?");
   assert.equal(initials({}), "?");
 
-  const now = new Date("2026-08-18T12:00:00Z");
-  assert.equal(
-    cardStatusLine({ last_seen_at: "2026-08-18T07:00:00Z", posted_at: "2026-08-17T00:00:00Z" }, now),
-    "Posted yesterday",
-  );
-  assert.equal(cardStatusLine({ posted_at: "2026-08-17T00:00:00Z" }, now), "Posted yesterday");
-  assert.equal(cardStatusLine({}, now), "Date unavailable");
-
   const design = fs.readFileSync(require.resolve("./app.js"), "utf8");
   const styles = fs.readFileSync(require.resolve("./styles.css"), "utf8");
-  assert.match(design, /class="job-company-line"><div class="job-company">\$\{esc\(job\.company\)\}<\/div>.*<\/div><h3>\$\{esc\(job\.title\)\}<\/h3>/);
+  assert.match(design, /class="job-company">\$\{esc\(job\.company\)\}<\/div><h3>\$\{esc\(job\.title\)\}<\/h3>/);
+  // The recency bucket already states freshness; a badge repeating it on every
+  // card in the top group said nothing.
+  assert.doesNotMatch(design, /new-badge/);
+  assert.doesNotMatch(styles, /\.new-badge/);
+  assert.doesNotMatch(design, /job-company-line/);
   assert.doesNotMatch(design, /class="job-title-line"/);
   assert.doesNotMatch(styles, /\.job-title-line/);
   assert.doesNotMatch(styles, /inset 3px 0 0/);
+  // The recency bucket above the card already states the day.
+  assert.doesNotMatch(design, /job-footline/);
+  assert.doesNotMatch(styles, /\.job-footline/);
+  assert.match(styles, /\.recency-bucket::after \{[^}]*flex: 1/);
   assert.match(styles, /\.opportunity\.selected \{[^}]*border-color: var\(--green\)/);
 });
 
-test("V2 is the main Opportunities design and exposes accessible source disclosure", () => {
+test("V2 is the main Opportunities design and links every posting source", () => {
   const main = fs.readFileSync(require.resolve("../index.html"), "utf8");
   const design = fs.readFileSync(require.resolve("./app.js"), "utf8");
   assert.match(main, /\/static\/opportunities\/styles\.css\?v=skill-bundles-/);
@@ -515,9 +473,10 @@ test("V2 is the main Opportunities design and exposes accessible source disclosu
   assert.doesNotMatch(main, /opportunities-v[23]|Opportunities \(v[23]\)/);
   assert.match(main, /class="active" href="\/" aria-current="page"/);
   assert.doesNotMatch(design, /Design preview|View current Opportunities/);
-  assert.match(design, /aria-controls=/);
-  assert.match(design, /aria-expanded=/);
-  assert.match(design, /data-action="toggle-sources"/);
+  assert.match(design, /class="open-split"/);
+  assert.doesNotMatch(design, /class="posting-links"/);
+  assert.doesNotMatch(design, /class="section-kicker">Posted on/);
+  assert.doesNotMatch(design, /data-action="toggle-sources"/);
   assert.doesNotMatch(design, /Show full description|Show less/);
 });
 

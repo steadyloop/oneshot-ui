@@ -15,7 +15,6 @@ from urllib.parse import urlsplit
 from uuid import UUID
 
 import asyncpg
-from geonamescache import GeonamesCache
 
 from oneshot_taxonomy.bioengineering import (
     BIOENGINEERING_FILTER,
@@ -94,13 +93,7 @@ VALID_APPLICATION_STAGES = frozenset(
 )
 VALID_CLOSED_REASONS = frozenset({"rejected", "withdrawn", "no_reply"})
 
-_GEO = GeonamesCache()
-_COUNTRY_NAMES = {
-    code: country["name"] for code, country in _GEO.get_countries().items()
-}
-_US_STATE_NAMES = {
-    code: state["name"] for code, state in _GEO.get_us_states().items()
-}
+_COUNTRY_NAMES = {"US": "United States"}
 _LOCATION_FIELDS = ("country", "state", "city")
 _LOCATION_DISPLAY_LIMIT = 3
 _BIO_COMPANY_CACHE_SECONDS = 300
@@ -311,7 +304,7 @@ def _location_label(value: Any) -> str | None:
             if not label:
                 label = country_name
             elif city is None and state:
-                label = _US_STATE_NAMES.get(state, state)
+                label = state
         elif city:
             label = city if city.casefold() == str(country_name or "").casefold() else ", ".join(
                 part for part in (city, country_name) if part

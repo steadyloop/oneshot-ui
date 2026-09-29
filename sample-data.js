@@ -32,7 +32,6 @@
   const clone = value => JSON.parse(JSON.stringify(value));
   const isoIn = (days = 0, hours = 0) => new Date(Date.now() + days * 86400000 + hours * 3600000).toISOString();
   const dateIn = (days = 0) => new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
-  const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const locationBucket = job => {
     const locations = Array.isArray(job?.locations) ? job.locations : [];
     if (!locations.length) return 4;
@@ -62,39 +61,6 @@
     return `${parts.year}-${parts.month}-${parts.day}`;
   };
 
-  // Mirrors oneshot_ui/resume_workspace.py's TECH_VOCABULARY — kept in sync by hand.
-  const TECH_VOCABULARY = [
-    "Python", "C", "C++", "C#", "Java", "JavaScript", "TypeScript", "Go", "Rust",
-    "Kotlin", "Swift", "Scala", "R", "Julia", "MATLAB", "SQL", "Bash", "OCaml",
-    "Haskell", "React", "Vue", "Angular", "Node.js", "Django", "Flask", "FastAPI",
-    "Spring", "NumPy", "pandas", "SciPy", "scikit-learn", "PyTorch", "TensorFlow",
-    "JAX", "Keras", "XGBoost", "Spark", "Hadoop", "Kafka", "Airflow", "dbt",
-    "PostgreSQL", "MySQL", "SQLite", "MongoDB", "Redis", "DuckDB", "Snowflake",
-    "Docker", "Kubernetes", "Terraform", "AWS", "GCP", "Azure", "Linux", "Git",
-    "CI/CD", "GraphQL", "gRPC", "REST", "WebSocket", "CUDA", "OpenMP", "MPI",
-    "machine learning", "deep learning", "reinforcement learning", "NLP",
-    "computer vision", "linear algebra", "probability", "statistics",
-    "stochastic processes", "optimization", "numerical methods", "PDE",
-    "Monte Carlo", "time series", "regression", "A/B testing", "data structures",
-    "algorithms", "distributed systems", "operating systems", "networking",
-    "concurrency", "functional programming", "object-oriented",
-    // GPU / ML systems
-    "Triton", "CUTLASS", "cuBLAS", "NCCL", "TensorRT", "vLLM", "SGLang", "PTX",
-    "ROCm", "HIP", "MLIR", "LLVM", "XLA", "TVM", "Nsight", "GPU", "tensor cores",
-    "kernel optimization", "quantization", "mixed precision", "FP8", "FP4", "GEMM",
-    "attention", "transformers", "KV cache", "inference", "model serving",
-    "batching", "roofline", "memory bandwidth", "SIMD", "vectorization", "HPC",
-    "parallel computing", "RDMA", "InfiniBand", "profiling", "compilers",
-    "computer architecture",
-    // Low latency / trading systems
-    "low latency", "lock-free", "kernel bypass", "DPDK", "io_uring", "NUMA",
-    "cache optimization", "market data", "order book", "market microstructure",
-    "FIX protocol", "ITCH", "floating point", "numerical linear algebra",
-    "queueing theory",
-    // Infrastructure
-    "eBPF", "CMake", "Bazel", "gdb", "Raft", "consensus", "Prometheus", "Grafana",
-  ];
-
   // The resume workspace ships no fixture persona: like the server-side guest
   // workspace, it starts empty rather than seeded with someone else's career
   // shape. The /resume/* routes below still run against this state — they are
@@ -107,196 +73,12 @@
       // User-defined resume variants, mirroring resume_workspace.variants.
       // Empty like a fresh server workspace: a guest declares their own.
       variants: [],
-      // The guest workspace ships no seed list: TECH_VOCABULARY lives on the
-      // server, and duplicating 150 terms here to drift out of sync is worse
-      // than a guest starting with an empty `missing` column.
-      vocabulary: [],
       targetJobs: [],
       resumes: [],
       nextEntryId: 1,
       nextBulletId: 1,
       nextSkillId: 1,
-      nextTargetJobId: 1,
       nextResumeId: 1,
-    };
-  }
-
-  // Opt-in content for the Resume page's interactive mockup. A fresh visitor
-  // still starts blank; the page loads this workspace only after an explicit
-  // click (or `?demo=1`). Once loaded, every edit goes through the same local
-  // API transport as real guest content, so the mockup exercises actual CRUD,
-  // selection, coverage, checks, and render requests rather than a second UI-
-  // only data model.
-  function createResumeDemoState() {
-    const createdAt = new Date().toISOString();
-    return {
-      profile: {
-        full_name: "Maya Chen",
-        email: "maya.chen@example.com",
-        phone: "+1 206 555 0148",
-        location: "Seattle, WA",
-        links: [
-          { label: "Portfolio", url: "https://maya.example.com" },
-          { label: "GitHub", url: "https://github.com/example" },
-          { label: "LinkedIn", url: "https://linkedin.com/in/example" },
-        ],
-      },
-      variants: [
-        { key: "platform", label: "Platform engineering" },
-        { key: "data", label: "Data & ML infrastructure" },
-        { key: "product", label: "Product engineering" },
-      ],
-      vocabulary: [
-        "Python", "Go", "TypeScript", "SQL", "React", "FastAPI", "PostgreSQL",
-        "Redis", "Docker", "Kubernetes", "AWS", "Terraform", "distributed systems",
-        "observability", "CI/CD", "machine learning", "data pipelines", "gRPC",
-      ],
-      entries: [
-        {
-          id: 1, kind: "education", org: "University of Washington",
-          role: "B.S. Computer Science", location: "Seattle, WA",
-          start_date: "Sep 2023", end_date: "Jun 2027", url: "",
-          detail: "GPA: 3.86 / 4.00 · Dean’s List", position: 1, bullets: [],
-        },
-        {
-          id: 2, kind: "experience", org: "Atlas Labs", role: "Software Engineering Intern",
-          location: "San Francisco, CA", start_date: "Jun 2026", end_date: "Sep 2026",
-          url: "", detail: "Developer Infrastructure", position: 1,
-          bullets: [
-            {
-              id: 1, entry_id: 2, position: 1, audience: "platform",
-              text: "Cut CI feedback time 42% by parallelizing integration suites across ephemeral Kubernetes runners.",
-              tags: ["Kubernetes", "CI/CD", "Python"],
-              defense_notes: "Measured median main-branch runtime over the six weeks before and after rollout.",
-            },
-            {
-              id: 2, entry_id: 2, position: 2, audience: "all",
-              text: "Built a Go service that processed 18M daily events with idempotent retries and end-to-end tracing.",
-              tags: ["Go", "distributed systems", "observability"],
-              defense_notes: "Owned the service from RFC through staged production rollout.",
-            },
-            {
-              id: 3, entry_id: 2, position: 3, audience: "data",
-              text: "Added data-quality checks that caught 31 schema regressions before they reached customer dashboards.",
-              tags: ["SQL", "data pipelines"], defense_notes: "Checks ran at ingest and publish boundaries.",
-            },
-          ],
-        },
-        {
-          id: 3, kind: "research", org: "UW Systems Lab", role: "Undergraduate Researcher",
-          location: "Seattle, WA", start_date: "Jan 2026", end_date: "Present",
-          url: "", detail: "Reliable model serving", position: 1,
-          bullets: [
-            {
-              id: 4, entry_id: 3, position: 1, audience: "data",
-              text: "Designed a failure-injection harness for GPU inference workers and reproduced 4 production failure modes.",
-              tags: ["Python", "machine learning"], defense_notes: "Faults covered process, network, and memory pressure.",
-            },
-            {
-              id: 5, entry_id: 3, position: 2, audience: "platform",
-              text: "Presented reliability findings to a 12-person lab and translated results into an open-source benchmark plan.",
-              tags: ["observability"], defense_notes: "The proposal defines recovery time and error-budget measures.",
-            },
-          ],
-        },
-        {
-          id: 4, kind: "project", org: "Threadline", role: "Creator",
-          location: "", start_date: "Oct 2025", end_date: "Present",
-          url: "https://github.com/example/threadline", detail: "Go · PostgreSQL · React", position: 1,
-          bullets: [
-            {
-              id: 6, entry_id: 4, position: 1, audience: "all",
-              text: "Shipped a collaborative incident timeline used by 140+ students across 22 project teams.",
-              tags: ["Go", "PostgreSQL", "React"], defense_notes: "Usage is counted from unique active workspaces.",
-            },
-            {
-              id: 7, entry_id: 4, position: 2, audience: "product",
-              text: "Interviewed 16 users and redesigned onboarding, increasing first-session completion from 58% to 81%.",
-              tags: ["React"], defense_notes: "Compared equal two-week cohorts before and after the redesign.",
-            },
-          ],
-        },
-        {
-          id: 5, kind: "leadership", org: "Husky Coding Club", role: "Workshop Lead",
-          location: "Seattle, WA", start_date: "Sep 2025", end_date: "Present",
-          url: "", detail: "", position: 1,
-          bullets: [
-            {
-              id: 8, entry_id: 5, position: 1, audience: "all",
-              text: "Led 8 backend workshops for 90+ students and mentored 6 first-time hackathon teams.",
-              tags: ["Python"], defense_notes: "Workshop attendance is deduplicated per session.",
-            },
-          ],
-        },
-      ],
-      skills: [
-        { id: 1, category: "language", name: "Python", audience: "all" },
-        { id: 2, category: "language", name: "Go", audience: "platform" },
-        { id: 3, category: "language", name: "TypeScript", audience: "product" },
-        { id: 4, category: "language", name: "SQL", audience: "all" },
-        { id: 5, category: "framework", name: "FastAPI", audience: "data" },
-        { id: 6, category: "framework", name: "React", audience: "product" },
-        { id: 7, category: "framework", name: "PostgreSQL", audience: "all" },
-        { id: 8, category: "framework", name: "Redis", audience: "platform" },
-        { id: 9, category: "tool", name: "Docker", audience: "all" },
-        { id: 10, category: "tool", name: "Kubernetes", audience: "platform" },
-        { id: 11, category: "tool", name: "GitHub Actions", audience: "all" },
-        { id: 12, category: "tool", name: "AWS", audience: "platform" },
-        { id: 13, category: "math", name: "Distributed systems", audience: "platform" },
-        { id: 14, category: "math", name: "Experiment design", audience: "data" },
-      ],
-      targetJobs: [
-        {
-          id: 1, company: "Northstar Robotics", title: "Platform Engineering Intern",
-          url: "https://example.com/northstar-platform", date_posted: dateIn(-5),
-          jd_text: "Build reliable Go and Python services on Kubernetes and AWS. Improve CI/CD, observability, PostgreSQL performance, and infrastructure managed with Terraform. Collaborate across product and robotics teams.",
-          note: "Avery offered to refer after the resume is tailored.",
-          job_application_id: null, created_at: createdAt,
-        },
-        {
-          id: 2, company: "Lumen Data", title: "Data Infrastructure Co-op",
-          url: "https://example.com/lumen-data", date_posted: dateIn(-12),
-          jd_text: "Develop Python and SQL data pipelines, production FastAPI services, experiment tooling, and machine learning infrastructure. Experience with Docker, PostgreSQL, and data-quality systems preferred.",
-          note: "Fall term; hybrid in Seattle.", job_application_id: null, created_at: createdAt,
-        },
-      ],
-      resumes: [
-        {
-          id: 1, name: "Northstar · Platform", target_job_id: 1, variant: "platform",
-          availability_line: "Available June–September 2027 · Seattle or San Francisco",
-          education_note: "GPA: 3.86 / 4.00",
-          selection: {
-            entries: [
-              { entry_id: 1, bullets: [] },
-              { entry_id: 2, bullets: [{ bullet_id: 1, text_override: null }, { bullet_id: 2, text_override: null }] },
-              { entry_id: 3, bullets: [{ bullet_id: 5, text_override: null }] },
-              { entry_id: 4, bullets: [{ bullet_id: 6, text_override: null }] },
-            ],
-            skills: [1, 2, 4, 7, 9, 10, 12, 13],
-          },
-          created_at: createdAt, updated_at: createdAt,
-        },
-        {
-          id: 2, name: "Lumen · Data infrastructure", target_job_id: 2, variant: "data",
-          availability_line: "Available for Fall 2027 co-op · Seattle",
-          education_note: "GPA: 3.86 / 4.00",
-          selection: {
-            entries: [
-              { entry_id: 1, bullets: [] },
-              { entry_id: 2, bullets: [{ bullet_id: 2, text_override: null }, { bullet_id: 3, text_override: null }] },
-              { entry_id: 3, bullets: [{ bullet_id: 4, text_override: null }] },
-              { entry_id: 4, bullets: [{ bullet_id: 6, text_override: null }] },
-            ],
-            skills: [1, 4, 5, 7, 9, 14],
-          },
-          created_at: createdAt, updated_at: createdAt,
-        },
-      ],
-      nextEntryId: 6,
-      nextBulletId: 9,
-      nextSkillId: 15,
-      nextTargetJobId: 3,
-      nextResumeId: 3,
     };
   }
 
@@ -307,6 +89,7 @@
       nextApplicationId: 1,
       applicationIdPrefix: "visitor-app",
       resume: createResumeState(),
+      feedback: [],
     };
   }
 
@@ -584,6 +367,7 @@
         submitted_at: null,
         apply_url_snapshot: "https://example.com/apply/sample-quant",
         updated_at: isoIn(-1),
+        stage_changed_at: isoIn(-1),
         note: "",
         events: [{ occurred_at: isoIn(-1), event_type: "considering", to_stage: "considering", note: "Added from Discover." }],
       },
@@ -600,6 +384,7 @@
         submitted_at: isoIn(-6),
         apply_url_snapshot: "https://example.com/apply/sample-research",
         updated_at: isoIn(-1),
+        stage_changed_at: isoIn(-1),
         note: "",
         events: [
           { occurred_at: isoIn(-6), event_type: "applied", to_stage: "applied", note: "Application submitted." },
@@ -618,6 +403,7 @@
         submitted_at: isoIn(-10),
         apply_url_snapshot: "https://example.com/apply/meridian",
         updated_at: isoIn(-2),
+        stage_changed_at: isoIn(-2),
         note: "Technical interview scheduled with the platform team.",
         events: [{ occurred_at: isoIn(-2), event_type: "interview", to_stage: "interview", note: "Technical interview scheduled." }],
       },
@@ -633,6 +419,7 @@
         submitted_at: isoIn(-18),
         apply_url_snapshot: "https://example.com/apply/atlas",
         updated_at: isoIn(-1),
+        stage_changed_at: isoIn(-1),
         note: "Compare the start date and relocation package.",
         events: [{ occurred_at: isoIn(-1), event_type: "offer", to_stage: "offer", note: "Written offer received." }],
       },
@@ -651,6 +438,23 @@
   };
   const findJob = (state, id) => state.jobs.find(job => String(job.id) === String(id));
   const findApplication = (state, id) => state.applications.find(application => String(application.id) === String(id));
+  // Older stored workspaces predate triage, so the list is created on first use.
+  const feedbackRows = state => state.feedback || (state.feedback = []);
+  const SKIP_REASONS = ["level", "location", "field", "company"];
+  const CORRECTION_FIELDS = ["type", "focus", "company", "location", "skills"];
+
+  // Mirrors the server's JobFeedbackCommand so a guest sees the same 422s.
+  function feedbackProblem(body) {
+    const corrections = Array.isArray(body?.corrections) ? body.corrections : [];
+    if (!["skip", "mislabeled"].includes(body?.kind)) return "kind must be skip or mislabeled";
+    if (body.skip_reason != null && !SKIP_REASONS.includes(body.skip_reason)) return "unknown skip_reason";
+    if (corrections.length > 5) return "at most 5 corrections";
+    if (corrections.some(row => !CORRECTION_FIELDS.includes(row?.field) || String(row?.from ?? "").length > 300 || String(row?.to ?? "").length > 300)) return "invalid correction";
+    if (body.kind === "skip" && corrections.length) return "a skip carries no corrections";
+    if (body.kind === "mislabeled" && body.skip_reason != null) return "skip_reason is only valid for a skip";
+    if (body.kind === "mislabeled" && !corrections.length) return "a mislabeled report needs at least one correction";
+    return "";
+  }
 
   function applicationFromJob(state, job) {
     return {
@@ -668,6 +472,7 @@
       apply_url_snapshot: job.apply_url,
       resume_variant: null,
       updated_at: new Date().toISOString(),
+      stage_changed_at: new Date().toISOString(),
       note: "",
       events: [{ occurred_at: new Date().toISOString(), event_type: "stage_changed", to_stage: "considering", note: null }],
     };
@@ -683,20 +488,23 @@
     }
     if (method === "GET" && path === "/jobs") {
       const q = String(url.searchParams.get("q") || "").trim().toLowerCase();
+      const season = String(url.searchParams.get("season") || "").trim().toLowerCase();
       const requested = url.searchParams.getAll("job_type");
       const types = requested.length ? requested : DEFAULT_JOB_TYPES;
       const degreeFields = url.searchParams.getAll("degree_field");
       const excludedJobIds = new Set(url.searchParams.getAll("exclude_job_id"));
       const applicationJobIds = new Set(state.applications.map(application => application.job_id).filter(Boolean));
+      feedbackRows(state).forEach(row => applicationJobIds.add(row.job_id));
       const available = state.jobs.filter(job => {
         if (locationBucket(job) === null) return false;
         const searchable = `${job.title} ${job.company} ${(job.skills || []).map(skill => skill.name).join(" ")}`.toLowerCase();
+        const seasonal = `${job.title} ${job.summary || ""}`.toLowerCase();
         const postingFields = job.attributes.degree || [];
         const matchesDegree = !degreeFields.length || degreeFields.some(field =>
           field === "bioengineering"
             ? ["biotech", "med_device", "clinical_affairs"].some(value => postingFields.includes(value))
             : postingFields.includes(field));
-        return !applicationJobIds.has(job.id) && !excludedJobIds.has(String(job.id)) && (!q || searchable.includes(q)) && matchesDegree;
+        return !applicationJobIds.has(job.id) && !excludedJobIds.has(String(job.id)) && (!q || searchable.includes(q)) && (!season || seasonal.includes(season)) && matchesDegree;
       });
       const job_type_counts = Object.fromEntries(DEFAULT_JOB_TYPES.map(type => [
         type, available.filter(job => job.job_type === type).length,
@@ -728,6 +536,44 @@
       return jsonResponse(clone(application), 201);
     }
 
+    const feedbackMatch = path.match(/^\/jobs\/([^/]+)\/feedback$/);
+    if (method === "PUT" && feedbackMatch) {
+      const job = findJob(state, decodeURIComponent(feedbackMatch[1]));
+      if (!job) return jsonResponse({ detail: "Job not found" }, 404);
+      let body = {};
+      try { body = JSON.parse(options.body || "{}"); } catch (_) { body = null; }
+      const problem = feedbackProblem(body);
+      if (problem) return jsonResponse({ detail: problem }, 422);
+      const rows = feedbackRows(state);
+      const now = new Date().toISOString();
+      const existing = rows.find(row => row.job_id === job.id);
+      const row = {
+        job_id: job.id,
+        kind: body.kind,
+        skip_reason: body.skip_reason ?? null,
+        corrections: (body.corrections || []).map(item => ({ field: item.field, from: String(item.from ?? ""), to: item.to ?? null })),
+        created_at: existing?.created_at || now,
+        updated_at: now,
+      };
+      if (existing) rows.splice(rows.indexOf(existing), 1, row);
+      else rows.unshift(row);
+      return jsonResponse(clone(row));
+    }
+    if (method === "DELETE" && feedbackMatch) {
+      const rows = feedbackRows(state);
+      const index = rows.findIndex(row => String(row.job_id) === decodeURIComponent(feedbackMatch[1]));
+      if (index < 0) return jsonResponse({ detail: "Posting is not hidden" }, 404);
+      rows.splice(index, 1);
+      return new Response(null, { status: 204 });
+    }
+    if (method === "GET" && path === "/feedback") {
+      const limit = Math.max(1, Math.min(500, Number(url.searchParams.get("limit")) || 100));
+      const offset = Math.max(0, Number(url.searchParams.get("offset")) || 0);
+      const rows = feedbackRows(state);
+      const hidden = rows.slice(offset, offset + limit).map(row => ({ ...clone(row), job: clone(findJob(state, row.job_id) || null) }));
+      return jsonResponse({ total: rows.length, hidden });
+    }
+
     if (method === "POST" && path === "/applications/external") {
       const body = parseBody(options);
       const application = {
@@ -743,6 +589,7 @@
         apply_url_snapshot: body.url,
         resume_variant: null,
         updated_at: new Date().toISOString(),
+        stage_changed_at: new Date().toISOString(),
         location: body.location || "",
         note: body.note || "",
         events: [{ occurred_at: new Date().toISOString(), event_type: "stage_changed", to_stage: "considering", note: body.note || null }],
@@ -779,8 +626,21 @@
       if (body.next_action !== undefined) application.next_action = body.next_action;
       if (body.next_due_at !== undefined) application.next_due_at = body.next_due_at;
       if (body.note !== undefined) application.note = body.note;
+      // Parity with PostgresRepository.update_application: arriving at Applied
+      // stamps the submission date and opens a follow-up when the request left
+      // one out. Without it a guest's Applied cards carry no due date at all
+      // and the "Needs attention" filter matches nothing they can ever produce.
+      if (application.stage !== previousStage && application.stage === "applied") {
+        const submitted = application.submitted_at || new Date().toISOString().slice(0, 10);
+        application.submitted_at = submitted;
+        if (body.next_action === undefined) application.next_action = "Follow up if no response";
+        if (body.next_due_at === undefined) {
+          application.next_due_at = new Date(Date.parse(`${String(submitted).slice(0, 10)}T00:00:00Z`) + 14 * 86400000)
+            .toISOString().slice(0, 10);
+        }
+      }
       application.updated_at = new Date().toISOString();
-      if (application.stage !== previousStage) application.events.push({ occurred_at: application.updated_at, event_type: "stage_changed", to_stage: application.stage, note: "" });
+      if (application.stage !== previousStage) { application.stage_changed_at = application.updated_at; application.events.push({ occurred_at: application.updated_at, event_type: "stage_changed", to_stage: application.stage, note: "" }); }
       return jsonResponse(clone(application));
     }
     if (method === "DELETE" && applicationMatch) {
@@ -923,17 +783,6 @@
       return jsonResponse({ variants: clone(variants) });
     }
 
-    if (method === "GET" && path === "/resume/vocabulary") {
-      return jsonResponse({ terms: (resumeState.vocabulary || []).slice() });
-    }
-    if (method === "PUT" && path === "/resume/vocabulary") {
-      const seen = new Set();
-      resumeState.vocabulary = (parseBody(options).terms || [])
-        .map(term => String(term).trim())
-        .filter(term => term && !seen.has(term.toLowerCase()) && seen.add(term.toLowerCase()));
-      return jsonResponse({ terms: resumeState.vocabulary.slice() });
-    }
-
     if (method === "GET" && path === "/resume/skills") {
       return jsonResponse({ skills: clone(resumeState.skills) });
     }
@@ -947,6 +796,19 @@
       return jsonResponse(clone(skill), 201);
     }
     const skillMatch = path.match(/^\/resume\/skills\/(\d+)$/);
+    if (method === "PATCH" && skillMatch) {
+      const skill = resumeState.skills.find(row => String(row.id) === skillMatch[1]);
+      if (!skill) return jsonResponse({ detail: "Skill not found" }, 404);
+      const body = parseBody(options);
+      const category = body.category ?? skill.category;
+      const name = body.name ?? skill.name;
+      const duplicate = resumeState.skills.some(row => row.id !== skill.id && row.category === category && row.name === name);
+      if (duplicate) return jsonResponse({ detail: "Skill already exists in that category" }, 422);
+      ["category", "name", "audience"].forEach(key => {
+        if (body[key] !== undefined) skill[key] = body[key];
+      });
+      return jsonResponse(clone(skill));
+    }
     if (method === "DELETE" && skillMatch) {
       const index = resumeState.skills.findIndex(row => String(row.id) === skillMatch[1]);
       if (index < 0) return jsonResponse({ detail: "Skill not found" }, 404);
@@ -957,72 +819,14 @@
     if (method === "GET" && path === "/resume/jobs") {
       return jsonResponse({ jobs: clone(resumeState.targetJobs) });
     }
-    if (method === "POST" && path === "/resume/jobs") {
-      const body = parseBody(options);
-      const job = {
-        id: resumeState.nextTargetJobId++, company: body.company, title: body.title,
-        url: body.url || "", jd_text: body.jd_text || "", date_posted: body.date_posted || "",
-        note: body.note || "", job_application_id: body.job_application_id ?? null,
-        created_at: new Date().toISOString(),
-      };
-      resumeState.targetJobs.unshift(job);
-      return jsonResponse(clone(job), 201);
-    }
-    const targetJobMatch = path.match(/^\/resume\/jobs\/(\d+)$/);
-    if (method === "PATCH" && targetJobMatch) {
-      const job = resumeState.targetJobs.find(row => String(row.id) === targetJobMatch[1]);
-      if (!job) return jsonResponse({ detail: "Target job not found" }, 404);
-      const body = parseBody(options);
-      ["company", "title", "url", "jd_text", "date_posted", "note"].forEach(key => {
-        if (body[key] !== undefined) job[key] = body[key];
-      });
-      return jsonResponse(clone(job));
-    }
-    if (method === "DELETE" && targetJobMatch) {
-      const index = resumeState.targetJobs.findIndex(row => String(row.id) === targetJobMatch[1]);
-      if (index < 0) return jsonResponse({ detail: "Target job not found" }, 404);
-      const deletedId = resumeState.targetJobs[index].id;
-      resumeState.targetJobs.splice(index, 1);
-      resumeState.resumes.forEach(record => {
-        if (record.target_job_id === deletedId) record.target_job_id = null;
-      });
-      return new Response(null, { status: 204 });
-    }
-
-    const coverageMatch = path.match(/^\/resume\/jobs\/(\d+)\/coverage$/);
-    if (method === "GET" && coverageMatch) {
-      const job = resumeState.targetJobs.find(row => String(row.id) === coverageMatch[1]);
-      if (!job) return jsonResponse({ detail: "Target job not found" }, 404);
-      const jd = (job.jd_text || "").toLowerCase();
-      // Same boundary set as resume_workspace.compute_coverage: `+#&` are part
-      // of a word (so "C" misses "C++", "C#" and "R&D"), `.` is not (so "Go."
-      // still matches Go). Kept in sync by hand, like TECH_VOCABULARY above.
-      const mentions = name => new RegExp(`(?<![a-z0-9+#&])${escapeRegex(name.toLowerCase())}(?![a-z0-9+#&])`).test(jd);
-      const inJd = resumeState.skills.filter(skill => skill.name && mentions(skill.name));
-      const resumeIdParam = url.searchParams.get("resume_id");
-      let shownIds = new Set();
-      if (resumeIdParam) {
-        const linkedResume = resumeState.resumes.find(row => String(row.id) === resumeIdParam);
-        if (linkedResume) shownIds = new Set(linkedResume.selection.skills || []);
-      }
-      const bankNames = new Set(resumeState.skills.map(skill => skill.name.toLowerCase()));
-      const missing = TECH_VOCABULARY.filter(term => !bankNames.has(term.toLowerCase()) && mentions(term)).sort();
-      return jsonResponse({
-        job_id: job.id,
-        matched: clone(inJd.filter(skill => shownIds.has(skill.id))),
-        have_not_shown: clone(inJd.filter(skill => !shownIds.has(skill.id))),
-        missing,
-      });
-    }
-
     if (method === "GET" && path === "/resume/resumes") {
-      return jsonResponse({ resumes: clone(resumeState.resumes), typst_available: false });
+      return jsonResponse({ resumes: clone(resumeState.resumes) });
     }
     if (method === "POST" && path === "/resume/resumes") {
       const body = parseBody(options);
       const resumeRecord = {
         id: resumeState.nextResumeId++, name: body.name, target_job_id: body.target_job_id ?? null,
-        variant: body.variant || "swe", availability_line: body.availability_line || "",
+        variant: body.variant || "", template: body.template || "main", availability_line: body.availability_line || "",
         education_note: body.education_note || "", selection: body.selection || { entries: [], skills: [] },
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       };
@@ -1038,7 +842,7 @@
       const record = resumeState.resumes.find(row => String(row.id) === resumeIdMatch[1]);
       if (!record) return jsonResponse({ detail: "Resume not found" }, 404);
       const body = parseBody(options);
-      ["name", "target_job_id", "variant", "availability_line", "education_note", "selection"].forEach(key => {
+      ["name", "target_job_id", "variant", "template", "availability_line", "education_note", "selection"].forEach(key => {
         if (body[key] !== undefined) record[key] = body[key];
       });
       record.updated_at = new Date().toISOString();
@@ -1049,32 +853,6 @@
       if (index < 0) return jsonResponse({ detail: "Resume not found" }, 404);
       resumeState.resumes.splice(index, 1);
       return new Response(null, { status: 204 });
-    }
-
-    const checkMatch = path.match(/^\/resume\/resumes\/(\d+)\/check$/);
-    if (method === "GET" && checkMatch) {
-      const record = resumeState.resumes.find(row => String(row.id) === checkMatch[1]);
-      if (!record) return jsonResponse({ detail: "Resume not found" }, 404);
-      const bulletById = new Map(resumeState.entries.flatMap(entry => entry.bullets).map(bullet => [bullet.id, bullet]));
-      const selected = (record.selection?.entries || []).flatMap(entry =>
-        (entry.bullets || []).map(pick => pick.text_override || bulletById.get(pick.bullet_id)?.text).filter(Boolean));
-      const problems = [];
-      if (!resumeState.profile.email) problems.push({ level: "error", message: "Profile has no email address." });
-      if (!record.availability_line) problems.push({ level: "warn", message: "No availability line (e.g. 'Available for Spring 2027 co-op') — recruiters filter on legible availability." });
-      if (!selected.length) problems.push({ level: "error", message: "No bullets selected." });
-      selected.forEach(text => {
-        if (!/\d/.test(text)) problems.push({ level: "info", message: `No metric in: "${text.slice(0, 70)}…" — quantify if honestly possible.` });
-      });
-      return jsonResponse({
-        problems,
-        page_count: null,
-        typst_available: false,
-        compile_error: "Browser-local resumes require sign-in for Typst export.",
-      });
-    }
-
-    if (path.startsWith("/resume/resumes/") && (path.endsWith("/source") || path.endsWith("/pdf"))) {
-      return jsonResponse({ detail: "Sign in to export this browser-local resume." }, 501);
     }
 
     return jsonResponse({ detail: `No sample response for ${method} ${path}` }, 404);
@@ -1088,19 +866,9 @@
   let signedOut = null;
   const storageAvailable = () => Boolean(root.localStorage);
 
-  // Which page you are on decides whether fixture mode can resolve at all.
-  // Only Applications exposes it: Opportunities remains a live job feed,
-  // Feed Status remains a live report on the harvest itself, and Resume
-  // serves guests from their own empty browser-local workspace instead of a
-  // fixture persona.
-  //
-  // Scoping by pathname rather than by an argument is what keeps every caller
-  // unchanged — a page only ever requests its own data, so "is sample mode on"
-  // and "is sample mode on for this page" are the same question at every call
-  // site (api-client.js's transport).
-  const PAGES = Object.freeze({
-    "/application/": "application",
-  });
+  // Fixture data remains available to deterministic tests, but no production
+  // page enables it. Guest Applications uses the separate visitor workspace.
+  const PAGES = Object.freeze({});
 
   // Every shell answers on two URLs — the canonical /application/ the nav links
   // to, and /static/application/index.html from the StaticFiles mount. Both are
@@ -1112,27 +880,10 @@
     return scope ? `${ENABLED_KEY}.${scope}` : null;
   };
 
-  // Nothing of your own is stored yet: no applications. An empty board is what
-  // makes fixtures the better first screen, and a non-empty one is what forbids
-  // them -- real work must never end up hidden behind a mode the visitor never
-  // chose. Only the applications are consulted: the guest resume lives on a
-  // page with no fixture mode, so it says nothing about the board.
-  // Applications carries no switch: signed out it is the fixtures, signed in it
-  // is the account, and there is no third state to offer. The visitor
-  // workspace still backs the resume studio, which is browser-local by design.
-  //
-  // This cannot be answered from storage alone -- it depends on whether you are
-  // signed in, and that is a request. Every transport awaits this once before
-  // its first call, so `isEnabled` below stays synchronous for the callers that
-  // cannot await, and no page paints fixtures it is about to swap out.
   const ready = () => {
     if (!readyPromise) {
       readyPromise = (async () => {
-        // A failed identity check means the API is unreachable, in which case
-        // the fixtures are the only thing on the page that can render at all.
         signedOut = await isLocal().catch(() => true);
-        // Tracked separately from `signedOut`: a page with no fixture scope --
-        // Opportunities -- is signed out too, and its job feed must stay live.
         resolvedMode = signedOut && Boolean(enabledKey());
         return resolvedMode;
       })();
@@ -1140,12 +891,7 @@
     return readyPromise;
   };
 
-  // Applications are fixtures for every signed-out visitor, whichever page is
-  // asking. Opportunities is not a fixture page -- its job feed stays live --
-  // but "Add to Applications" there has to land in the store the tracker will
-  // read from on the next click, or the record silently vanishes.
-  const APPLICATION_ROUTE = /^\/applications(\/|$)|^\/jobs\/[^/]+\/applications$/;
-  const servesFixtures = path => isEnabled() || (signedOut === true && APPLICATION_ROUTE.test(String(path || "")));
+  const servesFixtures = () => false;
 
   const isEnabled = () => resolvedMode === true;
 
@@ -1167,9 +913,7 @@
     Object.values(PAGES).forEach(scope => root.localStorage.removeItem(`${ENABLED_KEY}.${scope}`));
     return wasOn;
   };
-  // The fixture store is the signed-out tracker, so it needs the same two
-  // helpers the visitor store has: remember a real posting well enough to track
-  // it, and report what is already tracked so Opportunities can hide it.
+  // Kept for direct fixture-contract tests; production transport never calls it.
   const rememberSampleJob = job => {
     if (!job) return;
     // A live posting joins the fixture feed, which reads `attributes.degree`
@@ -1211,12 +955,6 @@
     if (String(options.method || "GET").toUpperCase() !== "GET") saveVisitorState();
     return result;
   };
-  const loadResumeDemo = () => {
-    const visitor = loadVisitorState();
-    visitor.resume = createResumeDemoState();
-    saveVisitorState();
-    return clone(visitor.resume);
-  };
   const account = async () => {
     if (!accountPromise) {
       accountPromise = (async () => {
@@ -1239,8 +977,11 @@
   const applicationJobIds = () => loadVisitorState().applications
     .map(application => application.job_id)
     .filter(id => id != null);
+  const hiddenJobIds = () => (loadVisitorState().feedback || [])
+    .map(row => row.job_id)
+    .filter(id => id != null);
   if (typeof module !== "undefined" && module.exports) module.exports = {
-    createState, createVisitorState, createResumeDemoState, handle, PAGES,
+    createState, createVisitorState, handle, PAGES,
   };
   root.OneShotSampleData = {
     request, ready, isEnabled, servesFixtures, disableAll,
@@ -1251,8 +992,8 @@
     account,
     isLocal,
     request: visitorRequest,
-    loadResumeDemo,
     rememberJob,
     applicationJobIds,
+    hiddenJobIds,
   };
 })(typeof window !== "undefined" ? window : globalThis);

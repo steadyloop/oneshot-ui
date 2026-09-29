@@ -10,8 +10,6 @@ from __future__ import annotations
 import re
 from typing import Any
 
-import typst
-
 SECTION_ORDER = ("education", "experience", "research", "project", "leadership")
 SECTION_TITLES = {
     "education": "Education",
@@ -221,6 +219,10 @@ def compile_pdf(source: str) -> tuple[bytes | None, int, str]:
     still runs it in a worker thread, so a pathological document ties up that
     thread rather than the event loop.
     """
+    # Import the 60+ MB native compiler only when somebody requests an export,
+    # not when every Opportunities request cold-starts the application.
+    import typst
+
     try:
         pdf = typst.compile(source.encode("utf-8"))
     except typst.TypstError as error:

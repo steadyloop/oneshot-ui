@@ -47,29 +47,10 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-lineca
 .side-nav a.active .nav-icon { color: var(--lime); }
 .side-nav b { margin-left: auto; border-radius: 20px; background: rgb(255 255 255 / 10%); padding: 1px 6px; font: 10px var(--mono); font-weight: 400; }
 .nav-icon { width: 18px; height: 18px; flex: 0 0 auto; }
-/* The sample-data switch sits in the page header now, beside the page's own
-   action, not in the sidebar. It takes .primary-action's height and radius so
-   the two read as one row of controls, and turns amber when on — this is the
-   page's "what you are looking at is not real" indicator as much as it is a
-   switch, and amber says that where the brand lime would just say "active".
-   The same rules live in resume/styles.css and app.css; the three sheets are
-   hand-copied, and app.css restates them in its own palette's token names. */
-.sample-toggle { min-height: 38px; display: inline-flex; align-items: center; gap: 10px; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--surface); padding: 6px 12px; color: var(--ink); text-align: left; }
-.sample-toggle:hover, .sample-toggle:focus-visible { border-color: var(--ink); outline: none; }
-.sample-toggle-copy { display: grid; gap: 1px; font-size: 12px; font-weight: 700; line-height: 1.15; }
-.sample-toggle-copy small { color: var(--subtle); font: 9px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
-.sample-switch { position: relative; width: 32px; height: 18px; flex: 0 0 32px; border-radius: 99px; background: var(--line-strong); transition: background .18s ease; }
-.sample-switch i { position: absolute; top: 3px; left: 3px; width: 12px; height: 12px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 2px rgb(24 33 27 / 25%); transition: transform .18s ease; }
-.sample-toggle.active { border-color: #e2c48a; background: var(--amber-soft); color: var(--amber); }
-.sample-toggle.active .sample-switch { background: var(--amber); }
-.sample-toggle.active .sample-switch i { transform: translateX(14px); }
-.sample-toggle.active .sample-toggle-copy small { color: var(--amber); }
 
 .workspace { min-width: 0; width: 100%; max-width: 1660px; margin: 0 auto; padding: 34px 36px 60px; }
 .workspace-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
-/* Holds the page's own action and the sample-data switch on one baseline. The
-   switch is display:none until nav-count.js confirms a guest, so this collapses
-   to a single button for a signed-in reader with no gap left behind. */
+/* Holds the page's header actions on one baseline, wrapping when narrow. */
 .workspace-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
 .eyebrow { margin: 0 0 6px; color: var(--green); font: 750 10px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
 .workspace-header h1 { margin: 0; font-size: 32px; line-height: 1.1; letter-spacing: -.045em; }
@@ -99,35 +80,76 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-lineca
 .display-switch svg { width: 15px; height: 15px; }
 
 .application-content { padding-top: 17px; }
-.board { display: grid; grid-template-columns: repeat(5, minmax(210px, 1fr)); gap: 10px; overflow-x: auto; padding: 1px 1px 13px; scroll-snap-type: x proximity; }
-.board-column { min-height: 430px; border: 1px solid var(--line); border-radius: var(--radius); background: #ebece6; padding: 9px; scroll-snap-align: start; }
+/* The board is a fixed frame and every column scrolls inside it. Left to grow,
+   the tallest column set the height of the page: a hundred cards in Considering
+   made a 19,000px page with four columns of empty gutter beside it. */
+.board { display: grid; grid-template-columns: repeat(5, minmax(210px, 1fr)); gap: 10px; height: clamp(420px, calc(100vh - 300px), 1100px); overflow-x: auto; padding: 1px 1px 4px; scroll-snap-type: x proximity; }
+.board-column { min-width: 0; min-height: 0; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); background: #ebece6; padding: 9px; scroll-snap-align: start; }
 .board-column.drag-over { border-color: var(--green); background: #e4ebe4; }
-.column-header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 7px; margin: -1px -1px 7px; border-radius: 8px; background: #ebece6; padding: 7px 6px 8px; }
-.column-header span:first-child { width: 8px; height: 8px; border-radius: 50%; background: var(--column-color, var(--subtle)); }
-.column-header h2 { margin: 0; font-size: 11px; }
-.column-header b { margin-left: auto; color: var(--subtle); font: 10px var(--mono); font-weight: 500; }
-.column-stack { display: grid; align-content: start; gap: 7px; }
-.application-card { width: 100%; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); padding: 12px; color: var(--ink); text-align: left; box-shadow: 0 1px 1px rgb(24 33 27 / 3%); transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease; }
-.application-card:hover { transform: translateY(-1px); border-color: #b9bdb4; box-shadow: 0 7px 18px rgb(24 33 27 / 8%); }
-.application-card[draggable="true"] { cursor: grab; }
+.board-column.drag-over .column-stack { scrollbar-color: var(--green) transparent; }
+/* Sits outside the scrollport now, so the count stays put without sticky. */
+.column-header { min-width: 0; display: flex; align-items: center; gap: 7px; flex: 0 0 auto; padding: 4px 5px 9px; }
+.column-header span:first-child { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: var(--column-color, var(--subtle)); }
+.column-header h2 { min-width: 0; margin: 0; overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.column-header b { flex: 0 0 auto; margin-left: auto; color: var(--subtle); font: 10px var(--mono); font-weight: 500; font-variant-numeric: tabular-nums; }
+.column-stack { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: 6px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding: 1px; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+.column-stack::-webkit-scrollbar { width: 9px; }
+.column-stack::-webkit-scrollbar-thumb { border: 3px solid #ebece6; border-radius: 9px; background: var(--line-strong); }
+.application-card { position: relative; min-width: 0; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); box-shadow: 0 1px 1px rgb(24 33 27 / 3%); transition: border-color .16s ease, box-shadow .16s ease; }
+.application-card:hover { border-color: #b9bdb4; box-shadow: 0 6px 16px rgb(24 33 27 / 8%); }
+.application-card.picked { border-color: var(--green); box-shadow: 0 0 0 1px var(--green); }
 .application-card.dragging { opacity: .45; }
-.card-company-row { display: flex; align-items: center; gap: 8px; }
-.company-mark { width: 29px; height: 29px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 8px; background: var(--mark-color, #15251e); color: white; font: 750 10px var(--mono); }
-.card-company-row strong { min-width: 0; overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.application-card h3 { margin: 10px 0 3px; font-size: 13px; line-height: 1.3; }
-.card-location { min-height: 16px; margin: 0; overflow: hidden; color: var(--subtle); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-.next-step { margin-top: 11px; border-top: 1px solid var(--line); padding-top: 9px; }
+/* A moved card lands at the top of its new column -- which may not be the
+   column being looked at. The flash is what ties the two together. */
+.application-card.just-moved { animation: arrive 2.4s ease-out; }
+@keyframes arrive {
+  0%, 55% { border-color: var(--green); box-shadow: 0 0 0 2px var(--green-soft), 0 0 0 3px var(--green); }
+  100% { border-color: var(--line); box-shadow: 0 1px 1px rgb(24 33 27 / 3%); }
+}
+.card-face { width: 100%; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 3px; border-radius: 11px; background: transparent; padding: 10px 11px; color: var(--ink); text-align: left; cursor: grab; }
+/* The checkbox takes the company mark's slot, so selection costs no width and
+   the card only grows the affordance when it is reached for. */
+.card-pick { position: absolute; z-index: 2; top: 11px; left: 12px; width: 18px; height: 18px; margin: 0; accent-color: var(--green); opacity: 0; transition: opacity .12s ease; }
+.application-card:hover .card-pick, .card-pick:focus-visible, .card-pick:checked, .board.selecting .card-pick { opacity: 1; }
+.application-card:hover .company-mark, .board.selecting .company-mark { opacity: 0; }
+.show-more { border: 1px dashed var(--line-strong); border-radius: 10px; background: transparent; padding: 9px; color: var(--muted); font-size: 11px; font-weight: 700; }
+.show-more:hover { border-color: var(--ink); color: var(--ink); }
+.card-company-row { display: flex; align-items: center; gap: 7px; }
+.company-mark { width: 22px; height: 22px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 6px; background: var(--mark-color, #15251e); color: white; font: 750 9px var(--mono); transition: opacity .12s ease; }
+.card-company-row strong { min-width: 0; overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.application-card h3 { display: -webkit-box; overflow: hidden; margin: 1px 0 0; font-size: 12.5px; font-weight: 640; line-height: 1.28; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.card-location { margin: 0; overflow: hidden; color: var(--subtle); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+/* Emitted only when there is something to put in them: rendered always, these
+   two rows cost ~80px of every card to say "No next action". */
+.next-step { margin-top: 7px; border-top: 1px solid var(--line); padding-top: 6px; }
 .next-step span { display: block; color: var(--subtle); font: 8px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
-.next-step p { display: -webkit-box; overflow: hidden; margin: 3px 0 0; font-size: 10px; line-height: 1.4; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-.card-footer { min-height: 24px; display: flex; align-items: center; gap: 6px; margin-top: 9px; }
+.next-step p { display: -webkit-box; overflow: hidden; margin: 2px 0 0; font-size: 10px; line-height: 1.4; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.card-footer { min-width: 0; display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.due-badge { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .due-badge { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; background: var(--surface-muted); padding: 3px 6px; color: var(--muted); font-size: 9px; font-weight: 720; }
 .due-badge svg { width: 11px; height: 11px; }
 .due-badge.overdue { background: var(--red-soft); color: var(--red); }
 .due-badge.soon { background: var(--amber-soft); color: var(--amber); }
 .due-badge.upcoming { background: var(--green-soft); color: var(--green); }
-.card-open { margin-left: auto; color: var(--subtle); }
+.card-open { flex: 0 0 auto; margin-left: auto; color: var(--subtle); }
 .card-open svg { width: 14px; height: 14px; }
-.empty-column { min-height: 145px; display: grid; place-items: center; border: 1px dashed #d0d3c9; border-radius: 10px; color: var(--subtle); font-size: 10px; text-align: center; }
+.empty-column { min-height: 96px; display: grid; place-items: center; border: 1px dashed #d0d3c9; border-radius: 10px; color: var(--subtle); font-size: 10px; text-align: center; }
+
+/* Moving fifty cards one drawer at a time is the workflow this replaces. */
+.bulk-bar { position: fixed; z-index: 40; bottom: 20px; left: 50%; display: flex; align-items: center; gap: 12px; transform: translate(-50%, 14px); border-radius: 11px; background: var(--ink); padding: 9px 10px 9px 15px; color: white; box-shadow: 0 16px 44px rgb(12 24 18 / 32%); opacity: 0; pointer-events: none; transition: .18s ease; }
+.bulk-bar.show { transform: translate(-50%, 0); opacity: 1; pointer-events: auto; }
+.bulk-bar b { font-size: 12px; font-variant-numeric: tabular-nums; }
+.bulk-bar hr { width: 1px; height: 20px; border: 0; margin: 0; background: rgb(255 255 255 / 18%); }
+.bulk-bar label { color: rgb(255 255 255 / 60%); font: 9px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.bulk-bar select { border: 1px solid rgb(255 255 255 / 22%); border-radius: 7px; background: rgb(255 255 255 / 8%); padding: 6px 8px; color: white; font-size: 12px; }
+.bulk-bar select option { color: var(--ink); }
+.bulk-go { border-radius: 7px; background: var(--lime); padding: 7px 12px; color: #15251e; font-size: 12px; font-weight: 750; }
+.bulk-plain { border-radius: 7px; background: transparent; padding: 7px 9px; color: rgb(255 255 255 / 70%); font-size: 12px; font-weight: 650; }
+/* Deletes without a confirmation step, so it reads as destructive before it is
+   pressed rather than after. */
+.bulk-danger { border: 1px solid rgb(232 150 138 / 45%); border-radius: 7px; background: transparent; padding: 6px 11px; color: #f0a89e; font-size: 12px; font-weight: 720; }
+.bulk-danger:hover { border-color: #e8968a; background: rgb(232 150 138 / 14%); color: #ffd9d2; }
+.bulk-plain:hover { background: rgb(255 255 255 / 10%); color: white; }
 
 .application-list { overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-sm); }
 .list-head, .application-row { display: grid; grid-template-columns: minmax(250px, 1.5fr) .65fr .8fr 1.15fr .65fr 22px; gap: 16px; align-items: center; }
@@ -161,30 +183,29 @@ dialog::backdrop { background: rgb(13 26 19 / 50%); backdrop-filter: blur(2px); 
 .drawer-head .company-mark { width: 38px; height: 38px; border-radius: 11px; font-size: 12px; }
 .drawer-title { min-width: 0; flex: 1; }
 .drawer-title h2 { margin: 0; font-size: 20px; line-height: 1.2; letter-spacing: -.03em; }
-.drawer-title p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+.drawer-title p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
 .icon-button { width: 35px; height: 35px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 8px; background: transparent; color: var(--muted); }
 .icon-button:hover { background: var(--surface-muted); color: var(--ink); }
 .drawer-body { flex: 1; padding: 22px 23px; }
 .editor-history { margin-top: 22px; border-top: 1px solid var(--line); padding-top: 18px; }
 .editor-history h3 { margin: 0 0 10px; font-size: 13px; }
 .editor-history-list { display: grid; }
-.editor-history-row { display: grid; grid-template-columns: 116px minmax(0, 1fr); gap: 12px; border-top: 1px solid var(--line); padding: 9px 0; }
-.editor-history-row time { color: var(--subtle); font: 9px var(--mono); }
+.editor-history-row { display: grid; grid-template-columns: 116px minmax(0, 1fr); gap: 12px; border-top: 1px solid var(--line); padding: 12px 0; }
+.editor-history-row time { color: var(--subtle); font: 10px var(--mono); }
 .editor-history-row strong { font-size: 10px; text-transform: capitalize; }
 .drawer-footer { position: sticky; bottom: 0; display: flex; justify-content: space-between; gap: 10px; border-top: 1px solid var(--line); background: rgb(255 254 250 / 96%); padding: 13px 23px; backdrop-filter: blur(12px); }
 .drawer-footer > div { display: flex; gap: 7px; }
 .drawer-footer .button { min-height: 36px; }
 
-.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; padding: 20px 22px; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 14px; padding: 20px 22px; }
 .drawer-body .form-grid { padding: 0; }
-.form-grid label { display: grid; gap: 4px; color: var(--muted); font-size: 10px; font-weight: 680; }
-.form-grid input, .form-grid select, .form-grid textarea { width: 100%; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); padding: 8px 9px; outline: 0; }
+.form-grid label { display: grid; gap: 6px; color: var(--muted); font-size: 11px; font-weight: 620; }
+.form-grid input, .form-grid select, .form-grid textarea { width: 100%; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); padding: 9px 12px; outline: 0; }
 .form-grid input:focus, .form-grid select:focus, .form-grid textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgb(43 98 155 / 12%); }
 .form-grid textarea { resize: vertical; }
 .form-grid .full { grid-column: 1 / -1; }
 .form-grid [hidden] { display: none; }
 .modal { width: min(610px, calc(100vw - 30px)); max-width: none; border: 0; border-radius: 15px; background: var(--surface); padding: 0; box-shadow: var(--shadow-lg); }
-.compact-modal { width: min(470px, calc(100vw - 30px)); }
 .modal form { margin: 0; }
 .dialog-header { display: flex; align-items: flex-start; gap: 15px; border-bottom: 1px solid var(--line); padding: 21px 22px 17px; }
 .dialog-header > div { flex: 1; }
@@ -192,8 +213,6 @@ dialog::backdrop { background: rgb(13 26 19 / 50%); backdrop-filter: blur(2px); 
 .dialog-header p:not(.eyebrow) { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 7px; border-top: 1px solid var(--line); padding: 14px 22px; }
 .danger-text { color: var(--red); }
-.button.solid-danger { border-color: var(--red); background: var(--red); color: white; }
-.button.solid-danger:hover { background: #8d342c; }
 .toast { position: fixed; z-index: 90; right: 22px; bottom: 22px; max-width: min(420px, calc(100vw - 30px)); display: flex; align-items: center; gap: 12px; transform: translateY(12px); border-radius: 10px; background: var(--ink); padding: 10px 13px; color: white; box-shadow: 0 14px 40px rgb(0 0 0 / 22%); opacity: 0; pointer-events: none; transition: .2s ease; }
 .toast.show { transform: none; opacity: 1; pointer-events: auto; }
 .toast button { border-bottom: 1px solid rgb(255 255 255 / 45%); background: transparent; padding: 0; color: var(--lime); font-weight: 750; }
@@ -217,8 +236,7 @@ dialog::backdrop { background: rgb(13 26 19 / 50%); backdrop-filter: blur(2px); 
   .search-field { max-width: none; flex-basis: 100%; }
   .select-control { flex: 1; }
   .select-control select { width: 100%; }
-  .board { grid-template-columns: 1fr; overflow: visible; }
-  .board-column { min-height: auto; }
+  .board { grid-template-columns: repeat(5, 254px); height: clamp(400px, calc(100vh - 290px), 760px); }
   .empty-column { min-height: 76px; }
   .list-head { display: none; }
   .application-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
@@ -248,4 +266,20 @@ dialog::backdrop { background: rgb(13 26 19 / 50%); backdrop-filter: blur(2px); 
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  /* The arrival cue has to survive: it is the only thing telling a reader
+     which card just moved. */
+  .application-card.just-moved { border-color: var(--green); box-shadow: 0 0 0 1px var(--green); }
 }
+
+/* Auto-apply review dialog */
+.apply-modal { width: min(760px, calc(100vw - 30px)); }
+.apply-fields { max-height: min(62vh, 640px); overflow: auto; }
+.apply-source { display: block; font-size: 10px; font-weight: 500; color: var(--muted); }
+.apply-missing { color: var(--red); }
+.apply-missing input, .apply-missing select, .apply-missing textarea { border-color: #e7c4be; }
+.apply-choices { margin: 0; padding: 0; border: 0; display: grid; gap: 6px; color: var(--muted); font-size: 11px; font-weight: 620; }
+.apply-choices legend { padding: 0; margin-bottom: 4px; }
+.apply-choices label { display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: 12px; font-weight: 500; }
+.apply-choices input { width: auto; }
+.apply-status { margin: 0; padding: 0 22px 14px; font-size: 12px; color: var(--muted); }
+.apply-status.error { color: var(--red); }

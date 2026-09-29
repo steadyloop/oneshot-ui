@@ -2,6 +2,14 @@
   "use strict";
 
   const opportunityTotal = payload => Math.max(0, Number(payload?.total) || 0);
+  const ownsOpportunityCount = () => ["/", "/index.html"].includes(root.location?.pathname);
+
+  function setTotal(total) {
+    const text = opportunityTotal({ total }).toLocaleString();
+    root.document.querySelectorAll("[data-opportunity-count]").forEach(badge => {
+      badge.textContent = text;
+    });
+  }
 
   // "Ada Lovelace" -> "AL", "ada" -> "A". Drawn under the avatar image so a
   // blocked or 404'd Google photo degrades to initials instead of a grey disc.
@@ -22,7 +30,7 @@
     if (!badges.length) return;
     try {
       const total = opportunityTotal(await root.OneShotAPI.jobs.list({ limit: 1, offset: 0 }));
-      badges.forEach(badge => { badge.textContent = total.toLocaleString(); });
+      setTotal(total);
     } catch (_) {
       badges.forEach(badge => { badge.textContent = "—"; });
     }
@@ -138,7 +146,7 @@
   const asGuest = () => {
     markGuest();
     mount(signedOutChip());
-    refresh();
+    if (!ownsOpportunityCount()) refresh();
   };
 
   async function start() {
@@ -181,9 +189,9 @@
       return;
     }
     mount(signedInChip(account));
-    refresh();
+    if (!ownsOpportunityCount()) refresh();
   }
 
-  root.OneShotOpportunityCount = { refresh };
+  root.OneShotOpportunityCount = { refresh, set: setTotal };
   start();
 })(typeof window !== "undefined" ? window : globalThis);
