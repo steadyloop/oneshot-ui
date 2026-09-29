@@ -6,11 +6,11 @@
   <meta name="color-scheme" content="light">
   <meta name="description" content="The OneShot feed status workspace.">
   <title>Feed Status · OneShot</title>
-  <link rel="stylesheet" href="/static/source-coverage/styles.css?v=fleet-strip-20260910b">
+  <link rel="stylesheet" href="/static/source-coverage/styles.css?v=board-wall-20260929b">
   <link rel="stylesheet" href="/static/navigation.css?v=lockup-20260901">
   <script defer src="/static/api-client.js?v=guest-empty-20260903"></script>
   <script defer src="/static/nav-count.js?v=visitor-local-20260816"></script>
-  <script defer src="/static/source-coverage/app.js?v=fleet-strip-20260910b"></script>
+  <script defer src="/static/source-coverage/app.js?v=board-wall-20260929b"></script>
 </head>
 <body>
   <a class="skip-link" href="#workspace">Skip to feed status</a>
@@ -45,19 +45,17 @@
         <span id="clock" class="clock" aria-label="Current time">—</span>
       </header>
 
-      <p id="fleet-stats" class="fleet-stats">Loading fleet…</p>
-
-      <section class="source-section" aria-labelledby="source-list-title">
+      <section class="source-section" aria-labelledby="fleet-stats">
         <header class="section-header">
           <div class="section-title">
-            <h2 id="source-list-title">Boards</h2>
+            <h2 id="fleet-stats">Loading fleet…</h2>
             <span id="stale-note" class="stale-note" hidden aria-live="polite"><i aria-hidden="true"></i>Refresh failed — showing last known data</span>
           </div>
           <div class="legend-row" aria-label="Cell states">
-            <span class="legend-key ok"><i aria-hidden="true"></i>ok <b data-state-count="ok">—</b></span>
-            <span class="legend-key degraded"><i aria-hidden="true"></i>degraded <b data-state-count="degraded">—</b></span>
-            <span class="legend-key failing"><i aria-hidden="true"></i>failing <b data-state-count="failing">—</b></span>
-            <span class="legend-key stale"><i aria-hidden="true"></i>stale <b data-state-count="stale">—</b></span>
+            <span class="legend-key ok" title="Healthy. Darker = more jobs on the board (0 → 10k+)."><i aria-hidden="true"></i>ok <b data-state-count="ok">—</b></span>
+            <span class="legend-key failing" title="3+ polls in a row failed."><i aria-hidden="true"></i>failing <b data-state-count="failing">—</b></span>
+            <span class="legend-key degraded" title="The last 1–2 polls failed; it will try again."><i aria-hidden="true"></i>retrying <b data-state-count="degraded">—</b></span>
+            <span class="legend-key stale" title="Missed its scheduled check (over 3× its normal interval)."><i aria-hidden="true"></i>overdue <b data-state-count="stale">—</b></span>
             <span class="legend-key paused"><i aria-hidden="true"></i>paused <b data-state-count="paused">—</b></span>
             <span class="legend-key never"><i aria-hidden="true"></i>never polled <b data-state-count="never">—</b></span>
           </div>
@@ -68,5 +66,6 @@
       </section>
     </main>
   </div>
+  <div class="board-tip" id="board-tip" role="tooltip"></div>
 </body>
 </html>

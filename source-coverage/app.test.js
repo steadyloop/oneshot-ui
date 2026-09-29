@@ -6,8 +6,9 @@ const {
   withTimeout,
   stateKey,
   fleetTotals,
-  cellTitle,
-  flattenFleet,
+  problemText,
+  buildBands,
+  STATE_LABEL,
 } = require("./app.js");
 
 test("every backend board state has a stable visual key", () => {
@@ -33,69 +34,57 @@ test("fleet totals sum board coverage into roles", () => {
   assert.equal(computed.erroring, 2);
 });
 
-test("cell tooltips show the canonical company name, falling back to the board key", () => {
-  assert.equal(
-    cellTitle("greenhouse", { key: "openai", company: "OpenAI", coverage: 123 }),
-    "OpenAI (123 roles)",
-  );
-  assert.equal(
-    cellTitle("lever", { key: "acme", company: null, coverage: 0 }),
-    "acme (0 roles)",
-  );
+test("people read retrying, failing and overdue, never the API's state keys", () => {
+  assert.equal(STATE_LABEL.degraded, "retrying");
+  assert.equal(STATE_LABEL.failing, "failing");
+  assert.equal(STATE_LABEL.stale, "overdue");
+  assert.equal(problemText({ stale: 3, failing: 2, degraded: 1 }), "2 failing · 1 retrying · 3 overdue");
+  assert.equal(problemText({}), "");
 });
 
-test("cell tooltips append poll freshness when the board has been polled", () => {
-  const minutesAgo = new Date(Date.now() - 4 * 60 * 1000).toISOString();
-  assert.equal(
-    cellTitle("greenhouse", { key: "openai", company: "OpenAI", coverage: 123, last_poll_at: minutesAgo }),
-    "OpenAI (123 roles), 4m ago",
-  );
+const board = (state, coverage = 0, extra = {}) => ({ key: `${state}-${coverage}`, state, coverage, ...extra });
+
+test("the largest providers get a band each and the rest share one that keeps each provider", () => {
+  const providers = ["a", "b", "c", "d"].map((source, index) => ({
+    source,
+    boards: Array.from({ length: 4 - index }, () => board("ok", 10 * (index + 1))),
+  }));
+  const bands = buildBands({ providers }, 2);
+  assert.deepEqual(bands.map(band => band.id), ["b", "a", "__tail"], "named bands order by jobs, the tail comes last");
+  const tail = bands.at(-1);
+  assert.equal(tail.label, "+2 more providers");
+  assert.deepEqual(tail.groups.map(group => group.id), ["c", "d"]);
+  assert.equal(tail.boards.length, 3, "the shared band draws every tail board");
 });
 
-test("flattening lays providers out as contiguous ranges over one cell list", () => {
-  const { providers, boards } = flattenFleet({
-    providers: [
-      { source: "greenhouse", boards: [{ key: "a", state: "ok" }, { key: "b", state: "failing" }] },
-      { source: "lever", boards: [{ key: "c", state: "degraded" }] },
-    ],
-  });
-  assert.deepEqual(providers.map(range => [range.source, range.start, range.count]), [
-    ["greenhouse", 0, 2],
-    ["lever", 2, 1],
+test("no board is dropped: every board lands in exactly one band", () => {
+  const providers = Array.from({ length: 9 }, (_, index) => ({
+    source: `p${index}`,
+    boards: Array.from({ length: index + 1 }, () => board("ok", index)),
+  }));
+  const bands = buildBands({ providers });
+  const drawn = bands.reduce((sum, band) => sum + band.boards.length, 0);
+  assert.equal(drawn, 45);
+  assert.equal(bands.at(-1).groups.reduce((sum, group) => sum + group.boards.length, 0), bands.at(-1).boards.length);
+});
+
+test("each band pins trouble first, worst first, then healthy boards heaviest first", () => {
+  const [band] = buildBands({ providers: [{ source: "workday", boards: [
+    board("ok", 5), board("stale", 900), board("ok", 800), board("failing", 0), board("degraded", 50),
+  ] }] });
+  assert.deepEqual(band.boards.map(b => [b.state, b.jobs]), [
+    ["failing", 0], ["degraded", 50], ["stale", 900], ["ok", 800], ["ok", 5],
   ]);
-  assert.deepEqual(boards.map(board => board.key), ["a", "b", "c"]);
-  // Every cell knows its provider, so the tooltip needs no second lookup.
-  assert.deepEqual(boards.map(board => board.source), ["greenhouse", "greenhouse", "lever"]);
+  assert.deepEqual(band.problems, { failing: 1, degraded: 1, stale: 1 });
 });
 
-test("flattening counts failing and degraded per provider, which totals only report combined", () => {
-  const { providers } = flattenFleet({
-    providers: [
-      { source: "workday", boards: [{ state: "failing" }, { state: "degraded" }, { state: "degraded" }, { state: "ok" }] },
-      { source: "ashby", boards: [{ state: "ok" }] },
-    ],
-  });
-  assert.deepEqual(providers.map(range => [range.source, range.failing, range.degraded]), [
-    ["workday", 1, 2],
-    ["ashby", 0, 0],
-  ]);
-});
-
-test("flattening skips providers with no boards so no range is empty", () => {
-  const { providers, boards } = flattenFleet({
-    providers: [{ source: "taleo", boards: [] }, { source: "gem", boards: [{ state: "ok" }] }],
-  });
-  assert.deepEqual(providers.map(range => range.source), ["gem"]);
-  assert.equal(boards.length, 1);
-});
-
-test("flattening normalises unexpected states and missing companies", () => {
-  const { boards } = flattenFleet({
-    providers: [{ source: "icims", boards: [{ key: "acme", company: null, state: "Weird", coverage: null }] }],
-  });
-  assert.equal(boards[0].state, "unknown");
-  assert.equal(boards[0].company, "acme");
-  assert.equal(boards[0].coverage, 0);
+test("bands skip empty providers and normalise unexpected states and missing companies", () => {
+  const bands = buildBands({ providers: [
+    { source: "taleo", boards: [] },
+    { source: "icims", boards: [{ key: "acme", company: null, state: "Weird", coverage: null }] },
+  ] });
+  assert.deepEqual(bands.map(band => band.id), ["icims"]);
+  assert.deepEqual(bands[0].boards[0], { company: "acme", state: "unknown", strikes: 0, jobs: 0, last_poll_at: null });
 });
 
 test("polling freshness has concise labels", () => {

@@ -7,6 +7,7 @@
     return Number.isNaN(date.getTime()) ? null : date;
   };
   const number = value => new Intl.NumberFormat().format(Number(value) || 0);
+  const compact = value => new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 }).format(Number(value) || 0);
   const relativeTime = (value, now = new Date()) => {
     const date = safeDate(value);
     if (!date) return "Never polled";
@@ -34,6 +35,11 @@
     const key = String(value || "").trim().toLowerCase();
     return CELL_STATES.includes(key) ? key : "unknown";
   };
+  // The API's state keys stay as they are; these are the words people read.
+  const STATE_LABEL = { ok: "healthy", failing: "failing", degraded: "retrying", stale: "overdue", paused: "paused", never: "never polled", unknown: "unknown" };
+  const PROBLEM_ORDER = ["failing", "degraded", "stale", "paused", "never", "unknown"];
+  const SEVERITY = { failing: 0, degraded: 1, stale: 2, paused: 3, never: 4, unknown: 5, ok: 9 };
+
   const fleetTotals = payload => {
     const providers = Array.isArray(payload?.providers) ? payload.providers : [];
     const counts = { boards: 0, providers: providers.length, ok: 0, erroring: 0, stale: 0, paused: 0, never: 0, roles: 0 };
@@ -52,42 +58,58 @@
     const totals = payload?.totals;
     return totals && Number.isFinite(Number(totals.boards)) ? { ...counts, ...totals, roles: counts.roles } : counts;
   };
-  const cellTitle = (source, board) => {
-    const name = board?.company || board?.key || "?";
-    const base = `${name} (${number(board?.coverage)} roles)`;
-    return board?.last_poll_at ? `${base}, ${relativeTime(board.last_poll_at)}` : base;
-  };
 
-  // One flat cell list plus the provider ranges that index into it. The strip
-  // draws a contiguous slice, so filtering to one provider is a slice, not a
-  // second pass over the payload.
-  const flattenFleet = payload => {
-    const providers = [];
-    const boards = [];
+  const problemText = problems => PROBLEM_ORDER
+    .filter(state => problems[state])
+    .map(state => `${problems[state]} ${STATE_LABEL[state]}`)
+    .join(" · ");
+
+  // Trouble first (worst first), then healthy boards heaviest first: each band
+  // reads as a gradient with its problems pinned to the top-left corner.
+  const byWeight = boards => [...boards].sort((a, b) => (SEVERITY[a.state] - SEVERITY[b.state]) || (b.jobs - a.jobs));
+
+  // The providers with the most boards get a band each; the long tail shares
+  // one band that opens into a band per provider.
+  const NAMED_BANDS = 6;
+  const buildBands = (payload, named = NAMED_BANDS) => {
+    const groups = [];
     for (const provider of Array.isArray(payload?.providers) ? payload.providers : []) {
       const list = Array.isArray(provider.boards) ? provider.boards : [];
       if (!list.length) continue;
-      const range = { source: String(provider.source || "?"), start: boards.length, count: list.length, failing: 0, degraded: 0 };
+      const group = { id: String(provider.source || "?"), label: String(provider.source || "?"), boards: [], jobs: 0, problems: {} };
       for (const board of list) {
         const state = stateKey(board.state);
-        if (state === "failing") range.failing += 1;
-        else if (state === "degraded") range.degraded += 1;
-        boards.push({
-          key: board.key,
+        const jobs = Number(board.coverage) || 0;
+        group.boards.push({
           company: board.company || board.key,
-          source: range.source,
           state,
           strikes: Number(board.strikes) || 0,
-          coverage: Number(board.coverage) || 0,
+          jobs,
           last_poll_at: board.last_poll_at || null,
         });
+        group.jobs += jobs;
+        if (state !== "ok") group.problems[state] = (group.problems[state] || 0) + 1;
       }
-      providers.push(range);
+      group.boards = byWeight(group.boards);
+      groups.push(group);
     }
-    return { providers, boards };
+    const largest = new Set([...groups].sort((a, b) => b.boards.length - a.boards.length).slice(0, named).map(group => group.id));
+    const bands = groups.filter(group => largest.has(group.id)).sort((a, b) => b.jobs - a.jobs);
+    const tail = groups.filter(group => !largest.has(group.id)).sort((a, b) => b.jobs - a.jobs);
+    if (tail.length) {
+      const combined = { id: "__tail", label: `+${tail.length} more providers`, boards: [], jobs: 0, problems: {}, groups: tail };
+      for (const group of tail) {
+        combined.boards.push(...group.boards);
+        combined.jobs += group.jobs;
+        for (const [state, count] of Object.entries(group.problems)) combined.problems[state] = (combined.problems[state] || 0) + count;
+      }
+      combined.boards = byWeight(combined.boards);
+      bands.push(combined);
+    }
+    return bands;
   };
 
-  const exported = { relativeTime, withTimeout, stateKey, fleetTotals, cellTitle, flattenFleet };
+  const exported = { relativeTime, withTimeout, stateKey, fleetTotals, problemText, buildBands, STATE_LABEL };
   if (typeof module !== "undefined" && module.exports) module.exports = exported;
   if (!root.document) return;
 
@@ -95,268 +117,169 @@
   const content = $("#coverage-content");
   const esc = value => String(value == null ? "" : value).replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
   const readVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const plural = (count, one, many) => `${count === 1 ? one : many}`;
 
-  // Cell geometry. PITCH is the hit target the pointer snaps to, which is what
-  // makes a 6px cell reachable; CELL is the painted square inside it.
-  const PITCH = 7;
-  const CELL = 6;
+  // Cell geometry: a 3px square on a 4px pitch. Every band measures its own
+  // width, so a full row and one column of the opened tail share the code.
+  const PITCH = 4;
+  const CELL = 3;
   const SNAP_RADIUS = 2;
+  const RAMP_MAX_JOBS = 10000;
 
-  const STRIP_MARKUP = `
-    <div class="provider-list" id="provider-list" role="group" aria-label="Filter the strip by provider"></div>
-    <div class="strip-wrap">
-      <div class="strip" id="strip">
-        <canvas id="fleet-cells" role="img"></canvas>
-        <canvas id="fleet-overlay" aria-hidden="true"></canvas>
-      </div>
-      <div class="probe" id="probe" aria-hidden="true"></div>
-    </div>`;
-
-  let fleet = { providers: [], boards: [] };
-  let view = { start: 0, count: 0, provider: -1 };
-  let selectedSource = null;
-  let shellReady = false;
-  let columns = 0, rows = 0, stripWidth = 0, stripHeight = 0;
-  let hovered = -1;
+  let bands = [];
+  let bandsById = new Map();
+  let tailOpen = false;
   let palette = {};
 
-  const nodes = {};
-  const boardAt = index => fleet.boards[view.start + index];
-  const providerOf = index => {
-    let low = 0, high = fleet.providers.length - 1, found = 0;
-    while (low <= high) {
-      const middle = (low + high) >> 1;
-      if (fleet.providers[middle].start <= index) { found = middle; low = middle + 1; } else high = middle - 1;
-    }
-    return found;
-  };
-
+  // Healthy boards shade from light to dark by how many jobs they carry (log
+  // scale, 10k+ saturates); every other state is one flat colour.
   function readPalette() {
+    const hex = value => [1, 3, 5].map(index => parseInt(value.slice(index, index + 2), 16));
+    const low = hex(readVar("--cell-ok-low")), high = hex(readVar("--cell-ok-high"));
+    const maxLog = Math.log1p(RAMP_MAX_JOBS);
     palette = {
-      ok: readVar("--cell-ok"),
-      okAlt: readVar("--cell-ok-alt"),
-      degraded: readVar("--cell-degraded"),
+      ramp: jobs => {
+        const t = Math.min(1, Math.log1p(jobs) / maxLog);
+        return `rgb(${low.map((channel, index) => Math.round(channel + (high[index] - channel) * t)).join(",")})`;
+      },
       failing: readVar("--cell-failing"),
+      degraded: readVar("--cell-degraded"),
       stale: readVar("--cell-stale"),
-      paused: readVar("--line-strong"),
-      never: readVar("--line-strong"),
-      ink: readVar("--ink"),
-      surface: readVar("--surface"),
-      muted: readVar("--surface-muted"),
+      idle: readVar("--cell-idle"),
     };
   }
+  const cellColor = board => board.state === "ok" ? palette.ramp(board.jobs) : palette[board.state] || palette.idle;
 
-  // Providers alternate between two greens so the boundary between one vendor
-  // and the next stays visible without drawing a rule through the strip.
-  function paintCell(context, board, providerIndex, x, y, size) {
-    if (board.state === "never" || board.state === "unknown") {
-      context.strokeStyle = palette.never;
-      context.lineWidth = 1;
-      context.strokeRect(x + 0.5, y + 0.5, size - 1, size - 1);
-      return;
+  function bandMarkup(band, mini = false) {
+    // The cells carry each band's problems visually; the label keeps them for
+    // screen readers only.
+    const problems = problemText(band.problems);
+    const count = band.boards.length;
+    const meta = `<span>${number(count)} ${plural(count, "board", "boards")} · ${compact(band.jobs)} ${plural(band.jobs, "job", "jobs")}</span>`;
+    const canvas = `<canvas role="img" aria-label="${esc(band.label)}: ${number(count)} ${plural(count, "board", "boards")}${problems ? `, ${esc(problems)}` : ""}"></canvas>`;
+    if (!band.groups) {
+      return `<div class="band${mini ? " mini" : ""}" data-band="${esc(band.id)}"><div class="band-label"><strong>${esc(band.label)}</strong>${meta}</div>${canvas}</div>`;
     }
-    context.fillStyle = board.state === "ok"
-      ? (providerIndex % 2 ? palette.okAlt : palette.ok)
-      : palette[board.state];
-    context.fillRect(x, y, size, size);
+    const toggle = `<button type="button" class="band-label tail-toggle" aria-expanded="${tailOpen}"><strong>${esc(band.label)}<svg class="chev" aria-hidden="true" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></strong>${meta}</button>`;
+    return tailOpen
+      ? `<div class="band tail">${toggle}<div class="tail-grid">${band.groups.map(group => bandMarkup(group, true)).join("")}</div></div>`
+      : `<div class="band tail" data-band="${esc(band.id)}">${toggle}${canvas}</div>`;
   }
 
-  function drawStrip() {
-    if (!shellReady || !view.count) return;
-    readPalette();
+  function renderWall() {
+    content.innerHTML = `<div class="wall">${bands.map(band => bandMarkup(band)).join("")}</div>`;
+    drawWall();
+    $(".tail-toggle")?.addEventListener("click", () => { tailOpen = !tailOpen; hideTip(); renderWall(); });
+    for (const canvas of content.querySelectorAll(".band[data-band] > canvas")) {
+      const band = bandsById.get(canvas.parentElement.dataset.band);
+      const probe = event => {
+        const box = canvas.getBoundingClientRect();
+        const board = pickBoard(band, event.clientX - box.left, event.clientY - box.top);
+        if (board) showTip(board, event.clientX, event.clientY);
+        else hideTip();
+      };
+      canvas.addEventListener("pointermove", probe);
+      canvas.addEventListener("pointerdown", probe);
+      canvas.addEventListener("pointerleave", event => { if (event.pointerType === "mouse") hideTip(); });
+    }
+  }
+
+  function drawWall() {
     const ratio = root.devicePixelRatio || 1;
-    stripWidth = nodes.strip.clientWidth;
-    if (!stripWidth) return;
-    columns = Math.max(1, Math.floor(stripWidth / PITCH));
-    rows = Math.ceil(view.count / columns);
-    stripHeight = rows * PITCH;
-    for (const canvas of [nodes.cells, nodes.overlay]) {
-      canvas.width = stripWidth * ratio;
-      canvas.height = stripHeight * ratio;
-      canvas.style.width = `${stripWidth}px`;
-      canvas.style.height = `${stripHeight}px`;
+    for (const element of content.querySelectorAll(".band[data-band]")) {
+      const band = bandsById.get(element.dataset.band);
+      const canvas = element.querySelector(":scope > canvas");
+      const columns = band.columns = Math.max(8, Math.floor((element.clientWidth + (PITCH - CELL)) / PITCH));
+      const width = columns * PITCH, height = Math.ceil(band.boards.length / columns) * PITCH;
+      canvas.width = width * ratio;
+      canvas.height = height * ratio;
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      const context = canvas.getContext("2d");
+      context.setTransform(ratio, 0, 0, ratio, 0, 0);
+      context.clearRect(0, 0, width, height);
+      band.boards.forEach((board, index) => {
+        context.fillStyle = cellColor(board);
+        context.fillRect((index % columns) * PITCH, Math.floor(index / columns) * PITCH, CELL, CELL);
+      });
     }
-    const context = nodes.cells.getContext("2d");
-    context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    context.clearRect(0, 0, stripWidth, stripHeight);
-    let providerIndex = providerOf(view.start);
-    for (let cell = 0; cell < view.count; cell += 1) {
-      const index = view.start + cell;
-      while (providerIndex + 1 < fleet.providers.length && index >= fleet.providers[providerIndex + 1].start) providerIndex += 1;
-      paintCell(context, fleet.boards[index], providerIndex, (cell % columns) * PITCH, Math.floor(cell / columns) * PITCH, CELL);
-    }
-    drawOverlay();
   }
 
-  function drawOverlay() {
-    const ratio = root.devicePixelRatio || 1;
-    const context = nodes.overlay.getContext("2d");
-    context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    context.clearRect(0, 0, stripWidth, stripHeight);
-    if (hovered < 0) return;
-    const x = (hovered % columns) * PITCH;
-    const y = Math.floor(hovered / columns) * PITCH;
-    context.strokeStyle = palette.surface;
-    context.lineWidth = 2;
-    context.strokeRect(x - 2, y - 2, CELL + 4, CELL + 4);
-    context.strokeStyle = palette.ink;
-    context.lineWidth = 1.5;
-    context.strokeRect(x - 2, y - 2, CELL + 4, CELL + 4);
-  }
-
-  // Snap to the cell under the pointer, then prefer any non-ok board within a
-  // couple of cells: the flecks are what someone crossing the strip is aiming
-  // for, and they are the ones too small to hit exactly.
-  function pickCell(pointerX, pointerY) {
-    const column = Math.min(columns - 1, Math.max(0, Math.floor(pointerX / PITCH)));
-    const rowIndex = Math.min(rows - 1, Math.max(0, Math.floor(pointerY / PITCH)));
-    let best = Math.min(view.count - 1, rowIndex * columns + column);
-    if (boardAt(best).state !== "ok") return best;
-    let bestDistance = Infinity;
+  // Snap to the cell under the pointer, then prefer any problem board within a
+  // couple of cells: those are what someone crossing the wall is aiming for,
+  // and they are too small to hit exactly.
+  function pickBoard(band, x, y) {
+    const total = band.boards.length, columns = band.columns;
+    const column = Math.floor(x / PITCH), row = Math.floor(y / PITCH);
+    const index = row * columns + column;
+    if (column < 0 || row < 0 || column >= columns || index >= total) return null;
+    if (band.boards[index].state !== "ok") return band.boards[index];
+    let nearest = null, nearestDistance = Infinity;
     for (let dr = -SNAP_RADIUS; dr <= SNAP_RADIUS; dr += 1) {
       for (let dc = -SNAP_RADIUS; dc <= SNAP_RADIUS; dc += 1) {
-        const r = rowIndex + dr, c = column + dc;
-        if (r < 0 || c < 0 || r >= rows || c >= columns) continue;
-        const candidate = r * columns + c;
-        if (candidate >= view.count || boardAt(candidate).state === "ok") continue;
-        const distance = Math.hypot(pointerX - (c * PITCH + CELL / 2), pointerY - (r * PITCH + CELL / 2));
-        if (distance < bestDistance) { bestDistance = distance; best = candidate; }
+        const r = row + dr, c = column + dc, candidate = r * columns + c;
+        if (r < 0 || c < 0 || c >= columns || candidate >= total || band.boards[candidate].state === "ok") continue;
+        const distance = Math.hypot(dr, dc);
+        if (distance < nearestDistance) { nearestDistance = distance; nearest = band.boards[candidate]; }
       }
     }
-    return best;
+    return nearest || band.boards[index];
   }
 
-  function showProbe(cell, pointerX, pointerY) {
-    if (cell !== hovered) {
-      hovered = cell;
-      drawOverlay();
-      // The cell's colour already carries the state, so the card stays down to
-      // the four facts the colour cannot show.
-      const board = boardAt(cell);
-      nodes.probe.innerHTML = `<div class="tip-name">${esc(board.company)}</div>
-        <div class="tip-source">${esc(board.source)}</div>
-        <div class="tip-row"><span>roles</span><span>${esc(number(board.coverage))}</span></div>
-        <div class="tip-row"><span>last poll</span><span>${esc(relativeTime(board.last_poll_at))}</span></div>`;
-    }
-    nodes.probe.classList.add("visible");
-    const width = nodes.probe.offsetWidth, height = nodes.probe.offsetHeight;
-    let x = pointerX + 18, y = pointerY + 18;
-    if (x + width > stripWidth) x = pointerX - width - 18;
-    if (x < 0) x = 0;
-    if (y + height > stripHeight + 40) y = pointerY - height - 18;
-    if (y < 0) y = pointerY + 18;
-    nodes.probe.style.transform = `translate(${x}px, ${y}px)`;
+  function showTip(board, pointerX, pointerY) {
+    const tip = $("#board-tip");
+    // The cell's colour already says the state, so the card carries only what colour cannot.
+    tip.innerHTML = `<div class="tip-name">${esc(board.company)}</div>
+      <div class="tip-row"><span>jobs</span><b>${esc(number(board.jobs))}</b></div>
+      ${board.strikes ? `<div class="tip-row"><span>strikes</span><b>${esc(board.strikes)}</b></div>` : ""}
+      <div class="tip-row"><span>last polled</span><b>${esc(relativeTime(board.last_poll_at))}</b></div>`;
+    tip.classList.add("visible");
+    const width = tip.offsetWidth, height = tip.offsetHeight;
+    let x = pointerX + 16, y = pointerY + 16;
+    if (x + width > root.innerWidth - 8) x = pointerX - width - 16;
+    if (y + height > root.innerHeight - 8) y = pointerY - height - 16;
+    tip.style.left = `${Math.max(8, x)}px`;
+    tip.style.top = `${Math.max(8, y)}px`;
   }
 
-  function hideProbe() {
-    if (!shellReady) return;
-    nodes.probe.classList.remove("visible");
-    hovered = -1;
-    drawOverlay();
+  function hideTip() {
+    $("#board-tip")?.classList.remove("visible");
   }
 
-  function setView(providerIndex) {
-    const range = providerIndex >= 0 ? fleet.providers[providerIndex] : null;
-    view = range
-      ? { start: range.start, count: range.count, provider: providerIndex }
-      : { start: 0, count: fleet.boards.length, provider: -1 };
-    selectedSource = range ? range.source : null;
-    for (const button of nodes.providerList.children) {
-      button.classList.toggle("active", button.dataset.provider === (selectedSource || ""));
-      button.setAttribute("aria-pressed", String(button.dataset.provider === (selectedSource || "")));
-    }
-    nodes.cells.setAttribute("aria-label", range
-      ? `${range.source}: ${number(range.count)} boards, one cell each`
-      : `${number(fleet.boards.length)} boards across ${number(fleet.providers.length)} providers, one cell each`);
-    hideProbe();
-    drawStrip();
-  }
-
-  function renderProviderList() {
-    const buttons = [`<button type="button" class="provider all" data-provider="" aria-pressed="true">all providers</button>`];
-    for (const range of fleet.providers) {
-      const problem = range.failing ? " has-failing" : range.degraded ? " has-degraded" : "";
-      buttons.push(`<button type="button" class="provider${problem}" data-provider="${esc(range.source)}" aria-pressed="false">${esc(range.source)} <b>${esc(number(range.count))}</b></button>`);
-    }
-    nodes.providerList.innerHTML = buttons.join("");
-  }
-
-  function renderLegendCounts(totals) {
-    for (const state of CELL_STATES) {
-      const slot = document.querySelector(`[data-state-count="${state}"]`);
-      if (!slot) continue;
-      const value = state === "degraded" || state === "failing"
-        ? countState(state)
-        : Number(totals[state]) || countState(state);
-      slot.textContent = number(value);
-    }
-  }
-
-  // `totals` folds failing and degraded into one `erroring` count, so the two
-  // are counted off the flattened boards instead of read from the payload.
-  function countState(state) {
-    let total = 0;
-    for (const board of fleet.boards) if (board.state === state) total += 1;
-    return total;
-  }
-
-  function renderStats(totals) {
+  function renderHeader(payload) {
+    const totals = fleetTotals(payload);
     $("#fleet-stats").innerHTML = [
       `<strong>${esc(number(totals.boards))}</strong> boards / <strong>${esc(number(totals.providers))}</strong> providers`,
-      `<strong>${esc(number(totals.roles))}</strong> roles`,
+      `<strong>${esc(number(totals.roles))}</strong> jobs`,
     ].join('<span class="stat-sep" aria-hidden="true"> · </span>');
-  }
-
-  function mountShell() {
-    if (shellReady) return;
-    content.innerHTML = STRIP_MARKUP;
-    nodes.providerList = $("#provider-list");
-    nodes.strip = $("#strip");
-    nodes.cells = $("#fleet-cells");
-    nodes.overlay = $("#fleet-overlay");
-    nodes.probe = $("#probe");
-
-    const pointAt = event => {
-      const box = nodes.strip.getBoundingClientRect();
-      return [event.clientX - box.left, event.clientY - box.top];
-    };
-    const probeFrom = event => {
-      const [x, y] = pointAt(event);
-      showProbe(pickCell(x, y), x, y);
-    };
-    nodes.strip.addEventListener("pointermove", probeFrom);
-    nodes.strip.addEventListener("pointerdown", probeFrom);
-    nodes.strip.addEventListener("pointerleave", event => { if (event.pointerType === "mouse") hideProbe(); });
-    nodes.providerList.addEventListener("click", event => {
-      const button = event.target.closest("[data-provider]");
-      if (!button) return;
-      const source = button.dataset.provider;
-      const index = source ? fleet.providers.findIndex(range => range.source === source) : -1;
-      setView(index === view.provider ? -1 : index);
-    });
-    shellReady = true;
+    // Counted off the boards the wall draws, so the legend always adds up to it.
+    const counts = {};
+    for (const band of bands) for (const board of band.boards) counts[board.state] = (counts[board.state] || 0) + 1;
+    for (const slot of document.querySelectorAll("[data-state-count]")) {
+      const value = counts[slot.dataset.stateCount] || 0;
+      slot.textContent = number(value);
+      slot.closest(".legend-key")?.classList.toggle("zero", value === 0);
+    }
   }
 
   function render(payload) {
-    const totals = fleetTotals(payload);
-    renderStats(totals);
-    fleet = flattenFleet(payload);
-    if (!fleet.boards.length) {
-      shellReady = false;
+    bands = buildBands(payload);
+    bandsById = new Map();
+    for (const band of bands) {
+      bandsById.set(band.id, band);
+      for (const group of band.groups || []) bandsById.set(group.id, group);
+    }
+    renderHeader(payload);
+    if (!bands.length) {
       content.innerHTML = `<div class="state"><span class="state-icon"><svg aria-hidden="true"><use href="#icon-sources"/></svg></span><h2>No feed status data yet</h2><p>Configured feeds will appear here after status data becomes available.</p></div>`;
       return;
     }
-    mountShell();
-    renderProviderList();
-    renderLegendCounts(totals);
-    // A refresh keeps whichever provider is on screen; if that vendor dropped
-    // out of the payload the strip falls back to the whole fleet.
-    const keep = selectedSource ? fleet.providers.findIndex(range => range.source === selectedSource) : -1;
-    setView(keep);
+    readPalette();
+    renderWall();
   }
 
   function renderError(error) {
-    shellReady = false;
+    bands = [];
     content.innerHTML = `<div class="state"><span class="state-icon error"><svg aria-hidden="true"><use href="#icon-alert"/></svg></span><h2>Feed status could not load</h2><p>${esc(error?.message || error || "The feed status service is unavailable.")}</p><button type="button" data-action="retry">Try again</button></div>`;
   }
 
@@ -371,10 +294,7 @@
   async function refresh({ initial = false } = {}) {
     if (inFlight) return;
     inFlight = true;
-    if (initial) {
-      shellReady = false;
-      content.innerHTML = `<div class="state loading-state"><span class="spinner"></span><p>Loading feed status…</p></div>`;
-    }
+    if (initial) content.innerHTML = `<div class="state loading-state"><span class="spinner"></span><p>Loading feed status…</p></div>`;
     try {
       render(await withTimeout(root.OneShotAPI.sources.boards()));
       lastGoodAt = Date.now();
@@ -402,7 +322,7 @@
   let resizeTimer = 0;
   addEventListener("resize", () => {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => { hideProbe(); drawStrip(); }, 80);
+    resizeTimer = setTimeout(() => { if (bands.length) { hideTip(); drawWall(); } }, 80);
   });
   setInterval(updateClock, 1000);
   setInterval(() => { if (!document.hidden) refresh(); }, REFRESH_MS);
