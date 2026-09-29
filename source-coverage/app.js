@@ -65,8 +65,9 @@
     const jobs = Number(totals?.added_today) || 0;
     if (!jobs) return "";
     const companies = Number(totals?.companies_added_today) || 0;
-    const jobText = `${number(jobs)} new ${jobs === 1 ? "job" : "jobs"}`;
-    return companies ? `${jobText} from ${number(companies)} ${companies === 1 ? "company" : "companies"} today` : `${jobText} today`;
+    // It follows "N jobs" in the totals, so it needs no noun of its own.
+    const jobText = `${number(jobs)} new today`;
+    return companies ? `${jobText} from ${number(companies)} ${companies === 1 ? "company" : "companies"}` : jobText;
   };
 
   // "2026-09-09" is a calendar day in the pipeline's zone: read it as a local

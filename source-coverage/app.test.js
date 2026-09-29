@@ -38,9 +38,9 @@ test("fleet totals sum board coverage into roles", () => {
 });
 
 test("the header's today line counts new jobs and the companies they came from", () => {
-  assert.equal(todayLine({ added_today: 4081, companies_added_today: 290 }), "4,081 new jobs from 290 companies today");
-  assert.equal(todayLine({ added_today: 1, companies_added_today: 1 }), "1 new job from 1 company today");
-  assert.equal(todayLine({ added_today: 4081 }), "4,081 new jobs today", "older snapshots have no company count");
+  assert.equal(todayLine({ added_today: 4081, companies_added_today: 290 }), "4,081 new today from 290 companies");
+  assert.equal(todayLine({ added_today: 1, companies_added_today: 1 }), "1 new today from 1 company");
+  assert.equal(todayLine({ added_today: 4081 }), "4,081 new today", "older snapshots have no company count");
   assert.equal(todayLine({ added_today: 0, companies_added_today: 0 }), "", "a quiet day shows nothing");
   assert.equal(todayLine(undefined), "");
 });
