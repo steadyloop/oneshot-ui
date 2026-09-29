@@ -55,7 +55,6 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-lineca
 
 .workspace { min-width: 0; width: 100%; max-width: 1660px; margin: 0 auto; padding: 30px 36px 60px; }
 .page-header { display: flex; align-items: baseline; justify-content: space-between; gap: 25px; }
-.page-title { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
 .page-header h1 { margin: 0; font-size: 24px; line-height: 1.15; letter-spacing: -.035em; }
 .clock { color: var(--muted); font: 600 12px var(--mono); white-space: nowrap; }
 
@@ -64,23 +63,34 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-lineca
 .source-section { min-width: 0; margin-top: 26px; }
 .section-header { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 4px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
 .section-title { display: flex; align-items: center; gap: 14px; min-width: 0; }
-.section-header h2 { margin: 0; color: var(--muted); font: 600 12px var(--mono); letter-spacing: .01em; }
-.section-header h2 strong { color: var(--ink); }
+/* The all-time totals are reference, like the clock: a step quieter than the
+   day's line beside them. */
+.fleet-stats { flex: 0 0 auto; margin: 0; color: var(--muted); font: 600 11px var(--mono); letter-spacing: .01em; white-space: nowrap; }
+.fleet-stats strong { color: var(--ink); }
 .stale-note { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; background: var(--amber-soft); padding: 4px 9px; color: var(--amber); font-size: 9px; font-weight: 720; white-space: nowrap; }
 .stale-note[hidden] { display: none; }
 .stale-note i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-.legend-row { display: flex; flex-wrap: wrap; gap: 4px 14px; justify-content: flex-end; }
-.legend-key { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font: 600 11px var(--mono); white-space: nowrap; }
-.legend-key i { width: 10px; height: 10px; flex: 0 0 10px; border-radius: 1px; }
-.legend-key b { color: var(--ink); font-weight: 700; }
-.legend-key.ok i { width: 26px; flex-basis: 26px; background: linear-gradient(90deg, var(--cell-ok-low), var(--cell-ok-high)); }
-.legend-key.failing i { background: var(--cell-failing); }
-.legend-key.degraded i { background: var(--cell-degraded); }
-.legend-key.stale i { background: var(--cell-stale); }
-.legend-key.paused i { background: var(--cell-idle); }
-.legend-key.never i { border: 1px solid var(--line-strong); background: var(--surface); }
-/* Zero-count states stay in the row so it never reflows, but step back. */
-.legend-key.zero { opacity: .45; }
+
+/* The day's line opens a card of a few named examples behind its number. */
+.ticker { position: relative; min-width: 0; }
+.ticker[hidden] { display: none; }
+.ticker-toggle { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; border: 0; background: transparent; padding: 0; color: var(--green); font: 600 12px var(--mono); cursor: default; }
+.today-line { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ticker-toggle .chev { width: 13px; height: 13px; flex: 0 0 13px; color: var(--subtle); stroke-width: 2; transition: transform .15s; }
+.ticker:not(.has-card) .chev { display: none; }
+.ticker-toggle[aria-expanded="true"] .chev { transform: rotate(180deg); }
+.ticker-card { position: absolute; z-index: 40; top: calc(100% + 8px); left: -14px; width: min(540px, calc(100vw - 32px)); display: grid; gap: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 12px 14px; box-shadow: 0 8px 28px rgb(24 33 27 / 14%); font-size: 12px; line-height: 1.45; }
+.ticker-card[hidden] { display: none; }
+.card-section { display: grid; gap: 2px; }
+.card-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; }
+.card-label { color: var(--subtle); font: 600 10px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+.card-count { color: var(--green); font: 600 11px var(--mono); }
+.card-row { display: grid; grid-template-columns: 150px minmax(0, 1fr) 60px; gap: 12px; padding: 3px 0; }
+.card-company, .card-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-company { font-weight: 600; }
+.card-detail { color: var(--muted); }
+.card-source, .card-time { color: var(--subtle); font: 500 11px var(--mono); }
+.card-time { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 
 /* One band per large provider, one cell per board. The long tail shares a
    band that opens into a small band per provider. */
@@ -101,7 +111,11 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-lineca
 
 .board-tip { position: fixed; z-index: 50; min-width: 190px; max-width: 300px; opacity: 0; transform: translateY(4px); transition: opacity .08s; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 10px 12px; box-shadow: 0 8px 28px rgb(24 33 27 / 14%); font-size: 12px; pointer-events: none; }
 .board-tip.visible { opacity: 1; transform: none; }
-.tip-name { margin-bottom: 7px; overflow: hidden; font-size: 13px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.tip-name { margin-bottom: 3px; overflow: hidden; font-size: 13px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.tip-state { display: flex; align-items: center; gap: 6px; margin-bottom: 7px; }
+.tip-state i { width: 9px; height: 9px; flex: 0 0 9px; border-radius: 1px; }
+.tip-state b { font-weight: 600; }
+.tip-state span { color: var(--muted); }
 .tip-row { display: flex; justify-content: space-between; gap: 18px; color: var(--muted); }
 /* Values share the labels' face; tabular figures keep digits aligned. */
 .tip-row b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -113,6 +127,8 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-lineca
 .state p { max-width: 420px; margin: 0; color: var(--muted); }
 .state button { margin-top: 16px; border: 1px solid var(--ink); border-radius: 9px; background: var(--ink); padding: 8px 13px; color: white; font-weight: 720; }
 .spinner { width: 23px; height: 23px; border: 2px solid var(--line); border-top-color: var(--green); border-radius: 50%; animation: spin .7s linear infinite; }
+/* Nothing else on the page sits in a box, so loading doesn't either. */
+.loading-state { border: 0; background: transparent; }
 .loading-state p { margin-top: 10px; }
 @keyframes spin { to { transform: rotate(1turn); } }
 
@@ -122,7 +138,7 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-lineca
 
 @media (max-width: 980px) {
   .section-header { align-items: flex-start; flex-direction: column; gap: 8px; }
-  .legend-row { justify-content: flex-start; }
+  .section-title { max-width: 100%; }
 }
 
 @media (max-width: 640px) {
@@ -139,14 +155,14 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-lineca
   .side-nav a { flex: 0 0 auto; }
   .side-nav a.active { order: -1; }
   .workspace { padding: 27px 18px 45px; }
-  .legend-key i { width: 9px; height: 9px; }
 }
 
 @media (max-width: 560px) {
   .workspace { padding: 22px 13px 40px; }
   .page-header { align-items: flex-start; flex-direction: column; gap: 4px; }
-  .page-title { flex-wrap: wrap; gap: 4px 12px; }
   .page-header h1 { font-size: 22px; }
+  .ticker-card { left: 0; }
+  .card-row { grid-template-columns: 110px minmax(0, 1fr) 52px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

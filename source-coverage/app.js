@@ -36,7 +36,7 @@
     return CELL_STATES.includes(key) ? key : "unknown";
   };
   // The API's state keys stay as they are; these are the words people read.
-  const STATE_LABEL = { ok: "healthy", failing: "failing", degraded: "retrying", stale: "overdue", paused: "paused", never: "never polled", unknown: "unknown" };
+  const STATE_LABEL = { ok: "healthy", failing: "failing", degraded: "retrying", stale: "overdue", paused: "paused", never: "unpolled", unknown: "unknown" };
   const PROBLEM_ORDER = ["failing", "degraded", "stale", "paused", "never", "unknown"];
   const SEVERITY = { failing: 0, degraded: 1, stale: 2, paused: 3, never: 4, unknown: 5, ok: 9 };
 
@@ -58,6 +58,40 @@
     const totals = payload?.totals;
     return totals && Number.isFinite(Number(totals.boards)) ? { ...counts, ...totals, roles: counts.roles } : counts;
   };
+
+  // One line for the page header. Snapshots from before the pipeline counted
+  // companies still carry the job count, so the line degrades to jobs alone.
+  const todayLine = totals => {
+    const jobs = Number(totals?.added_today) || 0;
+    if (!jobs) return "";
+    const companies = Number(totals?.companies_added_today) || 0;
+    const jobText = `${number(jobs)} new ${jobs === 1 ? "job" : "jobs"}`;
+    return companies ? `${jobText} from ${number(companies)} ${companies === 1 ? "company" : "companies"} today` : `${jobText} today`;
+  };
+
+  // "2026-09-09" is a calendar day in the pipeline's zone: read it as a local
+  // date so it never slips a day for someone east or west of it.
+  const DAY_FORMAT = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
+  const shortDate = value => {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
+    return match ? DAY_FORMAT.format(new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))) : "";
+  };
+
+  // A few named examples behind the headline number: proof it is real, not a
+  // feed to read, so the card never grows past a handful of rows.
+  const CARD_ROWS = 3;
+  const tickerCard = (payload, now = new Date()) => ({
+    jobs: (Array.isArray(payload?.latest_jobs) ? payload.latest_jobs : []).slice(0, CARD_ROWS).map(job => ({
+      company: String(job.company || ""),
+      title: String(job.title || ""),
+      ago: relativeTime(job.first_seen_at, now),
+    })),
+    feeds: (Array.isArray(payload?.new_feeds?.latest) ? payload.new_feeds.latest : []).slice(0, CARD_ROWS).map(feed => ({
+      company: String(feed.company || ""),
+      source: String(feed.source || ""),
+      date: shortDate(feed.added_on),
+    })),
+  });
 
   const problemText = problems => PROBLEM_ORDER
     .filter(state => problems[state])
@@ -109,7 +143,7 @@
     return bands;
   };
 
-  const exported = { relativeTime, withTimeout, stateKey, fleetTotals, problemText, buildBands, STATE_LABEL };
+  const exported = { relativeTime, withTimeout, stateKey, fleetTotals, todayLine, shortDate, tickerCard, problemText, buildBands, STATE_LABEL };
   if (typeof module !== "undefined" && module.exports) module.exports = exported;
   if (!root.document) return;
 
@@ -228,11 +262,13 @@
 
   function showTip(board, pointerX, pointerY) {
     const tip = $("#board-tip");
-    // The cell's colour already says the state, so the card carries only what colour cannot.
+    // With no legend on the page, the card names the state; its swatch is
+    // the cell's own colour, so the two always agree.
+    const strikes = board.strikes ? `<span>· ${esc(board.strikes)} ${board.strikes === 1 ? "strike" : "strikes"}</span>` : "";
     tip.innerHTML = `<div class="tip-name">${esc(board.company)}</div>
+      <div class="tip-state"><i style="background: ${esc(cellColor(board))}"></i><b>${esc(STATE_LABEL[board.state] || STATE_LABEL.unknown)}</b>${strikes}</div>
       <div class="tip-row"><span>jobs</span><b>${esc(number(board.jobs))}</b></div>
-      ${board.strikes ? `<div class="tip-row"><span>strikes</span><b>${esc(board.strikes)}</b></div>` : ""}
-      <div class="tip-row"><span>last polled</span><b>${esc(relativeTime(board.last_poll_at))}</b></div>`;
+      <div class="tip-row"><span>last polled</span><b>${esc(board.last_poll_at ? relativeTime(board.last_poll_at) : "never")}</b></div>`;
     tip.classList.add("visible");
     const width = tip.offsetWidth, height = tip.offsetHeight;
     let x = pointerX + 16, y = pointerY + 16;
@@ -249,17 +285,37 @@
   function renderHeader(payload) {
     const totals = fleetTotals(payload);
     $("#fleet-stats").innerHTML = [
-      `<strong>${esc(number(totals.boards))}</strong> boards / <strong>${esc(number(totals.providers))}</strong> providers`,
+      `<strong>${esc(number(totals.boards))}</strong> boards`,
+      `<strong>${esc(number(totals.providers))}</strong> providers`,
       `<strong>${esc(number(totals.roles))}</strong> jobs`,
     ].join('<span class="stat-sep" aria-hidden="true"> · </span>');
-    // Counted off the boards the wall draws, so the legend always adds up to it.
-    const counts = {};
-    for (const band of bands) for (const board of band.boards) counts[board.state] = (counts[board.state] || 0) + 1;
-    for (const slot of document.querySelectorAll("[data-state-count]")) {
-      const value = counts[slot.dataset.stateCount] || 0;
-      slot.textContent = number(value);
-      slot.closest(".legend-key")?.classList.toggle("zero", value === 0);
-    }
+    renderTicker(payload, totals);
+  }
+
+  function cardSection(label, count, rows) {
+    if (!rows.length) return "";
+    return `<section class="card-section"><div class="card-head"><span class="card-label">${esc(label)}</span>${count ? `<span class="card-count">${esc(count)}</span>` : ""}</div>${rows.join("")}</section>`;
+  }
+
+  function renderTicker(payload, totals) {
+    const line = todayLine(totals);
+    $("#ticker").hidden = !line;
+    $("#today-line").textContent = line;
+    const { jobs, feeds } = tickerCard(payload);
+    const card = $("#ticker-card");
+    card.innerHTML = cardSection("Latest jobs", `+${number(totals.added_today)} today`, jobs.map(job =>
+      `<div class="card-row"><span class="card-company">${esc(job.company)}</span><span class="card-detail">${esc(job.title)}</span><span class="card-time">${esc(job.ago)}</span></div>`))
+      + cardSection("Feeds discovered", "", feeds.map(feed =>
+      `<div class="card-row"><span class="card-company">${esc(feed.company)}</span><span class="card-detail card-source">${esc(feed.source)}</span><span class="card-time">${esc(feed.date)}</span></div>`));
+    $("#ticker").classList.toggle("has-card", Boolean(card.innerHTML));
+    if (!card.innerHTML) setCard(false);
+  }
+
+  function setCard(open) {
+    const card = $("#ticker-card");
+    const shown = Boolean(open && card.innerHTML);
+    card.hidden = !shown;
+    $(".ticker-toggle").setAttribute("aria-expanded", String(shown));
   }
 
   function render(payload) {
@@ -307,17 +363,32 @@
     }
   }
 
+  // Two formats joined by a space: one combined format puts a comma between
+  // the date and the time.
+  const DATE_FORMAT = new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric" });
   const CLOCK_FORMAT = new Intl.DateTimeFormat(undefined, {
     hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true, timeZoneName: "short",
   });
 
   function updateClock() {
     const clock = $("#clock");
-    if (clock) clock.textContent = CLOCK_FORMAT.format(new Date());
+    const now = new Date();
+    if (clock) clock.textContent = `${DATE_FORMAT.format(now)} ${CLOCK_FORMAT.format(now)}`;
   }
 
   document.addEventListener("click", event => {
     if (event.target.closest('[data-action="retry"]')) refresh({ initial: true });
+  });
+  // A mouse opens the card by hovering; touch and keyboard toggle it. A click
+  // while hovering must not close the card the hover just opened.
+  const ticker = $("#ticker");
+  let hoverOpen = false;
+  ticker.addEventListener("pointerenter", event => { if (event.pointerType === "mouse") { hoverOpen = true; setCard(true); } });
+  ticker.addEventListener("pointerleave", event => { if (event.pointerType === "mouse") { hoverOpen = false; setCard(false); } });
+  $(".ticker-toggle").addEventListener("click", () => { if (!hoverOpen) setCard($("#ticker-card").hidden); });
+  ticker.addEventListener("focusout", event => { if (!ticker.contains(event.relatedTarget)) setCard(false); });
+  ticker.addEventListener("keydown", event => {
+    if (event.key === "Escape") { setCard(false); $(".ticker-toggle").focus(); }
   });
   let resizeTimer = 0;
   addEventListener("resize", () => {

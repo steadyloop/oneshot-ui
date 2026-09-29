@@ -442,7 +442,7 @@
     jobs: null, total: 0, typeCounts: {}, loadingMore: false, selected: null, filters: ["internships"], degreeFilters: ["software"], sort: "fresh", query: "",
     // Triage: which list shows, the Hidden list once fetched, what the pane has
     // open, the skip awaiting a reason, and the one action Undo reverses.
-    view: "feed", hidden: null, hiddenTotal: 0, ui: freshUi(), prompt: null, undo: null, sheet: false, searchOpen: false,
+    view: "feed", hidden: null, hiddenTotal: 0, stale: false, ui: freshUi(), prompt: null, undo: null, sheet: false, searchOpen: false,
   };
 
   const paint = html => {
@@ -667,6 +667,7 @@
       state.typeCounts = payload.job_type_counts || {};
       state.jobs = append ? [...(state.jobs || []), ...payload.jobs] : payload.jobs;
       state.loadingMore = false;
+      if (!append) state.stale = false;
       if (!append && state.view === "feed" && !state.jobs.some(job => String(job.id) === String(state.selected))) {
         state.selected = state.jobs[0]?.id || null;
         state.ui = freshUi();
@@ -713,6 +714,7 @@
     if (state.jobs === null) return loadJobs();
     state.selected = state.jobs[0]?.id ?? null;
     render();
+    if (state.stale) return loadJobs();
   }
 
   function adjustCounts(job, delta) {
@@ -720,27 +722,14 @@
     if (job.job_type && job.job_type in state.typeCounts) state.typeCounts[job.job_type] = Math.max(0, state.typeCounts[job.job_type] + delta);
   }
 
-  async function addToApplications(id, mouse = false) {
-    if (state.view !== "feed") return;
-    const listed = state.jobs || [];
-    const position = listed.findIndex(job => String(job.id) === String(id));
-    const selectedJob = position < 0 ? null : listed[position];
-    const successor = position < 0 ? null : listed[position + 1];
-    const application = await root.OneShotAPI.jobs.addToApplications(id, selectedJob);
-    state.jobs = null;
-    state.selected = successor?.id || null;
-    state.ui = freshUi();
-    state.prompt = null;
-    await loadJobs();
-    await root.OneShotOpportunityCount.refresh();
-    if (application.already_exists) return announce("This job is already in Applications.");
-    state.undo = { kind: "add", id: application.id };
-    announce("Added to Applications", { undo: true, hint: mouse ? tipOnce("add") : null });
-  }
+  // Below this many loaded cards, the next page loads in the background so
+  // triaging never runs the list dry.
+  const REFILL_AT = 10;
 
-  // Skip and Mislabeled leave the feed at once and select the next posting; the
-  // write follows, and a failed write puts the posting back where it was.
-  async function hideJob(job, body, message, { reasons = false, hint = null } = {}) {
+  // Add, Skip and Mislabeled leave the feed at once and select the next
+  // posting; the write follows, and a failed write puts the posting back where
+  // it was. The feed is never reloaded, so no action waits on the job list.
+  async function leaveFeed(job, write) {
     const listed = state.jobs || [];
     const position = listed.findIndex(row => String(row.id) === String(job.id));
     const successor = listed[position + 1] || listed[position - 1] || null;
@@ -750,23 +739,51 @@
       state.selected = successor?.id ?? null;
       state.ui = freshUi();
     }
+    state.prompt = null;
     render();
+    let result;
     try {
-      await root.OneShotAPI.jobs.setFeedback(job.id, body, job);
+      result = await write();
     } catch (error) {
-      state.jobs.splice(Math.max(0, position), 0, job);
-      adjustCounts(job, 1);
-      state.selected = job.id;
-      render();
+      returnToFeed(job, position);
       throw error;
     }
+    root.OneShotOpportunityCount.set(state.total);
+    if (state.jobs.length < REFILL_AT && state.jobs.length < state.total && !state.loadingMore) loadJobs({ append: true });
+    return { result, position };
+  }
+
+  // Puts a posting back where it left the feed: a failed write, or an Undo.
+  function returnToFeed(job, position) {
+    if (state.jobs && !state.jobs.some(row => String(row.id) === String(job.id))) {
+      state.jobs.splice(Math.min(Math.max(0, position), state.jobs.length), 0, job);
+      adjustCounts(job, 1);
+      if (state.view === "feed") {
+        state.selected = job.id;
+        state.ui = freshUi();
+      }
+    }
+    render();
+    root.OneShotOpportunityCount.set(state.total);
+  }
+
+  async function addToApplications(id, mouse = false) {
+    const job = state.view === "feed" ? (state.jobs || []).find(row => String(row.id) === String(id)) : null;
+    if (!job) return;
+    const { result: application, position } = await leaveFeed(job, () => root.OneShotAPI.jobs.addToApplications(job.id, job));
+    if (application.already_exists) return announce("This job is already in Applications.");
+    state.undo = { kind: "add", id: application.id, job, position };
+    announce("Added to Applications", { undo: true, hint: mouse ? tipOnce("add") : null });
+  }
+
+  async function hideJob(job, body, message, { reasons = false, hint = null } = {}) {
+    const { position } = await leaveFeed(job, () => root.OneShotAPI.jobs.setFeedback(job.id, body, job));
     state.hiddenTotal += 1;
     state.hidden = null;
     state.undo = { kind: "hide", job, position };
     state.prompt = reasons ? job : null;
     render();
     announce(message, { undo: true, reasons, hint });
-    root.OneShotOpportunityCount.refresh();
   }
 
   function skip(id, mouse = false) {
@@ -817,8 +834,9 @@
       state.selected = successor?.job.id ?? null;
       state.ui = freshUi();
     }
-    // The feed reloads the next time it shows, with the posting back in place.
-    state.jobs = null;
+    // The feed refreshes quietly the next time it shows, with the posting back
+    // in place; until then the old list stays on screen, not a spinner.
+    state.stale = true;
     state.undo = { kind: "restore", entry };
     render();
     announce("Restored", { undo: true });
@@ -832,23 +850,14 @@
     state.prompt = null;
     if (last.kind === "add") {
       await root.OneShotAPI.applications.remove(last.id);
-      state.jobs = null;
-      await loadJobs();
-      await root.OneShotOpportunityCount.refresh();
+      returnToFeed(last.job, last.position);
       return announce("Addition undone.");
     }
     if (last.kind === "hide") {
       await root.OneShotAPI.jobs.clearFeedback(last.job.id);
       state.hiddenTotal = Math.max(0, state.hiddenTotal - 1);
       state.hidden = null;
-      if (state.view === "feed" && state.jobs && !state.jobs.some(row => String(row.id) === String(last.job.id))) {
-        state.jobs.splice(Math.min(Math.max(0, last.position), state.jobs.length), 0, last.job);
-        adjustCounts(last.job, 1);
-        state.selected = last.job.id;
-        state.ui = freshUi();
-      }
-      render();
-      root.OneShotOpportunityCount.refresh();
+      returnToFeed(last.job, last.position);
       return announce("Undone.");
     }
     if (last.kind === "restore") {
@@ -858,7 +867,7 @@
         : { kind: "mislabeled", corrections: entry.corrections };
       await root.OneShotAPI.jobs.setFeedback(entry.job_id, body, entry.job);
       state.hiddenTotal += 1;
-      state.jobs = null;
+      state.stale = true;
       if (state.view === "hidden") await loadHidden();
       root.OneShotOpportunityCount.refresh();
       return announce("Hidden again.");

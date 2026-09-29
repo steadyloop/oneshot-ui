@@ -6,6 +6,9 @@ const {
   withTimeout,
   stateKey,
   fleetTotals,
+  todayLine,
+  shortDate,
+  tickerCard,
   problemText,
   buildBands,
   STATE_LABEL,
@@ -34,10 +37,47 @@ test("fleet totals sum board coverage into roles", () => {
   assert.equal(computed.erroring, 2);
 });
 
+test("the header's today line counts new jobs and the companies they came from", () => {
+  assert.equal(todayLine({ added_today: 4081, companies_added_today: 290 }), "4,081 new jobs from 290 companies today");
+  assert.equal(todayLine({ added_today: 1, companies_added_today: 1 }), "1 new job from 1 company today");
+  assert.equal(todayLine({ added_today: 4081 }), "4,081 new jobs today", "older snapshots have no company count");
+  assert.equal(todayLine({ added_today: 0, companies_added_today: 0 }), "", "a quiet day shows nothing");
+  assert.equal(todayLine(undefined), "");
+});
+
+test("the ticker card keeps three named examples of each kind", () => {
+  const now = new Date("2026-09-29T17:43:00Z");
+  const card = tickerCard({
+    latest_jobs: [
+      { company: "Epic Games", title: "Product Management Intern", first_seen_at: "2026-09-29T17:28:00Z" },
+      { company: "WSP", title: "Civil Engineering Intern", first_seen_at: "2026-09-29T17:27:00Z" },
+      { company: "Cisco", title: "Systems Quality Engineer", first_seen_at: "2026-09-29T17:18:00Z" },
+      { company: "Clera", title: "Founder Associate Intern", first_seen_at: "2026-09-29T17:12:00Z" },
+    ],
+    new_feeds: { latest: [
+      { company: "WSP", source: "oracle", added_on: "2026-09-09" },
+      { company: "Northrop Grumman", source: "workday", added_on: "2026-09-09" },
+      { company: "Prolific", source: "greenhouse", added_on: "2026-09-09" },
+      { company: "Amentum", source: "workday", added_on: "2026-09-09" },
+    ] },
+  }, now);
+  assert.deepEqual(card.jobs.map(job => [job.company, job.ago]), [["Epic Games", "15m ago"], ["WSP", "16m ago"], ["Cisco", "25m ago"]]);
+  assert.deepEqual(card.feeds.map(feed => [feed.company, feed.source]), [["WSP", "oracle"], ["Northrop Grumman", "workday"], ["Prolific", "greenhouse"]]);
+  assert.deepEqual(tickerCard({}), { jobs: [], feeds: [] }, "snapshots from before the card have nothing to list");
+});
+
+test("a discovery day reads as the same calendar day in every zone", () => {
+  const expected = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(2026, 8, 9));
+  assert.equal(shortDate("2026-09-09"), expected);
+  assert.equal(shortDate("not a date"), "");
+  assert.equal(shortDate(undefined), "");
+});
+
 test("people read retrying, failing and overdue, never the API's state keys", () => {
   assert.equal(STATE_LABEL.degraded, "retrying");
   assert.equal(STATE_LABEL.failing, "failing");
   assert.equal(STATE_LABEL.stale, "overdue");
+  assert.equal(STATE_LABEL.never, "unpolled");
   assert.equal(problemText({ stale: 3, failing: 2, degraded: 1 }), "2 failing · 1 retrying · 3 overdue");
   assert.equal(problemText({}), "");
 });
@@ -105,7 +145,9 @@ test("feed status is the canonical read-only page and navigation label", () => {
   assert.match(page, /<title>Feed Status · OneShot<\/title>/);
   assert.match(page, /id="coverage-content"/);
   assert.match(page, /id="fleet-stats"/);
-  assert.match(page, /data-state-count="failing"/);
+  assert.match(page, /id="ticker-card"/);
+  // The board tooltip names each state, so the page carries no legend.
+  assert.doesNotMatch(page, /legend-row|data-state-count/);
   assert.doesNotMatch(page, /type="search"|<select|data-filter|data-sort/);
   for (const shell of shells) {
     assert.match(shell, /href="\/source-coverage\/"[^>]*>[\s\S]*?Feed Status<\/a>/);
