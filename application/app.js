@@ -133,6 +133,7 @@
       $('#count-closed').textContent = apps.filter(a => a.stage === 'closed').length;
       $$('[data-view]').forEach(button => { const selected = button.dataset.view === state.view; button.setAttribute('aria-selected', String(selected)); button.tabIndex = selected ? 0 : -1; });
       $('#panel').setAttribute('aria-labelledby', `tab-${state.view}`);
+      $('#workspace').classList.toggle('records-view', state.view !== 'pipeline');
       $('#records-toolbar').hidden = state.view === 'pipeline';
       $('#sort-control').hidden = state.view === 'pipeline';
       $('#age-control').hidden = state.view !== 'sent';
@@ -209,18 +210,25 @@
         }).join('')}</div>`;
     }
 
+    function recordsCompanyMark(company) {
+      const words = company.trim().split(/\s+/).filter(Boolean);
+      const initials = words.length > 1 ? words.slice(0, 2).map(word => word[0]).join('') : (words[0] || '?').slice(0, 2);
+      return `<span class="records-company-mark" aria-hidden="true">${esc(initials.toUpperCase())}</span>`;
+    }
     function tableMarkup(apps, filtered = false) {
       const sent = state.view === 'sent';
       const pages = Math.max(1, Math.ceil(apps.length / PAGE_SIZE));
       state.page = Math.min(state.page, pages);
       const start = (state.page - 1) * PAGE_SIZE;
       const items = apps.slice(start, start + PAGE_SIZE);
-      const selectedCount = [...state.selected].filter(id => byId(id)?.stage === 'sent').length;
       const allPageSelected = items.length && items.every(a => state.selected.has(a.id));
       const emptyRow = `<tr class="table-empty"><td colspan="6">${filtered ? 'No matching applications.' : sent ? 'No submitted applications yet.' : 'No closed applications.'}</td></tr>`;
-      const bulk = sent && selectedCount ? `<div class="bulk"><strong>${selectedCount} selected</strong><button class="text-button" type="button" data-action="clear-selection">Clear</button><button class="button small" type="button" data-action="bulk-close">${icon('archive')}Close as no reply</button></div>` : '';
-      return `${bulk}<div class="table-scroll"><table class="${sent ? 'sent' : 'closed'}-table"><caption class="sr-only">${sent ? 'Applications awaiting a response' : 'Closed applications'}</caption><thead><tr>${sent ? `<th class="check-cell"><input id="select-page" type="checkbox" aria-label="Select all applications on this page" ${allPageSelected ? 'checked' : ''}></th>` : ''}<th class="company-cell" scope="col">Company</th><th class="role-cell" scope="col">Role</th><th class="date-cell" scope="col">Submitted</th><th class="waiting-cell" scope="col">${sent ? 'Waiting' : 'Outcome'}</th>${sent ? '' : '<th class="waiting-cell" scope="col">Last stage</th>'}<th class="action-cell" scope="col"><span class="sr-only">Actions</span></th></tr></thead>
-        <tbody>${items.map(a => `<tr${state.selected.has(a.id) ? ' class="selected"' : ''}>${sent ? `<td class="check-cell"><input type="checkbox" data-select="${esc(a.id)}" aria-label="Select ${esc(`${a.company}, ${a.role}`)}" ${state.selected.has(a.id) ? 'checked' : ''}></td>` : ''}<td><span class="company-row">${sent ? '' : companyMark(a.company)}<button class="text-button" type="button" data-open="${esc(a.id)}" title="${esc(a.company)}">${esc(a.company)}</button></span></td><td><button class="text-button role-title" type="button" data-open="${esc(a.id)}" title="${esc(a.role)}">${esc(a.role)}</button>${sent ? '' : `<span class="row-location">${esc(a.location || 'Location not set')}</span>`}</td><td><time class="table-date" datetime="${esc(a.submittedAt)}">${esc(sent ? a.submittedAt || '—' : formatDay(a.submittedAt, true))}</time></td><td>${sent ? `<span class="waiting${age(a) >= 30 ? ' quiet' : ''}">${age(a) === null ? '—' : age(a) === 0 ? 'Today' : `${age(a)}d`}</span>` : `<span class="outcome ${a.closedReason}">${REASONS[a.closedReason] || 'Closed'}</span>`}</td>${sent ? '' : `<td><span class="waiting">${LABELS[a.lastOpenStage] || 'Submitted'}</span></td>`}<td class="action-cell">${sent ? `<button class="button small" type="button" data-response="${esc(a.id)}">Record response ${icon('arrow')}</button>` : `<button class="button small" type="button" data-restore="${esc(a.id)}">Restore ${icon('reset')}</button>`}</td></tr>`).join('') || emptyRow}</tbody></table></div>
+      return `<div class="table-scroll"><table class="${sent ? 'sent' : 'closed'}-table"><caption class="sr-only">${sent ? 'Applications awaiting a response' : 'Closed applications'}</caption><thead><tr>${sent ? `<th class="check-cell"><input id="select-page" type="checkbox" aria-label="Select all applications on this page" ${allPageSelected ? 'checked' : ''}></th>` : ''}<th class="company-cell" scope="col">Company</th><th class="role-cell" scope="col"><span class="records-desktop-label">Role</span><span class="records-mobile-label">Application</span></th><th class="date-cell" scope="col">Submitted</th><th class="waiting-cell" scope="col">${sent ? 'Waiting' : 'Outcome'}</th>${sent ? '' : '<th class="last-stage-cell" scope="col">Last stage</th>'}<th class="action-cell" scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+        <tbody>${items.map(a => {
+          const days = age(a), mark = recordsCompanyMark(a.company);
+          const identity = esc(`${a.company}, ${a.role}`);
+          return `<tr data-row-open="${esc(a.id)}"${state.selected.has(a.id) ? ' class="selected"' : ''}>${sent ? `<td class="check-cell"><input type="checkbox" data-select="${esc(a.id)}" aria-label="Select ${identity}" ${state.selected.has(a.id) ? 'checked' : ''}></td>` : ''}<td class="company-cell"><span class="company-row">${mark}<button class="text-button records-company-name" type="button" data-open="${esc(a.id)}" title="${esc(a.company)}">${esc(a.company)}</button></span></td><td class="role-cell"><span class="records-identity"><span class="records-mobile-mark">${mark}</span><span class="records-copy"><button class="text-button role-title" type="button" data-open="${esc(a.id)}" aria-label="Open ${identity}" title="${esc(a.role)}">${esc(a.role)}</button><span class="records-mobile-company" title="${esc(a.company)}">${esc(a.company)}</span></span></span></td><td class="date-cell"><time class="table-date"${validDay(a.submittedAt) ? ` datetime="${esc(a.submittedAt)}" title="${esc(formatDay(a.submittedAt, true))}"` : ''}>${esc(formatDay(a.submittedAt))}</time></td><td class="waiting-cell">${sent ? `<span class="waiting${days >= 30 ? ' quiet' : ''}">${days === null ? '—' : days === 0 ? 'Today' : `${days} ${days === 1 ? 'day' : 'days'}`}</span>` : `<span class="outcome ${esc(a.closedReason)}">${REASONS[a.closedReason] || 'Closed'}</span>`}</td>${sent ? '' : `<td class="last-stage-cell"><span class="waiting">${LABELS[a.lastOpenStage] || 'Submitted'}</span></td>`}<td class="action-cell">${sent ? `<button class="button small records-row-action" type="button" data-response="${esc(a.id)}" aria-label="Record response for ${identity}">${icon('mail')}Record response</button>` : `<button class="button small records-row-action" type="button" data-restore="${esc(a.id)}" aria-label="Restore ${identity}">${icon('reset')}Restore</button>`}</td></tr>`;
+        }).join('') || emptyRow}</tbody></table></div>
         <div class="pagination"><span>${apps.length ? `${(start + 1).toLocaleString()}–${Math.min(start + PAGE_SIZE, apps.length).toLocaleString()} of ${apps.length.toLocaleString()} applications` : '0 applications'}</span><div class="pagination-controls"><button class="button small" type="button" data-page="previous" ${state.page === 1 ? 'disabled' : ''}>Previous</button><span class="mono">${state.page} / ${pages}</span><button class="button small" type="button" data-page="next" ${state.page >= pages ? 'disabled' : ''}>Next</button></div></div>`;
     }
 
@@ -235,8 +243,14 @@
       renderHeader();
       const apps = visibleApplications();
       const f = currentFilters();
-      const filtered = Boolean(f.query || (f.age && f.age !== 'all') || (f.outcome && f.outcome !== 'all'));
-      $('#result-count').textContent = filtered ? `${apps.length} match${apps.length === 1 ? '' : 'es'}` : '';
+      const filtered = Boolean(f.query.trim() || (f.age && f.age !== 'all') || (f.outcome && f.outcome !== 'all'));
+      const selectedCount = state.view === 'sent' ? [...state.selected].filter(id => byId(id)?.stage === 'sent').length : 0;
+      $('#records-bulk').hidden = !selectedCount;
+      $('#selected-count').textContent = selectedCount ? `${selectedCount.toLocaleString()} selected` : '';
+      $('#age-control').hidden = state.view !== 'sent' || Boolean(selectedCount);
+      const total = state.applications.filter(a => viewFor(a.stage) === state.view).length;
+      $('#result-count').hidden = !filtered || Boolean(selectedCount);
+      $('#result-count').textContent = filtered ? `${apps.length.toLocaleString()} of ${total.toLocaleString()}` : '';
       $('#panel').innerHTML = state.loading ? '<div class="empty-state" role="status">Loading applications…</div>' : state.error ? `<div class="empty-state"><h2>Could not load applications</h2><p>${esc(state.error)}</p><button class="button" type="button" data-action="retry">Try again</button></div>` : state.view === 'pipeline' ? `<div class="progress-layout">${agendaMarkup()}<div class="board-pane">${boardMarkup(apps)}</div></div>` : tableMarkup(apps, filtered);
       $$('.column').forEach(c => { c.querySelector('.column-stack').scrollTop = offsets[c.dataset.drop] || 0; });
       if ($('.table-scroll')) { $('.table-scroll').scrollTop = tableScroll; $('.table-scroll').scrollLeft = tableLeft; }
@@ -442,8 +456,17 @@
     if (typeof document === 'undefined') return;
 
     document.addEventListener('click', async event => {
-      const target = event.target.closest('button, a'); if (!target) return;
       if (state.busy) return;
+      const target = event.target.closest('button, a');
+      if (!target) {
+        const row = event.target.closest('[data-row-open]');
+        if (row && !event.target.closest('input, select, textarea, label') && !window.getSelection()?.toString()) {
+          // The role button remains the keyboard and return-focus target.
+          row.querySelector('.role-title').focus({ preventScroll: true });
+          return openApplication(row.dataset.rowOpen);
+        }
+        return;
+      }
       if (target.dataset.agendaWeek) {
         state.agendaWeek += Number(target.dataset.agendaWeek);
         render(); $('.agenda-scroll').scrollTop = 0;

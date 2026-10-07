@@ -35,9 +35,9 @@ test("fleet totals sum board coverage into roles", () => {
   assert.equal(computed.erroring, 2);
 });
 
-test("the header uses the shared active-posting aggregate even when board coverage is older", () => {
+test("the header uses the pipeline active total rather than the Discover subset or board sum", () => {
   const providers = [{ source: "greenhouse", boards: [{ state: "ok", coverage: 100 }] }];
-  assert.equal(fleetTotals({ providers, totals: { boards: 1, active_postings: 90 } }).roles, 90);
+  assert.equal(fleetTotals({ providers, totals: { boards: 1, active_postings: 90 }, classification: { total: 90, student_roles: 7 } }).roles, 90);
   assert.equal(fleetTotals({ providers, totals: { boards: 1, active_postings: 0 } }).roles, 0);
   assert.equal(fleetTotals({ providers, totals: { boards: 1 } }).roles, 100);
 });
@@ -67,23 +67,17 @@ test("providers rank by Discover contribution rather than board count or raw job
     discover_jobs: [0, 10, 30, 20][index],
     boards: Array.from({ length: 4 - index }, () => board("ok", 10 * (index + 1))),
   }));
-  const bands = buildBands({ providers }, 2);
-  assert.deepEqual(bands.map(band => band.id), ["c", "d", "__tail"]);
-  const tail = bands.at(-1);
-  assert.equal(tail.label, "Other");
-  assert.deepEqual(tail.groups.map(group => group.id), ["b", "a"]);
-  assert.equal(tail.boards.length, 7, "the shared band retains every remaining board");
+  const bands = buildBands({ providers });
+  assert.deepEqual(bands.map(band => band.id), ["c", "d", "b", "a"]);
 });
 
-test("exactly the top six Discover contributors stay visible by default", () => {
+test("all Discover contributors share one ranked provider list", () => {
   const providers = Array.from({ length: 8 }, (_, index) => ({
     source: `p${index}`, discover_jobs: index * 10,
     boards: [board("ok", 1000 - index * 100)],
   }));
   const bands = buildBands({ providers });
-  assert.deepEqual(bands.slice(0, 6).map(band => band.id), ["p7", "p6", "p5", "p4", "p3", "p2"]);
-  assert.equal(bands.at(-1).label, "Other");
-  assert.deepEqual(bands.at(-1).groups.map(group => group.id), ["p1", "p0"]);
+  assert.deepEqual(bands.map(band => band.id), ["p7", "p6", "p5", "p4", "p3", "p2", "p1", "p0"]);
 });
 
 test("no board is dropped: every board lands in exactly one band", () => {
@@ -94,7 +88,7 @@ test("no board is dropped: every board lands in exactly one band", () => {
   const bands = buildBands({ providers });
   const drawn = bands.reduce((sum, band) => sum + band.boards.length, 0);
   assert.equal(drawn, 45);
-  assert.equal(bands.at(-1).groups.reduce((sum, group) => sum + group.boards.length, 0), bands.at(-1).boards.length);
+  assert.equal(bands.length, providers.length);
 });
 
 test("each band pins trouble first, worst first, then healthy boards heaviest first", () => {

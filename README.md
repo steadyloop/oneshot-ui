@@ -69,6 +69,12 @@ assessment invitations, move the existing record to Replied, Assessment,
 Interview or Offer. Closures are explicit and reversible; age never closes a
 record automatically. Existing guest and signed-in resume links remain available.
 
+Submitted and Closed use left-aligned tables with 40px desktop rows and 56px
+mobile rows. Filters share a quiet toolbar with bulk actions, without shifting
+the table during selection. Pagination stays at 50 records per page; Closed
+retains outcomes, the last stage, and restoration to that stage. These table
+styles do not apply to In progress or the shared application dialogs.
+
 Before deploying the updated API and client, apply the migration to the target
 database (the web process does not run DDL):
 
@@ -87,33 +93,45 @@ opportunities/app.test.js source-coverage/app.test.js`. Database checks run with
 `tests/application_tracker_browser.py` uses Playwright/Chromium to check the
 current tracker workflows in isolated browser storage with its own fixtures;
 it does not depend on the design mockups.
+`node tests/application_records_browser.cjs` checks 300-record pagination,
+responsive tables, selection, Undo, response/restore workflows, and partial API
+failures with intercepted requests. Set `PLAYWRIGHT_MODULE` if Playwright is not
+installed locally. Optional `TRACKER_BASELINE_ROOT` points to a directory with
+saved `application/` assets for pixel comparisons of In progress; screenshots
+are written to `TRACKER_ARTIFACTS` (default `/private/tmp/oneshot-tracker-browser`).
 
 ## Feed overview
 
 `/source-coverage/` uses the approved job-type dropdown and classification footer.
 The page starts at the left content inset; its footer stays at the bottom of the
-viewport or below longer provider lists, with at least 64px of separation.
-The six visible ATS are ranked by their active student jobs eligible for
-Discover after location filtering and deduplication, before personal filters.
-The remaining providers stay under “Other,” collapsed by default. It opens into
-six borderless provider rows per page, with health counts, thin bars and healthy
-percentages. Selecting a provider shows its board squares; pagination closes
-expanded details and retains keyboard focus.
+viewport or below longer provider lists, with 24px of separation. Fleet totals,
+daily activity and the clock share one desktop header line without a visible
+page title.
+All ATS providers share one list, ranked by their active student jobs eligible
+for Discover after location filtering and deduplication, before personal filters.
+All providers are visible in a compact list, with health bars and percentages,
+right-aligned board and job counts separated by a faint pipe. The expand arrow
+sits before the provider name; selecting the row shows its board squares.
+Desktop rows are 32px tall; mobile rows retain 44px touch targets.
 
 Daily appeared/closed counts are deduplicated and use Pacific calendar days.
 Closures use the earliest recorded ATS, dead-link or closed-page signal on a
 closed posting; board disappearance alone does not count as closure. The footer
-uses the same active-posting total as the header, plus active US-or-unspecified-location
-student roles after deduplication, before personal filters. Both active totals
-come from one aggregate, so their scope and refresh time agree. Aggregates are read-only, shared
-across accounts and cached for five minutes, with a reset at Pacific midnight.
+uses the same active-posting total as the header: all `job_posting` rows with
+`status = 'active'` in xjobscore, published through the coverage snapshot. This
+includes unclassified postings, all locations, duplicates and disabled feeds.
+The student-role count comes from the serving database after location filtering
+and deduplication, before personal filters. Student-role and daily activity
+aggregates are read-only, shared across accounts and cached for five minutes,
+with a reset at Pacific midnight.
 Unavailable metrics stay unknown; the existing board snapshot remains usable.
 
 Run `python -m unittest discover -s tests -p test_feed_activity.py -v` and
 `node --test source-coverage/app.test.js`. The SQL test uses the local database
 configured by `ONESHOT_TEST_DATABASE_URL`, temporary tables and a rollback.
-With Playwright available, `node tests/feed_other_browser.cjs` checks folding,
-pagination, health summaries and refresh behavior with isolated fixtures.
+With Playwright available, `node tests/feed_other_browser.cjs` checks the compact
+provider list, column alignment, header, health summaries, expansion and refresh
+behavior with isolated fixtures.
 `node tests/feed_overview_browser.cjs` checks the running page;
 `ONESHOT_TEST_ORIGIN` overrides the default localhost port 8766.
 

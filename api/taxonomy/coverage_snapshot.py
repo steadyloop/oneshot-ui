@@ -50,6 +50,7 @@ def empty_snapshot() -> dict[str, Any]:
                 "stale": 0,
                 "paused": 0,
                 "never": 0,
+                "active_postings": 0,
                 "added_today": 0,
                 "companies_added_today": 0,
             },

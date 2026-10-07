@@ -14,10 +14,10 @@ from api.repository import PostgresRepository
 
 
 class CacheTests(unittest.IsolatedAsyncioTestCase):
-    async def test_header_and_footer_use_the_same_active_aggregate(self):
+    async def test_header_and_footer_use_pipeline_total_instead_of_serving_subset(self):
         class Pool:
             async def fetchrow(self, sql):
-                return {"payload": {"board_map": {"providers": [], "totals": {"boards": 0}}}, "computed_at": None}
+                return {"payload": {"board_map": {"providers": [], "totals": {"boards": 0, "active_postings": 123}}}, "computed_at": None}
 
         repo = PostgresRepository("", pool=Pool())
         activity = activity_payload([
@@ -26,8 +26,38 @@ class CacheTests(unittest.IsolatedAsyncioTestCase):
         ], datetime.now(timezone.utc))
         with patch.object(repo._feed_activity_cache, "get", new=AsyncMock(return_value=activity)):
             result = await repo.board_map()
-        self.assertEqual(result["totals"]["active_postings"], 7)
-        self.assertEqual(result["totals"]["active_postings"], result["classification"]["total"])
+        self.assertEqual(result["totals"]["active_postings"], 123)
+        self.assertEqual(result["classification"], {"total": 123, "student_roles": 5})
+        self.assertEqual(result["totals"]["added_today"], 1)
+        self.assertEqual(result["totals"]["disappeared_today"], 2)
+
+    async def test_zero_and_legacy_pipeline_totals_never_use_the_serving_subset(self):
+        activity = activity_payload([
+            {"job_type": "intern", "provider": "greenhouse", "total": 7,
+             "student_roles": 5, "appeared": 1, "closed": 2},
+        ], datetime.now(timezone.utc))
+        for totals, source_coverage, expected in [
+            ({"active_postings": 0}, {"total_coverage": 123}, 0),
+            ({}, {"total_coverage": 123}, 123),
+            ({}, {}, None),
+        ]:
+            with self.subTest(totals=totals, source_coverage=source_coverage):
+                class Pool:
+                    async def fetchrow(self, sql):
+                        return {"payload": {
+                            "source_coverage": source_coverage,
+                            "board_map": {"providers": [], "totals": totals},
+                        }, "computed_at": None}
+
+                repo = PostgresRepository("", pool=Pool())
+                with patch.object(repo._feed_activity_cache, "get", new=AsyncMock(return_value=activity)):
+                    result = await repo.board_map()
+                if expected is None:
+                    self.assertNotIn("active_postings", result["totals"])
+                    self.assertNotIn("classification", result)
+                else:
+                    self.assertEqual(result["totals"]["active_postings"], expected)
+                    self.assertEqual(result["classification"]["total"], expected)
 
     async def test_concurrent_accounts_share_the_query_and_roll_over_at_midnight(self):
         class Pool:
@@ -56,7 +86,7 @@ class CacheTests(unittest.IsolatedAsyncioTestCase):
     async def test_aggregate_failure_preserves_the_existing_board_snapshot(self):
         class Pool:
             async def fetchrow(self, sql):
-                return {"payload": {"board_map": {"providers": [], "totals": {"added_today": 17}}}, "computed_at": None}
+                return {"payload": {"board_map": {"providers": [], "totals": {"added_today": 17, "active_postings": 123}}}, "computed_at": None}
 
             async def fetch(self, *args, **kwargs):
                 raise TimeoutError("query timed out")
@@ -65,6 +95,7 @@ class CacheTests(unittest.IsolatedAsyncioTestCase):
         with self.assertLogs("api.repository", level="WARNING"):
             result = await repo.board_map()
         self.assertEqual(result["totals"]["added_today"], 17)
+        self.assertEqual(result["totals"]["active_postings"], 123)
         self.assertNotIn("disappeared_today", result["totals"])
         self.assertNotIn("classification", result)
 

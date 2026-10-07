@@ -17,7 +17,7 @@ const origin = process.env.ONESHOT_TEST_ORIGIN || 'http://127.0.0.1:8766';
     await route.fulfill({ response });
   });
   await page.goto(`${origin}/source-coverage/`);
-  await page.locator('#coverage-content canvas').first().waitFor();
+  await page.locator('.provider-list > .provider-entry').first().waitFor();
   await page.locator('.classification-summary:not([hidden])').waitFor();
   await page.evaluate(() => document.fonts.ready);
   const detail = payload.today_breakdown;
@@ -25,12 +25,11 @@ const origin = process.env.ONESHOT_TEST_ORIGIN || 'http://127.0.0.1:8766';
   const eligibleProviders = payload.providers.filter(p => p.boards.length)
     .sort((a, b) => b.discover_jobs - a.discover_jobs || a.source.localeCompare(b.source));
   assert(eligibleProviders.every(p => Number.isInteger(p.discover_jobs)));
-  const expectedProviders = eligibleProviders.slice(0, 6).map(p => p.source);
-  assert.deepEqual(await page.locator('.wall > .band[data-band]').evaluateAll(bands => bands.map(b => b.dataset.band)), expectedProviders);
-  assert.equal(await page.locator('.tail-toggle strong').evaluate(el => el.firstChild.textContent.trim()), "Other");
-  assert.equal(await page.locator('.provider-count').innerText(), String(eligibleProviders.length - 6));
-  assert.equal(await page.locator('.tail-toggle').getAttribute('aria-expanded'), 'false');
-  assert.equal(await page.locator('.provider-row').count(), 0);
+  const expectedProviders = eligibleProviders.map(p => p.source);
+  assert.deepEqual(await page.locator('.provider-list > .provider-entry .provider-row').evaluateAll(rows => rows.map(row => row.dataset.provider)), expectedProviders);
+  assert.equal(await page.locator('.tail-toggle, .other-heading').count(), 0);
+  assert.equal(await page.locator('.provider-row').count(), eligibleProviders.length);
+  assert.equal(await page.locator('.provider-pagination').count(), 0);
   const fmt = n => new Intl.NumberFormat('en-US').format(n);
   assert.equal(payload.totals.active_postings, payload.classification.total);
   assert.equal(await page.locator('#fleet-stats strong').nth(2).innerText(), fmt(payload.classification.total));
@@ -58,7 +57,7 @@ const origin = process.env.ONESHOT_TEST_ORIGIN || 'http://127.0.0.1:8766';
       const lineFont=getComputedStyle(line);
       measure.font=`${lineFont.fontWeight} ${lineFont.fontSize} ${lineFont.fontFamily}`;
       return {width:innerWidth,docWidth:document.documentElement.scrollWidth,docHeight:document.documentElement.scrollHeight,
-        main:rect(main),rail:rect(document.querySelector('.sidebar')),footer:rect(footer),tail:rect(document.querySelector('.tail-toggle')),card:rect(card),
+        main:rect(main),rail:rect(document.querySelector('.sidebar')),footer:rect(footer),providers:rect(document.querySelector('.wall')),card:rect(card),
         paddingLeft:getComputedStyle(main).paddingLeft,paddingBottom:getComputedStyle(main).paddingBottom,
         trigger:rect(document.querySelector('.ticker-toggle')),table:rect(document.querySelector('.today-table')),
         naturalSentence:Math.abs((closed.left-posted.right)-measure.measureText(' jobs posted, ').width)<1,
@@ -91,14 +90,14 @@ const origin = process.env.ONESHOT_TEST_ORIGIN || 'http://127.0.0.1:8766';
     assert(layout.paneTypography,'Pane uses smaller bold text with space after each number');
     assert(layout.naturalSentence,'Headline uses normal text spacing');
     assert(layout.card.y>=layout.trigger.bottom+7,'Pane sits below the compact sentence');
-    assert(layout.footer.y-layout.tail.bottom>=64,`footer separation ${width}`);
+    assert(layout.footer.y-layout.providers.bottom>=24,`footer separation ${width}`);
     assert(Math.abs(layout.footer.bottom-(layout.docHeight-parseFloat(layout.paddingBottom)))<2,`footer at bottom: ${JSON.stringify(layout)}`);
     if(width>760) assert.equal(layout.main.x,layout.rail.right,'main starts immediately beside rail');
     assert(layout.weights.every(w=>w==='600'));
     assert.notEqual(layout.numberColor,layout.unitColor);
     assert.equal(layout.tickerColor,layout.unitColor);
     layouts.push({width,footerBottom:layout.footer.bottom,pageHeight:layout.docHeight,paddingLeft:layout.paddingLeft});
-    await page.locator('h1').hover();
+    await page.locator('#clock').hover();
   }
   await page.setViewportSize({width:2208,height:1800});
   await page.waitForTimeout(150);
@@ -113,22 +112,23 @@ const origin = process.env.ONESHOT_TEST_ORIGIN || 'http://127.0.0.1:8766';
   await page.mouse.move(card.x+40,ticker.y+ticker.height+4);
   assert(await page.locator('#ticker-card').isVisible());
   await page.locator('#ticker-card').hover(); assert(await page.locator('#ticker-card').isVisible());
-  await page.locator('h1').click(); assert(!(await page.locator('#ticker-card').isVisible()));
-  await page.locator('.tail-toggle').click(); assert.equal(await page.locator('.tail-toggle').getAttribute('aria-expanded'),'true');
+  await page.locator('#clock').click(); assert(!(await page.locator('#ticker-card').isVisible()));
+  await page.locator('.provider-row').last().click();
+  assert.equal(await page.locator('.provider-row').last().getAttribute('aria-expanded'), 'true');
   await page.locator('.classification-footer').scrollIntoViewIfNeeded();
   assert(await page.locator('.classification-footer').isVisible());
   const phone=await browser.newPage({viewport:{width:390,height:844},hasTouch:true,isMobile:true});
   await phone.goto(`${origin}/source-coverage/`);
-  await phone.locator('#coverage-content canvas').first().waitFor();
+  await phone.locator('.provider-list > .provider-entry').first().waitFor();
   await phone.locator('.ticker-toggle').tap(); assert(await phone.locator('#ticker-card').isVisible());
-  await phone.locator('h1').tap(); assert(!(await phone.locator('#ticker-card').isVisible()));
+  await phone.locator('#clock').tap(); assert(!(await phone.locator('#ticker-card').isVisible()));
   const fallback=await browser.newPage({viewport:{width:320,height:844}});
   const fixture={...payload,providers:[{source:'demo',discover_jobs:1,boards:[{key:'demo',state:'ok',coverage:1}]}],
     totals:{boards:1,providers:1,added_today:1234567},
     today_breakdown:{types:{intern:1234567,coop:0}}};
   await fallback.route('**/api/source-coverage/boards',route=>route.fulfill({json:fixture}));
   await fallback.goto(`${origin}/source-coverage/`);
-  await fallback.locator('#coverage-content canvas').first().waitFor();
+  await fallback.locator('.provider-list > .provider-entry').first().waitFor();
   await fallback.locator('.ticker-toggle').hover();
   assert.equal(await fallback.locator('.today-table .activity-added .activity-number').nth(1).innerText(),'0','Measured zero has no sign');
   assert((await fallback.locator('.today-table .activity-disappeared .activity-number').allTextContents()).every(value=>value==='—'),'Unknown closures stay unknown');

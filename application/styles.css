@@ -18,7 +18,7 @@
     .skip-link:focus { top: 8px; }
     .mono, time, .count { font-family: var(--mono); font-variant-numeric: tabular-nums; }
     .application-app .app-shell { height: calc(100vh - var(--app-header-height)); height: calc(100dvh - var(--app-header-height)); min-height: 496px; }
-    .workspace { min-width: 0; min-height: 0; flex: 1; display: flex; flex-direction: column; }
+    .workspace { width: 100%; max-width: 1320px; min-width: 0; min-height: 0; justify-self: start; flex: 1; display: flex; flex-direction: column; }
     .button { min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 7px 12px; border: 1px solid var(--line-strong); border-radius: 6px; background: white; text-decoration: none; font-size: 12px; font-weight: 500; white-space: nowrap; }
     .button:hover:not(:disabled) { background: var(--soft); border-color: #a3aba5; }
     .button.primary { background: var(--green); border-color: var(--green); color: white; }
@@ -165,7 +165,6 @@
     .toast.visible { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
     .toast button { border: 0; padding: 0; background: transparent; color: var(--lime); font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }
     .toast button:focus-visible { outline-color: var(--lime); }
-    @media (min-width: 1700px) { .toolbar, .tabs-row { padding-left: 44px; padding-right: 44px; } .panel { padding-left: 44px; padding-right: 44px; } }
     @media (min-width: 761px) and (max-width: 1100px) { .toolbar, .tabs-row { padding-left: 22px; padding-right: 22px; } .panel { padding-left: 22px; padding-right: 22px; overflow-x: auto; } .board { grid-template-columns: repeat(4, minmax(225px, 1fr)); gap: 14px; min-height: 390px; } .table-scroll { min-width: 720px; } }
     @media (max-width: 760px) {
       .application-app .app-shell { height: auto; min-height: 0; }
@@ -203,6 +202,86 @@
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
 
 .save-error { color: #a0523c; font-size: 12px; }
+
+/* Submitted and Closed only. In progress and the shared dialogs retain their styles. */
+.records-view .toolbar { min-height: 56px; height: 56px; padding-block: 11px; gap: 14px; flex-wrap: nowrap; }
+.records-view .toolbar > label { position: relative; display: inline-flex; align-items: center; min-width: 0; }
+.records-view .toolbar > label::after { content: ''; position: absolute; right: 9px; width: 6px; height: 6px; border: solid var(--subtle); border-width: 0 1.5px 1.5px 0; transform: translateY(-2px) rotate(45deg); pointer-events: none; }
+.records-view .toolbar select { appearance: none; field-sizing: content; max-width: 100%; padding: 0 30px 0 8px; border-color: transparent; border-radius: 5px; background: transparent; color: #505b53; font-size: 13px; }
+.records-view .toolbar select:hover { background: var(--soft); }
+.records-view #age-control, .records-view #outcome-control { margin-left: -9px; }
+.records-view .sort-control select { padding-left: 27px; }
+.records-view .sort-control::before { content: ''; position: absolute; left: 4px; width: 15px; height: 15px; pointer-events: none; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23778179' stroke-width='1.5' stroke-linecap='round'%3E%3Cpath d='M5 5v14m-3-3 3 3 3-3M12 6h10M12 12h7M12 18h4'/%3E%3C/svg%3E") center / contain no-repeat; }
+.records-view .result-count { font-size: 12px; }
+.records-view .panel { overflow: hidden; }
+.records-view .table-scroll { min-width: 0; border: 0; border-radius: 0; }
+.records-view table { min-width: 0; }
+.records-view th { height: 34px; padding: 0 12px; border-bottom-color: var(--line-strong); background: white; font-size: 12px; font-weight: 400; }
+.records-view td { height: 40px; padding: 5px 12px; border-bottom: 1px solid var(--line); font-size: 12px; line-height: 1.45; }
+.records-view th.check-cell, .records-view td.check-cell { width: 34px; padding-left: 12px; padding-right: 0; }
+.records-view .company-cell { width: 236px; padding-left: 0; }
+.records-view .date-cell { width: 110px; }
+.records-view .waiting-cell { width: 92px; }
+.records-view .last-stage-cell { width: 104px; }
+.records-view .action-cell { width: 148px; padding-right: 12px; }
+.records-view .closed-table .action-cell { width: 100px; }
+.records-view tbody tr, .records-view tbody tr:nth-child(even) { background: white; }
+.records-view tr[data-row-open] { cursor: pointer; }
+.records-view tr[data-row-open]:hover, .records-view tr[data-row-open]:focus-within { background: #f1f6f2; }
+.records-view table tbody tr.selected { background: #eaf2ed; }
+.records-view .company-row { gap: 8px; }
+.records-view .records-company-mark { display: inline-grid; place-items: center; flex: none; width: 22px; height: 22px; border-radius: 5px; background: #eef1ed; color: #626d64; font-size: 9px; font-weight: 500; letter-spacing: .015em; }
+.records-view .records-company-name { min-width: 0; color: var(--muted); font-size: 13px; font-weight: 400; }
+.records-view .records-identity { display: flex; align-items: center; min-width: 0; gap: 9px; }
+.records-view .records-copy { min-width: 0; }
+.records-view .role-title { color: #252d27; font-size: 13px; font-weight: 500; line-height: 1.45; }
+.records-view .role-title:hover { color: var(--green); text-decoration: none; }
+.records-view .table-date { font: 12px var(--sans); font-variant-numeric: tabular-nums; }
+.records-view .waiting { font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.records-view .outcome { font-size: 12px; }
+.records-view .records-mobile-mark, .records-view .records-mobile-company, .records-view .records-mobile-label { display: none; }
+.records-view .records-row-action { min-height: 28px; padding: 4px 7px; gap: 6px; border-color: transparent; background: transparent; color: var(--green); font-size: 12px; font-weight: 500; opacity: 0; }
+.records-view .records-row-action .icon { width: 14px; height: 14px; }
+.records-view tr:hover .records-row-action, .records-view tr:focus-within .records-row-action { opacity: 1; }
+.records-view .records-row-action:hover { border-color: #cad9cf; background: white; color: var(--green); }
+.records-view .table-empty td { height: auto; padding: 24px 12px; }
+.records-view .records-bulk { display: flex; align-items: center; gap: 16px; font-size: 13px; }
+.records-view .records-bulk strong { font-weight: 500; white-space: nowrap; }
+.records-view .records-bulk .text-button { color: var(--muted); font-size: 12px; }
+.records-view .records-bulk .button { min-height: 30px; font-size: 12px; }
+@media (hover: none) { .records-view .records-row-action { opacity: 1; } }
+@media (min-width: 761px) and (max-width: 1100px) {
+  .records-view .company-cell { width: 190px; }
+  .records-view .date-cell { width: 95px; }
+  .records-view .action-cell { width: 136px; }
+  .records-view .records-row-action { gap: 4px; padding-inline: 4px; font-size: 11px; }
+}
+@media (max-width: 900px) {
+  .records-view .action-cell, .records-view .last-stage-cell { display: none; }
+}
+@media (max-width: 760px) {
+  .records-view .toolbar { gap: 10px; }
+  .records-view .toolbar select { font-size: 12px; }
+  .records-view .toolbar > label { max-width: 50%; }
+  .records-view .toolbar:has(.records-bulk:not([hidden])) .sort-control { display: none; }
+  .records-view .table-scroll { width: 100%; }
+  .records-view .company-cell, .records-view .records-desktop-label { display: none; }
+  .records-view .records-mobile-label, .records-view .records-mobile-company { display: block; }
+  .records-view .records-mobile-mark { display: inline-flex; flex: none; }
+  .records-view .records-company-mark { width: 24px; height: 24px; }
+  .records-view .records-mobile-company { margin-top: 2px; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .records-view th, .records-view td { padding-inline: 8px; }
+  .records-view td { height: 56px; padding-block: 6px; }
+  .records-view th.check-cell, .records-view td.check-cell { width: 29px; padding-left: 2px; }
+  .records-view .role-cell { padding-left: 0; }
+  .records-view .date-cell { width: 75px; }
+  .records-view .waiting-cell { width: 65px; }
+  .records-view .closed-table .waiting-cell { width: 88px; }
+  .records-view .records-bulk { gap: 12px; font-size: 12px; }
+  .records-view .records-bulk .button { padding-inline: 8px; font-size: 11px; }
+  .records-view .records-bulk .text-button { font-size: 11px; }
+}
+@media (max-width: 600px) { .records-view .date-cell { display: none; } }
 
 /* Agenda pane: the existing tracker cards and tables keep their own styles. */
 .panel:has(.progress-layout) { padding: 0; }

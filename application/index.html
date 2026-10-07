@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="light">
   <meta name="description" content="Track submitted applications, replies and next steps with OneShot.">
   <title>Applications · OneShot</title>
-  <link rel="stylesheet" href="/static/application/styles.css?v=tracker-tabs-20261007">
+  <link rel="stylesheet" href="/static/application/styles.css?v=tracker-records-20261007">
   <link rel="stylesheet" href="/static/navigation.css?v=sidebar-profile-20261006">
 </head>
 <body class="application-app">
@@ -56,9 +56,14 @@
         <button class="button primary" type="button" data-action="log" aria-label="Add application" title="Add application"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg><span class="log-label">Add application</span></button>
       </div>
       <div class="toolbar" id="records-toolbar" aria-label="Filter and sort applications" hidden>
-        <label id="age-control" hidden><span class="sr-only">Filter by time waiting</span><select id="age-filter"><option value="all">Any time waiting</option><option value="7">Submitted in the last 7 days</option><option value="30">30+ days waiting</option></select></label>
+        <label id="age-control" hidden><span class="sr-only">Filter by time waiting</span><select id="age-filter"><option value="all">All wait times</option><option value="7">Submitted in the last 7 days</option><option value="30">30+ days waiting</option></select></label>
         <label id="outcome-control" hidden><span class="sr-only">Filter by outcome</span><select id="outcome-filter"><option value="all">All outcomes</option><option value="rejected">Rejected</option><option value="withdrawn">Withdrawn</option><option value="no_reply">No reply</option></select></label>
         <span id="result-count" class="result-count" aria-live="polite" aria-atomic="true"></span>
+        <div id="records-bulk" class="records-bulk" hidden>
+          <strong id="selected-count" aria-live="polite" aria-atomic="true"></strong>
+          <button class="text-button" type="button" data-action="clear-selection">Clear</button>
+          <button class="button small" type="button" data-action="bulk-close"><svg class="icon" aria-hidden="true"><use href="#i-archive"/></svg>Close as no reply</button>
+        </div>
         <label class="sort-control" id="sort-control" hidden><span class="sr-only">Sort applications</span><select id="sort"><option value="next">Next action first</option><option value="recent">Recently updated</option><option value="newest">Newest submitted</option><option value="oldest">Oldest submitted</option><option value="company">Company A–Z</option></select></label>
       </div>
       <section id="panel" class="panel" role="tabpanel" aria-labelledby="tab-pipeline" tabindex="0"></section>
@@ -130,6 +135,6 @@
   <script src="/static/sample-data.js?v=tracker-20261006"></script>
   <script src="/static/api-client.js?v=tracker-20261006"></script>
   <script src="/static/nav-count.js?v=sidebar-profile-20261006"></script>
-  <script src="/static/application/app.js?v=tracker-20261006-subtle-empty-lists-agenda"></script>
+  <script src="/static/application/app.js?v=tracker-records-20261007"></script>
 </body>
 </html>

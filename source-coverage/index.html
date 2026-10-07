@@ -6,11 +6,11 @@
   <meta name="color-scheme" content="light">
   <meta name="description" content="The OneShot feed overview workspace.">
   <title>Feed Overview · OneShot</title>
-  <link rel="stylesheet" href="/static/source-coverage/styles.css?v=feed-other-folds-20261007">
+  <link rel="stylesheet" href="/static/source-coverage/styles.css?v=feed-footer-font-20261007">
   <link rel="stylesheet" href="/static/navigation.css?v=sidebar-profile-20261006">
   <script defer src="/static/api-client.js?v=tracker-20261006"></script>
   <script defer src="/static/nav-count.js?v=sidebar-profile-20261006"></script>
-  <script defer src="/static/source-coverage/app.js?v=feed-other-folds-20261007"></script>
+  <script defer src="/static/source-coverage/app.js?v=feed-footer-font-20261007"></script>
 </head>
 <body>
   <a class="skip-link" href="#workspace">Skip to feed overview</a>
@@ -42,11 +42,7 @@
       <div class="account-slot" data-account-slot aria-label="Account"></div>
     </aside>
 
-    <main id="workspace" class="workspace" tabindex="-1">
-      <header class="page-header">
-        <h1>Feed Overview</h1>
-        <span id="clock" class="clock" aria-label="Current date and time">—</span>
-      </header>
+    <main id="workspace" class="workspace" tabindex="-1" aria-label="Feeds">
 
       <section class="source-section" aria-labelledby="fleet-stats">
         <header class="section-header">
@@ -58,6 +54,7 @@
             </div>
             <span id="stale-note" class="stale-note" hidden aria-live="polite"><i aria-hidden="true"></i>Refresh failed — showing last known data</span>
           </div>
+          <span id="clock" class="clock" aria-label="Current date and time">—</span>
         </header>
         <div id="coverage-content">
           <div class="state loading-state"><span class="spinner"></span><p>Loading feed overview…</p></div>

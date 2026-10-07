@@ -103,9 +103,8 @@
   const byWeight = boards => [...boards].sort((a, b) => (SEVERITY[a.state] - SEVERITY[b.state]) || (b.jobs - a.jobs));
 
   // Rank providers by their deduplicated, active student jobs eligible for
-  // Discover. The remainder opens into a band per provider.
-  const NAMED_BANDS = 6;
-  const buildBands = (payload, named = NAMED_BANDS) => {
+  // Discover. Every provider appears in the same list.
+  const buildBands = payload => {
     const groups = [];
     for (const provider of Array.isArray(payload?.providers) ? payload.providers : []) {
       const list = Array.isArray(provider.boards) ? provider.boards : [];
@@ -128,19 +127,7 @@
       groups.push(group);
     }
     groups.sort((a, b) => b.discoverJobs - a.discoverJobs || a.id.localeCompare(b.id));
-    const bands = groups.slice(0, named);
-    const tail = groups.slice(named);
-    if (tail.length) {
-      const combined = { id: "__tail", label: "Other", boards: [], jobs: 0, problems: {}, groups: tail };
-      for (const group of tail) {
-        combined.boards.push(...group.boards);
-        combined.jobs += group.jobs;
-        for (const [state, count] of Object.entries(group.problems)) combined.problems[state] = (combined.problems[state] || 0) + count;
-      }
-      combined.boards = byWeight(combined.boards);
-      bands.push(combined);
-    }
-    return bands;
+    return groups;
   };
 
   const exported = { relativeTime, withTimeout, stateKey, fleetTotals, todayLine, shortDate, tickerCard, problemText, buildBands, STATE_LABEL };
@@ -154,7 +141,7 @@
   const plural = (count, one, many) => `${count === 1 ? one : many}`;
 
   // Cell geometry: a 3px square on a 4px pitch. Every band measures its own
-  // width, so featured bands and expanded Other rows share the code.
+  // width, so expanded provider rows share the code.
   const PITCH = 4;
   const CELL = 3;
   const SNAP_RADIUS = 2;
@@ -162,9 +149,6 @@
 
   let bands = [];
   let bandsById = new Map();
-  let tailOpen = false;
-  const PROVIDERS_PER_PAGE = 6;
-  let providerPage = 0;
   let expandedProvider = null;
   let palette = {};
 
@@ -188,25 +172,8 @@
   }
   const cellColor = board => board.state === "ok" ? palette.ramp(board.jobs) : palette[board.state] || palette.idle;
 
-  function bandMarkup(band, mini = false) {
-    // The cells carry each band's problems visually; the label keeps them for
-    // screen readers only.
-    const problems = problemText(band.problems);
-    const count = band.boards.length;
-    const meta = `<span>${number(count)} ${plural(count, "board", "boards")} · ${compact(band.jobs)} ${plural(band.jobs, "job", "jobs")}</span>`;
-    const canvas = `<canvas role="img" aria-label="${esc(band.label)}: ${number(count)} ${plural(count, "board", "boards")}${problems ? `, ${esc(problems)}` : ""}"></canvas>`;
-    if (!band.groups) {
-      return `<div class="band${mini ? " mini" : ""}" data-band="${esc(band.id)}"><div class="band-label"><strong>${esc(band.label)}</strong>${meta}</div>${canvas}</div>`;
-    }
-    const toggle = `<button type="button" class="tail-toggle" aria-expanded="${tailOpen}" aria-controls="other-providers"><strong>${esc(band.label)} <span class="provider-count">${band.groups.length}</span><svg class="chev" aria-hidden="true" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></strong>${meta}</button>`;
-    const pageCount = Math.ceil(band.groups.length / PROVIDERS_PER_PAGE);
-    providerPage = Math.min(providerPage, pageCount - 1);
-    const start = providerPage * PROVIDERS_PER_PAGE;
-    const visible = band.groups.slice(start, start + PROVIDERS_PER_PAGE);
-    const pageButton = (page, label, body, disabled = false, current = false) => `<button type="button" class="provider-page-button" data-page="${page}" aria-label="${label}" aria-controls="other-providers"${disabled ? " disabled" : ""}${current ? ' aria-current="page"' : ""}>${body}</button>`;
-    const arrow = direction => `<svg aria-hidden="true" viewBox="0 0 24 24"><path d="${direction === "previous" ? "m15 6-6 6 6 6" : "m9 6 6 6-6 6"}"/></svg>`;
-    const pagination = pageCount > 1 ? `<div class="provider-pagination"><span class="provider-page-range">${start + 1}–${start + visible.length} of ${band.groups.length}</span><nav aria-label="Other pages">${pageButton(providerPage - 1, "Previous page", arrow("previous"), providerPage === 0)}${Array.from({length: pageCount}, (_, page) => pageButton(page, `Page ${page + 1}`, page + 1, false, page === providerPage)).join("")}${pageButton(providerPage + 1, "Next page", arrow("next"), providerPage === pageCount - 1)}</nav></div>` : "";
-    return `<section class="band tail"><div class="other-heading">${toggle}</div>${tailOpen ? `<div id="other-providers" class="provider-list">${visible.map(providerMarkup).join("")}</div>${pagination}` : ""}</section>`;
+  function providerListMarkup() {
+    return `<div class="wall"><div id="provider-list" class="provider-list">${bands.map(providerMarkup).join("")}</div></div>`;
   }
 
   const PROVIDER_NAMES = {
@@ -229,31 +196,21 @@
     const healthy = count - Object.values(group.problems).reduce((sum, value) => sum + value, 0);
     const counts = { ...group.problems, ok: healthy };
     const healthyPercent = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(healthy / count * 100);
-    const description = states.filter(state => counts[state]).map(state => `${number(counts[state])} ${STATE_LABEL[state]}`).join(" · ");
-    const segments = states.filter(state => counts[state]).map(state => `<span class="health-${state}" style="flex-grow:${counts[state]}" title="${number(counts[state])} ${STATE_LABEL[state]}"></span>`).join("");
+    // Always include the three core states, even when a count is zero.
+    const summaryStates = ["ok", "degraded", "stale", "failing", "paused", "never", "unknown"];
+    const description = summaryStates.filter(state => ["ok", "degraded", "stale"].includes(state) || counts[state])
+      .map(state => `${number(counts[state])} ${STATE_LABEL[state]}`).join(", ");
+    const meta = `<span class="provider-board-count">${number(count)} ${plural(count, "board", "boards")}</span> <span class="provider-count-separator" aria-hidden="true">|</span> <span class="provider-job-count">${compact(group.jobs)} ${plural(group.jobs, "job", "jobs")}</span>`;
+    const segments = states.filter(state => counts[state]).map(state => `<span class="health-${state}" style="flex-grow:${counts[state]}"></span>`).join("");
     const open = expandedProvider === group.id;
     const detailId = `provider-detail-${encodeURIComponent(group.id)}`;
-    return `<div class="provider-entry${open ? " is-open" : ""}"><button type="button" class="provider-row" data-provider="${esc(group.id)}" aria-expanded="${open}" aria-controls="${esc(detailId)}"><span class="provider-info"><span class="provider-name">${esc(label)}</span><span class="provider-counts">${esc(description)}</span></span><span class="provider-health"><span class="health-track" role="img" aria-label="${esc(description)}">${segments}</span><span class="health-percent">${healthyPercent}% healthy</span></span><svg class="provider-chevron" aria-hidden="true" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button><div id="${esc(detailId)}" class="provider-detail"${open ? "" : " hidden"}>${open ? `<div class="band mini" data-band="${esc(group.id)}"><canvas role="img" aria-label="${esc(label)}: ${esc(description)}"></canvas></div>` : ""}</div></div>`;
+    const tipId = `provider-health-${encodeURIComponent(group.id)}`;
+    return `<div class="provider-entry${open ? " is-open" : ""}"><button type="button" class="provider-row" data-provider="${esc(group.id)}" aria-expanded="${open}" aria-controls="${esc(detailId)}" aria-describedby="${esc(tipId)}"><span class="provider-identity"><svg class="provider-chevron" aria-hidden="true" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg><span class="provider-name">${esc(label)}</span></span><span class="provider-health"><span class="health-track" role="img" aria-label="${esc(description)}">${segments}</span><span class="health-summary"><span class="health-percent">${healthyPercent}% healthy</span><span class="health-tooltip" id="${esc(tipId)}" role="tooltip">${esc(description)}</span></span></span><span class="provider-counts">${meta}</span></button><div id="${esc(detailId)}" class="provider-detail"${open ? "" : " hidden"}>${open ? `<div class="band mini" data-band="${esc(group.id)}"><canvas role="img" aria-label="${esc(label)}: ${esc(description)}"></canvas></div>` : ""}</div></div>`;
   }
 
   function renderWall() {
-    content.innerHTML = `<div class="wall">${bands.map(band => bandMarkup(band)).join("")}</div>`;
+    content.innerHTML = providerListMarkup();
     drawWall();
-    $(".tail-toggle")?.addEventListener("click", () => {
-      tailOpen = !tailOpen;
-      hideTip();
-      renderWall();
-      $(".tail-toggle").focus({ preventScroll: true });
-    });
-    for (const button of content.querySelectorAll(".provider-page-button")) {
-      button.addEventListener("click", () => {
-        providerPage = Number(button.dataset.page);
-        expandedProvider = null;
-        hideTip();
-        renderWall();
-        content.querySelector('.provider-page-button[aria-current="page"]').focus({ preventScroll: true });
-      });
-    }
     for (const button of content.querySelectorAll(".provider-row")) {
       button.addEventListener("click", () => {
         expandedProvider = expandedProvider === button.dataset.provider ? null : button.dataset.provider;
@@ -381,7 +338,7 @@
       `<strong>${esc(number(totals.boards))}</strong> boards`,
       `<strong>${esc(number(totals.providers))}</strong> providers`,
       `<strong>${esc(number(totals.roles))}</strong> active jobs`,
-    ].join('<span class="stat-sep" aria-hidden="true"> · </span>');
+    ].join('<span class="stat-sep" aria-hidden="true"> | </span>');
     renderTicker(payload, totals);
   }
 
@@ -468,8 +425,8 @@
     bandsById = new Map();
     for (const band of bands) {
       bandsById.set(band.id, band);
-      for (const group of band.groups || []) bandsById.set(group.id, group);
     }
+    if (!bandsById.has(expandedProvider)) expandedProvider = null;
     renderHeader(payload);
     if (!bands.length) {
       content.innerHTML = `<div class="state"><span class="state-icon"><svg aria-hidden="true"><use href="#icon-sources"/></svg></span><h2>No feed overview data yet</h2><p>Configured feeds will appear here after status data becomes available.</p></div>`;

@@ -805,6 +805,21 @@ class PostgresRepository:
         payload = snapshot.get("board_map", fallback)
         result = dict(payload) if isinstance(payload, dict) else dict(fallback)
         result["computed_at"] = computed_at
+        # The serving database contains only the published student-job cohort.
+        # Fleet size comes from the pipeline snapshot, including postings that
+        # have no polling feed, classification, US location or dedup selection.
+        totals = dict(result.get("totals", {}))
+        pipeline_total = totals.get("active_postings")
+        if type(pipeline_total) is not int or pipeline_total < 0:
+            # Older snapshots predate the global count. Their source coverage
+            # still covers the pipeline, including disabled feeds.
+            pipeline_total = snapshot.get("source_coverage", {}).get("total_coverage")
+        if type(pipeline_total) is int and pipeline_total >= 0:
+            totals["active_postings"] = pipeline_total
+        else:
+            pipeline_total = None
+            totals.pop("active_postings", None)
+        result["totals"] = totals
         try:
             activity = await self._feed_activity_cache.get(self._jobs_ready())
         except (asyncpg.PostgresError, TimeoutError):
@@ -813,13 +828,17 @@ class PostgresRepository:
             logging.getLogger(__name__).warning("Feed activity aggregation unavailable", exc_info=True)
         else:
             result.update(activity)
+            if pipeline_total is None:
+                # An unknown fleet total must not be replaced by the subset.
+                result.pop("classification", None)
+            else:
+                result["classification"] = {**activity["classification"], "total": pipeline_total}
             result["providers"] = [
                 {**provider, "discover_jobs": activity["provider_discover_counts"].get(provider["source"], 0)}
                 for provider in result.get("providers", [])
             ]
             result["totals"] = {
                 **result.get("totals", {}),
-                "active_postings": activity["classification"]["total"],
                 "added_today": activity["today_breakdown"]["total"],
                 "disappeared_today": activity["today_breakdown"]["disappeared"]["total"],
             }

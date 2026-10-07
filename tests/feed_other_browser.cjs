@@ -45,45 +45,36 @@ async function serve(context) {
     page.on('pageerror', error => errors.push(error.message));
     await page.clock.install();
     await page.goto(`${origin}/source-coverage/`);
-    await page.locator('.wall > .band[data-band] canvas').first().waitFor();
+    await page.locator('.provider-row').first().waitFor();
     await page.evaluate(() => document.fonts.ready);
-    assert.equal(await page.locator('.tail-toggle strong').evaluate(el => el.firstChild.textContent.trim()), 'Other');
-    assert.equal(await page.locator('.provider-count').textContent(), '31');
-    assert.equal(await page.locator('.tail-toggle').getAttribute('aria-expanded'), 'false');
-    assert.equal(await page.locator('.provider-row').count(), 0);
-    const charts = page.locator('.wall > .band[data-band]');
-    assert.deepEqual(await charts.evaluateAll(items => items.map(item => item.dataset.band)), featured.map(item => item.source));
-    const featuredPixels = await charts.locator('canvas').evaluateAll(items => items.map(item => item.toDataURL()));
-    await page.locator('.tail-toggle').focus();
-    await page.keyboard.press('Enter');
-    assert.equal(await page.locator('.provider-row').count(), 6);
-    assert(await page.getByRole('button', { name: 'Previous page', exact: true }).isDisabled());
-    const visited = [];
-    for (let index = 0; index < 6; index++) {
-      await page.getByRole('button', { name: `Page ${index + 1}`, exact: true }).click();
-      const visible = others.slice(index * 6, index * 6 + 6);
-      const ids = await page.locator('.provider-row').evaluateAll(items => items.map(item => item.dataset.provider));
-      assert.deepEqual(ids, visible.map(item => item.source));
-      visited.push(...ids);
-      assert.equal(await page.locator('.provider-page-range').textContent(), `${index * 6 + 1}–${Math.min(index * 6 + 6, 31)} of 31`);
-      assert(await page.locator('.provider-page-button[aria-current="page"]').evaluate(el => el === document.activeElement));
-      for (const item of visible) {
-        const row = page.locator('.provider-row').filter({ has: page.getByText(item.source === 'lever' ? 'Lever' : item.source, { exact: true }) });
-        const counts = {};
-        for (const board of item.boards) counts[board.state] = (counts[board.state] || 0) + 1;
-        const description = Object.keys(labels).filter(state => counts[state]).map(state => `${counts[state].toLocaleString('en-US')} ${labels[state]}`).join(' · ');
-        assert.equal(await row.locator('.provider-counts').textContent(), description);
-        const percent = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format((counts.ok || 0) / item.boards.length * 100);
-        assert.equal(await row.locator('.health-percent').textContent(), `${percent}% healthy`);
-      }
+    assert.equal(await page.locator('.tail-toggle, .other-heading, .provider-pagination').count(), 0);
+    assert.equal(await page.locator('h1:visible').count(), 0, 'There is no visible page title');
+    const rows = page.locator('.provider-list > .provider-entry .provider-row');
+    assert.equal(await rows.count(), 37, 'Every provider is visible without pagination');
+    assert.deepEqual(await rows.evaluateAll(items => items.map(item => item.dataset.provider)), payload.providers.map(item => item.source));
+    assert.equal(await page.locator('#coverage-content canvas').count(), 0, 'All providers start folded');
+    for (const item of payload.providers) {
+      const row = rows.filter({ has: page.getByText(({ workday: 'Workday', oracle: 'Oracle', greenhouse: 'Greenhouse', ukg: 'UKG', smartrecruiters: 'SmartRecruiters', eightfold: 'Eightfold', lever: 'Lever' }[item.source] || item.source), { exact: true }) });
+      const counts = {};
+      for (const board of item.boards) counts[board.state] = (counts[board.state] || 0) + 1;
+      const description = ['ok', 'degraded', 'stale', 'failing', 'paused', 'never', 'unknown'].filter(state => ['ok', 'degraded', 'stale'].includes(state) || counts[state]).map(state => `${(counts[state] || 0).toLocaleString('en-US')} ${labels[state]}`).join(', ');
+      assert.equal(await row.locator('[role="tooltip"]').textContent(), description);
+      assert.match(await row.locator('.provider-counts').textContent(), /boards? \| .*jobs?/);
+      const percent = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format((counts.ok || 0) / item.boards.length * 100);
+      assert.equal(await row.locator('.health-percent').textContent(), `${percent}% healthy`);
     }
-    assert.equal(new Set(visited).size, 31);
-    assert(await page.getByRole('button', { name: 'Next page', exact: true }).isDisabled());
-    // Unknown provider identifiers remain safe to expand, including quotes.
-    await page.locator('.provider-row').click();
+    const workday = page.locator('[data-provider="workday"]');
+    await workday.locator('.health-percent').hover();
+    await workday.locator('[role="tooltip"]').waitFor({state:'visible'});
+    assert.equal(await workday.locator('[role="tooltip"]').innerText(), '12 healthy, 1 retrying, 2 overdue');
+    await workday.locator('.provider-chevron').click();
+    assert.equal(await workday.getAttribute('aria-expanded'), 'true');
     assert.equal(await page.locator('.provider-detail:not([hidden]) canvas').count(), 1);
-    await page.getByRole('button', { name: 'Page 1', exact: true }).click();
-    assert.equal(await page.locator('.provider-detail:not([hidden])').count(), 0);
+    await workday.focus();
+    await page.keyboard.press('Enter');
+    assert.equal(await page.locator('#coverage-content canvas').count(), 0);
+    await rows.last().click();
+    assert.equal(await rows.last().getAttribute('aria-expanded'), 'true', 'Quoted provider IDs expand safely');
     const lever = page.locator('[data-provider="lever"]');
     await lever.focus();
     await page.keyboard.press('Enter');
@@ -92,50 +83,81 @@ async function serve(context) {
     const box = await page.locator('.provider-detail:not([hidden]) canvas').boundingBox();
     await page.mouse.move(box.x + 2, box.y + 2);
     await page.locator('.board-tip.visible').waitFor();
-    await page.getByRole('button', { name: 'Next page', exact: true }).click();
-    assert.equal(await page.locator('.provider-detail:not([hidden])').count(), 0);
+    await lever.click();
     assert.equal(await page.locator('.board-tip.visible').count(), 0);
-    assert.deepEqual(await charts.locator('canvas').evaluateAll(items => items.map(item => item.toDataURL())), featuredPixels);
     const layouts = [];
-    for (const width of [320, 390, 768, 1024, 1440, 2208]) {
+    for (const width of [320, 390, 768, 1024, 1440, 2208, 3440]) {
       await page.setViewportSize({ width, height: 1000 });
       await page.waitForTimeout(150);
-      for (const index of [1, 4, 6]) {
-        await page.getByRole('button', { name: `Page ${index}`, exact: true }).click();
-        const layout = await page.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth, textFits: [...document.querySelectorAll('.provider-counts, .provider-name, .health-percent')].every(el => el.scrollWidth <= el.clientWidth) }));
-        assert.equal(layout.scrollWidth, width, `Page ${index} fits at ${width}px`);
-        assert(layout.textFits, `Page ${index} text fits at ${width}px`);
+      const layout = await page.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth, textFits: [...document.querySelectorAll('.provider-board-count, .provider-job-count, .provider-name, .health-percent')].every(el => el.scrollWidth <= el.clientWidth) }));
+      assert.equal(layout.scrollWidth, width, `List fits at ${width}px`);
+      assert(layout.textFits, `Text fits at ${width}px`);
+      const columns = await rows.evaluateAll(items => items.map(row => {
+        const bounds = selector => row.querySelector(selector).getBoundingClientRect();
+        const name = bounds('.provider-name'), bar = bounds('.health-track');
+        const percent = bounds('.health-percent'), board = bounds('.provider-board-count');
+        const jobs = bounds('.provider-job-count'), arrow = bounds('.provider-chevron');
+        const separator = row.querySelector('.provider-count-separator');
+        return { name: name.x, bar: bar.x, percent: percent.right, barWidth: bar.width,
+          gap: bar.x - name.right, board: board.right, jobs: jobs.right, arrow: arrow.right,
+          boardAlign: getComputedStyle(row.querySelector('.provider-board-count')).textAlign,
+          jobAlign: getComputedStyle(row.querySelector('.provider-job-count')).textAlign,
+          separator: separator.textContent, separatorOpacity: Number(getComputedStyle(separator).opacity),
+          height: row.getBoundingClientRect().height };
+      }));
+      assert(columns.every(row => Math.abs(row.bar - columns[0].bar) < 1 && Math.abs(row.percent - columns[0].percent) < 1), `Health columns align at ${width}`);
+      assert(columns.every(row => row.gap <= 25 && row.gap >= 0 && row.barWidth > 0), `Bars immediately follow names at ${width}`);
+      assert(columns.every(row => Math.abs(row.board - columns[0].board) < 1 && Math.abs(row.jobs - columns[0].jobs) < 1), `Metric columns align at ${width}`);
+      assert(columns.every(row => row.boardAlign === 'right' && row.jobAlign === 'right'), `Metrics are right aligned at ${width}`);
+      assert(columns.every(row => row.arrow < row.name), `Expand arrow precedes provider name at ${width}`);
+      assert(columns.every(row => row.separator === '|' && row.separatorOpacity < .5), `Separators stay faint at ${width}`);
+      if (width >= 1440) {
+        assert(columns.every(row => row.height === 32), 'Desktop rows are compact');
+        const header = await page.evaluate(() => {
+          const y = selector => document.querySelector(selector).getBoundingClientRect().top;
+          return { totals: y('#fleet-stats'), clock: y('#clock') };
+        });
+        assert(Math.abs(header.totals - header.clock) < 3, 'Totals and clock share the desktop header line');
       }
+      if (width <= 560) assert(columns.every(row => row.height >= 44), 'Mobile rows keep touch targets');
+      await workday.locator('.health-percent').hover();
+      const tip = await workday.locator('[role="tooltip"]').boundingBox();
+      assert(tip.x >= 0 && tip.x + tip.width <= width, `Health tooltip fits at ${width}`);
+      await workday.locator('.provider-chevron').click();
+      const canvas = await page.locator('.provider-detail:not([hidden]) canvas').boundingBox();
+      assert(canvas.width > 0 && canvas.x + canvas.width <= width, `Expanded board boxes fit at ${width}`);
+      await workday.click();
+      const workspace = await page.locator('.workspace').boundingBox();
+      assert(workspace.width <= 1320, 'Workspace has a fixed maximum width');
       layouts.push(width);
     }
-    // Refresh preserves the page, clamps it if the provider list shrinks,
-    // and leaves existing data available when a later request fails.
+    await lever.click();
     await page.clock.runFor(60000);
-    assert.equal(await page.locator('.provider-page-button[aria-current="page"]').textContent(), '6');
-    payload = snapshot(others.slice(0, 7));
+    assert.equal(await lever.getAttribute('aria-expanded'), 'true', 'Refresh preserves the open provider');
+    payload = snapshot(others.slice(1, 7));
     await page.clock.runFor(60000);
-    await page.waitForFunction(() => document.querySelector('.provider-count')?.textContent === '7');
-    assert.equal(await page.locator('.provider-page-button[aria-current="page"]').textContent(), '2');
-    assert.equal(await page.locator('.provider-row').count(), 1);
+    await page.waitForFunction(() => document.querySelectorAll('.provider-row').length === 12);
+    assert.equal(await page.locator('.provider-detail:not([hidden])').count(), 0, 'Removed providers close their details');
     failRefresh = true;
     await page.clock.runFor(60000);
     await page.locator('#stale-note:not([hidden])').waitFor();
-    assert.equal(await page.locator('.provider-row').count(), 1);
+    assert.equal(await rows.count(), 12, 'Failed refresh preserves the list');
     failRefresh = false;
-    payload = snapshot(others.slice(0, 1));
+    payload = { ...snapshot([]), providers: [featured[0]] };
     await page.clock.runFor(60000);
-    await page.waitForFunction(() => document.querySelector('.provider-count')?.textContent === '1');
-    assert.equal(await page.locator('.provider-pagination').count(), 0);
-    assert.equal(await page.locator('.provider-row').count(), 1);
-    await page.locator('.tail-toggle').click();
-    assert.equal(await page.locator('.provider-row').count(), 0);
-    await page.keyboard.press('Enter');
-    assert.equal(await page.locator('.provider-row').count(), 1);
-    payload = snapshot([]);
+    await page.waitForFunction(() => document.querySelectorAll('.provider-row').length === 1);
+    payload = { ...snapshot([]), providers: [] };
     await page.clock.runFor(60000);
-    await page.waitForFunction(() => !document.querySelector('.tail'));
-    assert.equal(await charts.count(), 6);
+    await page.getByText('No feed overview data yet', { exact: true }).waitFor();
+    payload = snapshot(others);
+    await page.clock.runFor(60000);
+    await page.waitForFunction(() => document.querySelectorAll('.provider-row').length === 37);
+    await page.setViewportSize({width:1440,height:1000});
+    await page.screenshot({path:'/tmp/oneshot-feed-layout-desktop.png',fullPage:true});
+    await page.setViewportSize({width:390,height:844});
+    await workday.click();
+    await page.screenshot({path:'/tmp/oneshot-feed-layout-mobile.png',fullPage:true});
     assert.deepEqual(errors, []);
-    console.log(JSON.stringify({ result: 'PASS', otherProviders: 31, pages: 6, layouts, checks: ['Other label', 'default collapsed', 'six per page', 'final partial page', 'health summaries', 'boxes only', 'tooltip', 'keyboard focus', 'no horizontal overflow', 'refresh retention and clamping', 'failed refresh fallback', 'single and empty Other', 'featured charts unchanged'] }, null, 2));
+    console.log(JSON.stringify({ result: 'PASS', providers: 37, layouts, checks: ['all ATS visible', 'compact desktop rows', 'mobile touch targets', 'right aligned metric columns', 'faint pipe separators', 'leading expand arrow', 'no horizontal overflow', 'health tooltip', 'board expansion', 'keyboard focus', 'refresh retention', 'failed refresh fallback', 'single and empty lists'] }, null, 2));
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exit(1); });
