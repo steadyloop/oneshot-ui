@@ -14,7 +14,7 @@ FRONTEND_ROOT = Path(__file__).resolve().parent
 # The deploy root itself contains the browser client.
 os.environ.setdefault("ONESHOT_STATIC_DIR", str(FRONTEND_ROOT))
 
-from oneshot_ui.app import app  # noqa: E402
+from api.app import app  # noqa: E402
 
 
 __all__ = ["app"]

@@ -7,7 +7,7 @@
   const ENABLED_KEY = "oneshot.sample-data.enabled";
   const STATE_KEY = "oneshot.sample-data.state.v7";
   const VISITOR_STATE_KEY = "oneshot.visitor-data.state.v1";
-  // Mirrors oneshot_ui/repository.py's DEFAULT_JOB_TYPES: the live API reads no
+  // Mirrors api/repository.py's DEFAULT_JOB_TYPES: the live API reads no
   // job_type filter as this classified scope, not as "everything" — job_type is
   // NULL when no vendor rule matched, and that pool is opt-in via the
   // "unclassified" token.
@@ -456,29 +456,41 @@
     return "";
   }
 
-  function applicationFromJob(state, job) {
+  const APPLICATION_STAGES = new Set(['applied', 'replied', 'assessment', 'interview', 'offer', 'closed']);
+  const CLOSED_REASONS = new Set(['rejected', 'withdrawn', 'no_reply']);
+  const localToday = () => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`; };
+  const validApplicationDate = value => value == null || value === '' || (typeof value === 'string' && Number.isFinite(Date.parse(value)) && (value.length !== 10 || new Date(value).toISOString().slice(0, 10) === value));
+  const validPostingURL = value => { if (!value) return true; try { return ['http:', 'https:'].includes(new URL(value).protocol); } catch { return false; } };
+  function normalizeApplications(state) {
+    let changed = false;
+    for (const app of state.applications || []) {
+      if (app.stage === 'considering') { app.stage = 'applied'; changed = true; }
+      if (!app.last_open_stage || app.last_open_stage === 'considering') {
+        const previous = [...(app.events || [])].reverse().find(e => e.to_stage && e.to_stage !== 'closed')?.to_stage;
+        app.last_open_stage = app.stage !== 'closed' ? app.stage : previous === 'considering' ? 'applied' : previous || 'applied';
+        changed = true;
+      }
+      if (!app.task_state) { app.task_state = app.stage === 'applied' && !app.next_action ? 'waiting' : 'action'; changed = true; }
+      if (app.waiting_for == null) { app.waiting_for = ''; changed = true; }
+      // submitted_at is deliberately left alone, including legacy unknown dates.
+    }
+    return changed;
+  }
+  function applicationFromJob(state, job, submittedAt = localToday()) {
     return {
       id: `${state.applicationIdPrefix || "sample-app"}-${state.nextApplicationId++}`,
-      job_id: job.id,
-      company: job.company,
-      title: job.title,
-      location: job.location,
-      stage: "considering",
-      closed_reason: null,
-      next_action: null,
-      next_due_at: null,
-      external: false,
-      submitted_at: null,
-      apply_url_snapshot: job.apply_url,
-      resume_variant: null,
-      updated_at: new Date().toISOString(),
-      stage_changed_at: new Date().toISOString(),
-      note: "",
-      events: [{ occurred_at: new Date().toISOString(), event_type: "stage_changed", to_stage: "considering", note: null }],
+      job_id: job.id, company: job.company, title: job.title, location: job.location,
+      stage: 'applied', closed_reason: null, last_open_stage: 'applied',
+      task_state: 'waiting', waiting_for: '', next_action: null, next_due_at: null,
+      external: false, submitted_at: submittedAt, apply_url_snapshot: job.apply_url,
+      resume_variant: null, updated_at: new Date().toISOString(),
+      stage_changed_at: new Date().toISOString(), note: '',
+      events: [{ occurred_at: new Date().toISOString(), event_type: 'stage_changed', to_stage: 'applied', note: null }],
     };
   }
 
   async function handle(input, options = {}, state = createState()) {
+    normalizeApplications(state);
     const url = new URL(typeof input === "string" ? input : input.url, "http://oneshot.local");
     const method = String(options.method || "GET").toUpperCase();
     const path = url.pathname.replace(/^\/api(?=\/)/, "");
@@ -498,13 +510,15 @@
       const available = state.jobs.filter(job => {
         if (locationBucket(job) === null) return false;
         const searchable = `${job.title} ${job.company} ${(job.skills || []).map(skill => skill.name).join(" ")}`.toLowerCase();
+        const sources = [job.source, ...(job.other_sources || []).map(source => source.source)];
+        const matchesSource = sources.some(source => String(source || "").split(":", 1)[0].toLowerCase().includes(q));
         const seasonal = `${job.title} ${job.summary || ""}`.toLowerCase();
         const postingFields = job.attributes.degree || [];
         const matchesDegree = !degreeFields.length || degreeFields.some(field =>
           field === "bioengineering"
             ? ["biotech", "med_device", "clinical_affairs"].some(value => postingFields.includes(value))
             : postingFields.includes(field));
-        return !applicationJobIds.has(job.id) && !excludedJobIds.has(String(job.id)) && (!q || searchable.includes(q)) && (!season || seasonal.includes(season)) && matchesDegree;
+        return !applicationJobIds.has(job.id) && !excludedJobIds.has(String(job.id)) && (!q || searchable.includes(q) || matchesSource) && (!season || seasonal.includes(season)) && matchesDegree;
       });
       const job_type_counts = Object.fromEntries(DEFAULT_JOB_TYPES.map(type => [
         type, available.filter(job => job.job_type === type).length,
@@ -515,6 +529,11 @@
         ? a.company.localeCompare(b.company)
         : sort === "title"
           ? a.title.localeCompare(b.title)
+          : sort === "oldest"
+            ? recencyDay(a).localeCompare(recencyDay(b))
+              || locationBucket(a) - locationBucket(b)
+              || proximityPriority(a) - proximityPriority(b)
+              || String(a.posted_at || a.first_seen_at || "").localeCompare(String(b.posted_at || b.first_seen_at || ""))
           : recencyDay(b).localeCompare(recencyDay(a))
             || locationBucket(a) - locationBucket(b)
             || proximityPriority(a) - proximityPriority(b)
@@ -531,7 +550,9 @@
       if (!job) return jsonResponse({ detail: "Job not found" }, 404);
       const existing = state.applications.find(application => application.job_id === job.id);
       if (existing) return jsonResponse({ ...clone(existing), already_exists: true });
-      const application = applicationFromJob(state, job);
+      const submitted = parseBody(options).submitted_at || localToday();
+      if (!validApplicationDate(submitted)) return jsonResponse({ detail: 'application dates must be ISO-8601 values' }, 422);
+      const application = applicationFromJob(state, job, submitted);
       state.applications.unshift(application);
       return jsonResponse(clone(application), 201);
     }
@@ -576,23 +597,19 @@
 
     if (method === "POST" && path === "/applications/external") {
       const body = parseBody(options);
+      const company = String(body.company || '').trim(), title = String(body.title || '').trim();
+      if (!company || !title) return jsonResponse({ detail: 'company and title are required' }, 422);
+      if (!validPostingURL(body.url)) return jsonResponse({ detail: 'application URL must be HTTP(S)' }, 422);
+      if (!validApplicationDate(body.submitted_at)) return jsonResponse({ detail: 'application dates must be ISO-8601 values' }, 422);
       const application = {
         id: `${state.applicationIdPrefix || "sample-app"}-${state.nextApplicationId++}`,
-        company: body.company,
-        title: body.title,
-        stage: "considering",
-        closed_reason: null,
-        next_action: null,
-        next_due_at: null,
-        external: true,
-        submitted_at: null,
-        apply_url_snapshot: body.url,
-        resume_variant: null,
-        updated_at: new Date().toISOString(),
-        stage_changed_at: new Date().toISOString(),
-        location: body.location || "",
-        note: body.note || "",
-        events: [{ occurred_at: new Date().toISOString(), event_type: "stage_changed", to_stage: "considering", note: body.note || null }],
+        company, title, stage: 'applied', closed_reason: null, last_open_stage: 'applied',
+        task_state: 'waiting', waiting_for: '', next_action: null, next_due_at: null,
+        external: true, submitted_at: body.submitted_at || localToday(),
+        apply_url_snapshot: body.url || null, resume_variant: null,
+        updated_at: new Date().toISOString(), stage_changed_at: new Date().toISOString(),
+        location: body.location || '', note: body.note || '',
+        events: [{ occurred_at: new Date().toISOString(), event_type: 'stage_changed', to_stage: 'applied', note: body.note || null }],
       };
       state.applications.unshift(application);
       return jsonResponse(clone(application), 201);
@@ -611,36 +628,37 @@
     if (method === "PATCH" && applicationMatch) {
       const application = findApplication(state, decodeURIComponent(applicationMatch[1]));
       if (!application) return jsonResponse({ detail: "Application not found" }, 404);
-      const body = parseBody(options),previousStage=application.stage;
-      if (application.external) {
-        if (typeof body.company === "string" && body.company.trim()) application.company = body.company.trim();
-        if (typeof body.title === "string" && body.title.trim()) application.title = body.title.trim();
-        if (typeof body.location === "string") application.location = body.location.trim();
-        if (typeof body.apply_url_snapshot === "string") application.apply_url_snapshot = body.apply_url_snapshot.trim();
+      const body = parseBody(options), previousStage = application.stage;
+      const stage = Object.hasOwn(body, 'stage') ? body.stage : previousStage;
+      const reason = Object.hasOwn(body, 'closed_reason') ? body.closed_reason : application.closed_reason;
+      if (!APPLICATION_STAGES.has(stage)) return jsonResponse({ detail: 'unknown application stage' }, 422);
+      if (stage === 'closed' && !CLOSED_REASONS.has(reason)) return jsonResponse({ detail: 'closed_reason is required when stage is closed' }, 422);
+      if (stage !== 'closed' && body.closed_reason != null) return jsonResponse({ detail: 'closed_reason is only valid when stage is closed' }, 422);
+      if (Object.hasOwn(body, 'task_state') && !['action', 'waiting'].includes(body.task_state)) return jsonResponse({ detail: 'unknown task state' }, 422);
+      if (![body.submitted_at, body.next_due_at].every(validApplicationDate)) return jsonResponse({ detail: 'application dates must be ISO-8601 values' }, 422);
+      if (Object.hasOwn(body, 'apply_url_snapshot') && !validPostingURL(body.apply_url_snapshot)) return jsonResponse({ detail: 'application URL must be HTTP(S)' }, 422);
+      for (const key of ['company', 'title', 'location', 'apply_url_snapshot']) {
+        if (!Object.hasOwn(body, key)) continue;
+        if (!application.external && body[key] !== application[key]) return jsonResponse({ detail: 'discovered application snapshots cannot be edited' }, 422);
+        if (['company', 'title'].includes(key) && !String(body[key] || '').trim()) return jsonResponse({ detail: `${key} is required` }, 422);
       }
-      if (body.resume_variant !== undefined) application.resume_variant = String(body.resume_variant || "").trim() || null;
-      if (body.stage) application.stage = body.stage;
-      if (body.closed_reason !== undefined) application.closed_reason = body.closed_reason;
-      if (application.stage !== "closed") application.closed_reason = null;
-      if (body.submitted_at !== undefined) application.submitted_at = body.submitted_at;
-      if (body.next_action !== undefined) application.next_action = body.next_action;
-      if (body.next_due_at !== undefined) application.next_due_at = body.next_due_at;
-      if (body.note !== undefined) application.note = body.note;
-      // Parity with PostgresRepository.update_application: arriving at Applied
-      // stamps the submission date and opens a follow-up when the request left
-      // one out. Without it a guest's Applied cards carry no due date at all
-      // and the "Needs attention" filter matches nothing they can ever produce.
-      if (application.stage !== previousStage && application.stage === "applied") {
-        const submitted = application.submitted_at || new Date().toISOString().slice(0, 10);
-        application.submitted_at = submitted;
-        if (body.next_action === undefined) application.next_action = "Follow up if no response";
-        if (body.next_due_at === undefined) {
-          application.next_due_at = new Date(Date.parse(`${String(submitted).slice(0, 10)}T00:00:00Z`) + 14 * 86400000)
-            .toISOString().slice(0, 10);
-        }
+      // All validation precedes mutation; rejected requests never partially edit a record.
+      if (application.external) for (const key of ['company', 'title', 'location', 'apply_url_snapshot']) {
+        if (Object.hasOwn(body, key)) application[key] = String(body[key] || '').trim();
+      }
+      if (stage === 'closed') {
+        if (previousStage !== 'closed') application.last_open_stage = previousStage;
+      } else application.last_open_stage = stage;
+      application.stage = stage; application.closed_reason = stage === 'closed' ? reason : null;
+      for (const key of ['submitted_at', 'next_action', 'next_due_at', 'note', 'task_state', 'waiting_for', 'resume_variant']) {
+        if (Object.hasOwn(body, key)) application[key] = body[key];
       }
       application.updated_at = new Date().toISOString();
-      if (application.stage !== previousStage) { application.stage_changed_at = application.updated_at; application.events.push({ occurred_at: application.updated_at, event_type: "stage_changed", to_stage: application.stage, note: "" }); }
+      application.events ||= [];
+      if (stage !== previousStage) {
+        application.stage_changed_at = application.updated_at;
+        application.events.push({ occurred_at: application.updated_at, event_type: 'stage_changed', to_stage: stage, note: body.activity || null });
+      } else if (body.activity) application.events.push({ occurred_at: application.updated_at, event_type: 'details_updated', to_stage: null, note: body.activity });
       return jsonResponse(clone(application));
     }
     if (method === "DELETE" && applicationMatch) {
@@ -943,6 +961,7 @@
     if (visitorState) return visitorState;
     try { visitorState = JSON.parse(root.localStorage.getItem(VISITOR_STATE_KEY)) || createVisitorState(); }
     catch (_) { visitorState = createVisitorState(); }
+    if (normalizeApplications(visitorState)) saveVisitorState();
     return visitorState;
   };
   const saveVisitorState = () => {

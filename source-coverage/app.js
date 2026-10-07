@@ -23,7 +23,7 @@
     return `${months}mo ago`;
   };
   const withTimeout = (promise, milliseconds = 8000) => new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("The feed status request timed out.")), milliseconds);
+    const timer = setTimeout(() => reject(new Error("The feed overview request timed out.")), milliseconds);
     Promise.resolve(promise).then(
       value => { clearTimeout(timer); resolve(value); },
       error => { clearTimeout(timer); reject(error); },
@@ -56,18 +56,17 @@
       }
     }
     const totals = payload?.totals;
-    return totals && Number.isFinite(Number(totals.boards)) ? { ...counts, ...totals, roles: counts.roles } : counts;
+    const roles = Number.isSafeInteger(totals?.active_postings) && totals.active_postings >= 0
+      ? totals.active_postings : counts.roles;
+    return totals && Number.isFinite(Number(totals.boards)) ? { ...counts, ...totals, roles } : counts;
   };
 
-  // One line for the page header. Snapshots from before the pipeline counted
-  // companies still carry the job count, so the line degrades to jobs alone.
+  // Missing closure data is unknown, rather than a fabricated zero.
   const todayLine = totals => {
     const jobs = Number(totals?.added_today) || 0;
-    if (!jobs) return "";
-    const companies = Number(totals?.companies_added_today) || 0;
-    // It follows "N jobs" in the totals, so it needs no noun of its own.
-    const jobText = `${number(jobs)} new today`;
-    return companies ? `${jobText} from ${number(companies)} ${companies === 1 ? "company" : "companies"}` : jobText;
+    const closed = totals?.disappeared_today;
+    if (closed != null) return `${number(jobs)} jobs posted, ${number(closed)} jobs closed today`;
+    return jobs ? `${number(jobs)} jobs posted today` : "";
   };
 
   // "2026-09-09" is a calendar day in the pipeline's zone: read it as a local
@@ -103,15 +102,15 @@
   // reads as a gradient with its problems pinned to the top-left corner.
   const byWeight = boards => [...boards].sort((a, b) => (SEVERITY[a.state] - SEVERITY[b.state]) || (b.jobs - a.jobs));
 
-  // The providers with the most boards get a band each; the long tail shares
-  // one band that opens into a band per provider.
+  // Rank providers by their deduplicated, active student jobs eligible for
+  // Discover. The remainder opens into a band per provider.
   const NAMED_BANDS = 6;
   const buildBands = (payload, named = NAMED_BANDS) => {
     const groups = [];
     for (const provider of Array.isArray(payload?.providers) ? payload.providers : []) {
       const list = Array.isArray(provider.boards) ? provider.boards : [];
       if (!list.length) continue;
-      const group = { id: String(provider.source || "?"), label: String(provider.source || "?"), boards: [], jobs: 0, problems: {} };
+      const group = { id: String(provider.source || "?"), label: String(provider.source || "?"), boards: [], jobs: 0, discoverJobs: Number(provider.discover_jobs) || 0, problems: {} };
       for (const board of list) {
         const state = stateKey(board.state);
         const jobs = Number(board.coverage) || 0;
@@ -128,11 +127,11 @@
       group.boards = byWeight(group.boards);
       groups.push(group);
     }
-    const largest = new Set([...groups].sort((a, b) => b.boards.length - a.boards.length).slice(0, named).map(group => group.id));
-    const bands = groups.filter(group => largest.has(group.id)).sort((a, b) => b.jobs - a.jobs);
-    const tail = groups.filter(group => !largest.has(group.id)).sort((a, b) => b.jobs - a.jobs);
+    groups.sort((a, b) => b.discoverJobs - a.discoverJobs || a.id.localeCompare(b.id));
+    const bands = groups.slice(0, named);
+    const tail = groups.slice(named);
     if (tail.length) {
-      const combined = { id: "__tail", label: `+${tail.length} more providers`, boards: [], jobs: 0, problems: {}, groups: tail };
+      const combined = { id: "__tail", label: "Other", boards: [], jobs: 0, problems: {}, groups: tail };
       for (const group of tail) {
         combined.boards.push(...group.boards);
         combined.jobs += group.jobs;
@@ -155,7 +154,7 @@
   const plural = (count, one, many) => `${count === 1 ? one : many}`;
 
   // Cell geometry: a 3px square on a 4px pitch. Every band measures its own
-  // width, so a full row and one column of the opened tail share the code.
+  // width, so featured bands and expanded Other rows share the code.
   const PITCH = 4;
   const CELL = 3;
   const SNAP_RADIUS = 2;
@@ -164,6 +163,9 @@
   let bands = [];
   let bandsById = new Map();
   let tailOpen = false;
+  const PROVIDERS_PER_PAGE = 6;
+  let providerPage = 0;
+  let expandedProvider = null;
   let palette = {};
 
   // Healthy boards shade from light to dark by how many jobs they carry (log
@@ -173,6 +175,7 @@
     const low = hex(readVar("--cell-ok-low")), high = hex(readVar("--cell-ok-high"));
     const maxLog = Math.log1p(RAMP_MAX_JOBS);
     palette = {
+      gap: readVar("--cell-gap"),
       ramp: jobs => {
         const t = Math.min(1, Math.log1p(jobs) / maxLog);
         return `rgb(${low.map((channel, index) => Math.round(channel + (high[index] - channel) * t)).join(",")})`;
@@ -195,16 +198,70 @@
     if (!band.groups) {
       return `<div class="band${mini ? " mini" : ""}" data-band="${esc(band.id)}"><div class="band-label"><strong>${esc(band.label)}</strong>${meta}</div>${canvas}</div>`;
     }
-    const toggle = `<button type="button" class="band-label tail-toggle" aria-expanded="${tailOpen}"><strong>${esc(band.label)}<svg class="chev" aria-hidden="true" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></strong>${meta}</button>`;
-    return tailOpen
-      ? `<div class="band tail">${toggle}<div class="tail-grid">${band.groups.map(group => bandMarkup(group, true)).join("")}</div></div>`
-      : `<div class="band tail" data-band="${esc(band.id)}">${toggle}${canvas}</div>`;
+    const toggle = `<button type="button" class="tail-toggle" aria-expanded="${tailOpen}" aria-controls="other-providers"><strong>${esc(band.label)} <span class="provider-count">${band.groups.length}</span><svg class="chev" aria-hidden="true" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></strong>${meta}</button>`;
+    const pageCount = Math.ceil(band.groups.length / PROVIDERS_PER_PAGE);
+    providerPage = Math.min(providerPage, pageCount - 1);
+    const start = providerPage * PROVIDERS_PER_PAGE;
+    const visible = band.groups.slice(start, start + PROVIDERS_PER_PAGE);
+    const pageButton = (page, label, body, disabled = false, current = false) => `<button type="button" class="provider-page-button" data-page="${page}" aria-label="${label}" aria-controls="other-providers"${disabled ? " disabled" : ""}${current ? ' aria-current="page"' : ""}>${body}</button>`;
+    const arrow = direction => `<svg aria-hidden="true" viewBox="0 0 24 24"><path d="${direction === "previous" ? "m15 6-6 6 6 6" : "m9 6 6 6-6 6"}"/></svg>`;
+    const pagination = pageCount > 1 ? `<div class="provider-pagination"><span class="provider-page-range">${start + 1}–${start + visible.length} of ${band.groups.length}</span><nav aria-label="Other pages">${pageButton(providerPage - 1, "Previous page", arrow("previous"), providerPage === 0)}${Array.from({length: pageCount}, (_, page) => pageButton(page, `Page ${page + 1}`, page + 1, false, page === providerPage)).join("")}${pageButton(providerPage + 1, "Next page", arrow("next"), providerPage === pageCount - 1)}</nav></div>` : "";
+    return `<section class="band tail"><div class="other-heading">${toggle}</div>${tailOpen ? `<div id="other-providers" class="provider-list">${visible.map(providerMarkup).join("")}</div>${pagination}` : ""}</section>`;
+  }
+
+  const PROVIDER_NAMES = {
+    workday: "Workday", oracle: "Oracle", greenhouse: "Greenhouse", ukg: "UKG",
+    smartrecruiters: "SmartRecruiters", eightfold: "Eightfold",
+    lever: "Lever", recruitee: "Recruitee", ashby: "Ashby", bamboohr: "BambooHR",
+    workable: "Workable", rippling: "Rippling", gem: "Gem", icims: "iCIMS",
+    avature: "Avature", amazon: "Amazon", janestreet: "Jane Street", apple: "Apple",
+    adp: "ADP", comeet: "Comeet", dayforce: "Dayforce", flyio: "Fly.io",
+    hn: "Hacker News", homerun: "Homerun", jazzhr: "JazzHR", join: "Join",
+    manatal: "Manatal", personio: "Personio", pinpoint: "Pinpoint", simplify: "Simplify",
+    successfactors: "SuccessFactors", teamtailor: "Teamtailor", trakstar: "Trakstar",
+    unstop: "Unstop", vincere: "Vincere", zohorecruit: "Zoho Recruit",
+  };
+
+  function providerMarkup(group) {
+    const count = group.boards.length;
+    const label = PROVIDER_NAMES[group.id] || group.label;
+    const states = ["ok", "degraded", "failing", "stale", "paused", "never", "unknown"];
+    const healthy = count - Object.values(group.problems).reduce((sum, value) => sum + value, 0);
+    const counts = { ...group.problems, ok: healthy };
+    const healthyPercent = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(healthy / count * 100);
+    const description = states.filter(state => counts[state]).map(state => `${number(counts[state])} ${STATE_LABEL[state]}`).join(" · ");
+    const segments = states.filter(state => counts[state]).map(state => `<span class="health-${state}" style="flex-grow:${counts[state]}" title="${number(counts[state])} ${STATE_LABEL[state]}"></span>`).join("");
+    const open = expandedProvider === group.id;
+    const detailId = `provider-detail-${encodeURIComponent(group.id)}`;
+    return `<div class="provider-entry${open ? " is-open" : ""}"><button type="button" class="provider-row" data-provider="${esc(group.id)}" aria-expanded="${open}" aria-controls="${esc(detailId)}"><span class="provider-info"><span class="provider-name">${esc(label)}</span><span class="provider-counts">${esc(description)}</span></span><span class="provider-health"><span class="health-track" role="img" aria-label="${esc(description)}">${segments}</span><span class="health-percent">${healthyPercent}% healthy</span></span><svg class="provider-chevron" aria-hidden="true" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button><div id="${esc(detailId)}" class="provider-detail"${open ? "" : " hidden"}>${open ? `<div class="band mini" data-band="${esc(group.id)}"><canvas role="img" aria-label="${esc(label)}: ${esc(description)}"></canvas></div>` : ""}</div></div>`;
   }
 
   function renderWall() {
     content.innerHTML = `<div class="wall">${bands.map(band => bandMarkup(band)).join("")}</div>`;
     drawWall();
-    $(".tail-toggle")?.addEventListener("click", () => { tailOpen = !tailOpen; hideTip(); renderWall(); });
+    $(".tail-toggle")?.addEventListener("click", () => {
+      tailOpen = !tailOpen;
+      hideTip();
+      renderWall();
+      $(".tail-toggle").focus({ preventScroll: true });
+    });
+    for (const button of content.querySelectorAll(".provider-page-button")) {
+      button.addEventListener("click", () => {
+        providerPage = Number(button.dataset.page);
+        expandedProvider = null;
+        hideTip();
+        renderWall();
+        content.querySelector('.provider-page-button[aria-current="page"]').focus({ preventScroll: true });
+      });
+    }
+    for (const button of content.querySelectorAll(".provider-row")) {
+      button.addEventListener("click", () => {
+        expandedProvider = expandedProvider === button.dataset.provider ? null : button.dataset.provider;
+        hideTip();
+        renderWall();
+        Array.from(content.querySelectorAll(".provider-row")).find(row => row.dataset.provider === button.dataset.provider).focus({ preventScroll: true });
+      });
+    }
     for (const canvas of content.querySelectorAll(".band[data-band] > canvas")) {
       const band = bandsById.get(canvas.parentElement.dataset.band);
       const probe = event => {
@@ -233,6 +290,13 @@
       const context = canvas.getContext("2d");
       context.setTransform(ratio, 0, 0, ratio, 0, 0);
       context.clearRect(0, 0, width, height);
+      // Tint only occupied pitches: the last row keeps its original silhouette.
+      // This softens the 1px gutters against the white page without adding a box.
+      const fullRows = Math.floor(band.boards.length / columns);
+      const remainder = band.boards.length % columns;
+      context.fillStyle = palette.gap;
+      context.fillRect(0, 0, width, fullRows * PITCH);
+      if (remainder) context.fillRect(0, fullRows * PITCH, remainder * PITCH, PITCH);
       band.boards.forEach((board, index) => {
         context.fillStyle = cellColor(board);
         context.fillRect((index % columns) * PITCH, Math.floor(index / columns) * PITCH, CELL, CELL);
@@ -283,12 +347,40 @@
     $("#board-tip")?.classList.remove("visible");
   }
 
+  function renderClassification(values) {
+    $(".classification-summary").hidden = !values;
+    if (!values) return;
+    for (const [selector, key] of [[".classification-total", "total"], [".classification-students", "student_roles"]]) {
+      const counter = $(selector);
+      const value = values[key];
+      if (!counter || !Number.isSafeInteger(value) || value < 0) continue;
+      if (counter.dataset.initialized && Number(counter.dataset.count) === value) continue;
+      const next = number(value);
+      const previous = counter.dataset.initialized ? number(counter.dataset.count).padStart(next.length) : "";
+      const digits = document.createDocumentFragment();
+      [...next].forEach((character, index) => {
+        const digit = document.createElement("span");
+        digit.className = "classification-digit";
+        if (character !== previous[index] && /\d/.test(character)) digit.classList.add("is-changing");
+        digit.style.setProperty("--digit-delay", `${(next.length - index - 1) * 22}ms`);
+        digit.setAttribute("aria-hidden", "true");
+        digit.textContent = character;
+        digits.append(digit);
+      });
+      counter.setAttribute("aria-label", next);
+      counter.replaceChildren(digits);
+      counter.dataset.count = String(value);
+      counter.dataset.initialized = "true";
+    }
+  }
+
   function renderHeader(payload) {
+    renderClassification(payload.classification);
     const totals = fleetTotals(payload);
     $("#fleet-stats").innerHTML = [
       `<strong>${esc(number(totals.boards))}</strong> boards`,
       `<strong>${esc(number(totals.providers))}</strong> providers`,
-      `<strong>${esc(number(totals.roles))}</strong> jobs`,
+      `<strong>${esc(number(totals.roles))}</strong> active jobs`,
     ].join('<span class="stat-sep" aria-hidden="true"> · </span>');
     renderTicker(payload, totals);
   }
@@ -300,16 +392,45 @@
 
   function renderTicker(payload, totals) {
     const line = todayLine(totals);
-    $("#ticker").hidden = !line;
-    $("#today-line").textContent = line;
-    const { jobs, feeds } = tickerCard(payload);
+    const ticker = $("#ticker");
+    ticker.hidden = !line;
+    $("#today-line").innerHTML = `<span class="activity-added activity-total">${number(totals.added_today)}</span> jobs posted`
+      + (totals.disappeared_today != null
+        ? `, <span class="activity-disappeared activity-total">${number(totals.disappeared_today)}</span> jobs closed today`
+        : " today");
+    $(".ticker-toggle").setAttribute("aria-label", `${line}. Show breakdown`);
     const card = $("#ticker-card");
-    card.innerHTML = cardSection("Latest jobs", `+${number(totals.added_today)} today`, jobs.map(job =>
-      `<div class="card-row"><span class="card-company">${esc(job.company)}</span><span class="card-detail">${esc(job.title)}</span><span class="card-time">${esc(job.ago)}</span></div>`))
-      + cardSection("Feeds discovered", "", feeds.map(feed =>
-      `<div class="card-row"><span class="card-company">${esc(feed.company)}</span><span class="card-detail card-source">${esc(feed.source)}</span><span class="card-time">${esc(feed.date)}</span></div>`));
+    const detail = payload.today_breakdown || {};
+    const jobTypes = [
+      ["internships", "intern"], ["co-ops", "coop"],
+      ["student jobs", "student"], ["new grad", "new_grad"],
+      ["research", "research"], ["unclassified", "unclassified"],
+    ];
+    const signedCount = (value, sign) => value == null ? "—" : `${Number(value) === 0 ? "" : sign}${number(value)}`;
+    for (const [side, total, values, sign, minimum] of [
+      ["posted", totals.added_today, detail.types, "+", 1],
+      ["closed", totals.disappeared_today, detail.disappeared?.types, "−", 1],
+    ]) {
+      const digits = Math.max(minimum, total == null ? 1 : number(total).length,
+        ...jobTypes.map(([, key]) => signedCount(values?.[key], sign).length));
+      ticker.style.setProperty(`--activity-${side}-width`, `${digits}ch`);
+    }
+    const cell = (value, sign, label, side) => `<td class="activity-cell ${side}${value == null ? " is-unknown" : Number(value) === 0 ? " is-zero" : ""}"><span class="activity-number">${signedCount(value, sign)}</span> <span class="activity-category">${esc(label)}</span></td>`;
+    card.innerHTML = `<table class="today-table">
+      <caption class="visually-hidden">Jobs posted and closed today, by job type</caption>
+      <thead class="visually-hidden"><tr>
+        <th scope="col">Posted</th>
+        <th scope="col">Closed</th>
+      </tr></thead>
+      <tbody>${jobTypes.map(([label, key]) => `<tr${key === "unclassified" ? ' class="today-unclassified"' : ""}>
+        ${cell(detail.types?.[key], "+", label, "activity-added")}
+        ${cell(detail.disappeared?.types?.[key], "−", label, "activity-disappeared")}
+      </tr>`).join("")}</tbody>
+    </table>`
+      + '<p class="dedup-note">Duplicate postings are filtered</p>';
     $("#ticker").classList.toggle("has-card", Boolean(card.innerHTML));
     if (!card.innerHTML) setCard(false);
+    else if (!card.hidden) setCard(true);
   }
 
   function setCard(open) {
@@ -317,6 +438,29 @@
     const shown = Boolean(open && card.innerHTML);
     card.hidden = !shown;
     $(".ticker-toggle").setAttribute("aria-expanded", String(shown));
+    if (shown) {
+      const ticker = $("#ticker");
+      const origin = ticker.getBoundingClientRect().left;
+      const trigger = $(".ticker-toggle").getBoundingClientRect();
+      const posted = $("#today-line .activity-added").getBoundingClientRect();
+      const inset = parseFloat(getComputedStyle(card).paddingLeft) + 1;
+      card.style.width = `${Math.min(root.innerWidth - 8, Math.max(320, trigger.width + inset * 2))}px`;
+      const postedWidth = card.querySelector('.activity-added .activity-number').getBoundingClientRect().width;
+      const left = Math.max(4, Math.min(posted.right - postedWidth - inset, root.innerWidth - card.offsetWidth - 4));
+      card.style.left = `${left - origin}px`;
+      const table = card.querySelector('.today-table').getBoundingClientRect();
+      ticker.style.setProperty('--activity-posted-indent', `${Math.max(0, posted.right - postedWidth - table.left)}px`);
+      const closed = $("#today-line .activity-disappeared")?.getBoundingClientRect();
+      const gap = parseFloat(getComputedStyle(card.querySelector('.today-table')).columnGap);
+      const closedWidth = card.querySelector('.activity-disappeared .activity-number').getBoundingClientRect().width;
+      const firstColumn = closed ? closed.right - closedWidth - table.left - gap : 0;
+      // The sentence stays natural; only the pane follows the totals' positions.
+      if (closed && Math.abs(closed.top - posted.top) < 1 && firstColumn > 0 && firstColumn < table.width - gap) {
+        ticker.style.setProperty('--activity-first-column', `${firstColumn}px`);
+      } else {
+        ticker.style.removeProperty('--activity-first-column');
+      }
+    }
   }
 
   function render(payload) {
@@ -328,7 +472,7 @@
     }
     renderHeader(payload);
     if (!bands.length) {
-      content.innerHTML = `<div class="state"><span class="state-icon"><svg aria-hidden="true"><use href="#icon-sources"/></svg></span><h2>No feed status data yet</h2><p>Configured feeds will appear here after status data becomes available.</p></div>`;
+      content.innerHTML = `<div class="state"><span class="state-icon"><svg aria-hidden="true"><use href="#icon-sources"/></svg></span><h2>No feed overview data yet</h2><p>Configured feeds will appear here after status data becomes available.</p></div>`;
       return;
     }
     readPalette();
@@ -337,7 +481,7 @@
 
   function renderError(error) {
     bands = [];
-    content.innerHTML = `<div class="state"><span class="state-icon error"><svg aria-hidden="true"><use href="#icon-alert"/></svg></span><h2>Feed status could not load</h2><p>${esc(error?.message || error || "The feed status service is unavailable.")}</p><button type="button" data-action="retry">Try again</button></div>`;
+    content.innerHTML = `<div class="state"><span class="state-icon error"><svg aria-hidden="true"><use href="#icon-alert"/></svg></span><h2>Feed overview could not load</h2><p>${esc(error?.message || error || "The feed overview service is unavailable.")}</p><button type="button" data-action="retry">Try again</button></div>`;
   }
 
   function setStale(stale) {
@@ -351,7 +495,7 @@
   async function refresh({ initial = false } = {}) {
     if (inFlight) return;
     inFlight = true;
-    if (initial) content.innerHTML = `<div class="state loading-state"><span class="spinner"></span><p>Loading feed status…</p></div>`;
+    if (initial) content.innerHTML = `<div class="state loading-state"><span class="spinner"></span><p>Loading feed overview…</p></div>`;
     try {
       render(await withTimeout(root.OneShotAPI.sources.boards()));
       lastGoodAt = Date.now();
@@ -379,6 +523,7 @@
 
   document.addEventListener("click", event => {
     if (event.target.closest('[data-action="retry"]')) refresh({ initial: true });
+    if (!event.target.closest("#ticker")) setCard(false);
   });
   // A mouse opens the card by hovering; touch and keyboard toggle it. A click
   // while hovering must not close the card the hover just opened.
@@ -389,12 +534,15 @@
   $(".ticker-toggle").addEventListener("click", () => { if (!hoverOpen) setCard($("#ticker-card").hidden); });
   ticker.addEventListener("focusout", event => { if (!ticker.contains(event.relatedTarget)) setCard(false); });
   ticker.addEventListener("keydown", event => {
-    if (event.key === "Escape") { setCard(false); $(".ticker-toggle").focus(); }
+    if (event.key === "Escape") { hoverOpen = false; setCard(false); $(".ticker-toggle").focus(); }
   });
   let resizeTimer = 0;
   addEventListener("resize", () => {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => { if (bands.length) { hideTip(); drawWall(); } }, 80);
+    resizeTimer = setTimeout(() => {
+      if (bands.length) { hideTip(); drawWall(); }
+      if (!$("#ticker-card").hidden) setCard(true);
+    }, 80);
   });
   setInterval(updateClock, 1000);
   setInterval(() => { if (!document.hidden) refresh(); }, REFRESH_MS);

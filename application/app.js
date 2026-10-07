@@ -1,543 +1,675 @@
-(function (root) {
-  "use strict";
 
-  const ACTIVE_GROUPS = Object.freeze([
-    { key: "considering", label: "Considering", stages: ["considering"], color: "#6f7971" },
-    { key: "applied", label: "Applied", stages: ["applied"], color: "#386f9f" },
-    { key: "assessment", label: "Assessment", stages: ["assessment"], color: "#9a641d" },
-    { key: "interview", label: "Interview", stages: ["interview"], color: "#75529a" },
-    { key: "offer", label: "Offer", stages: ["offer"], color: "#347552" },
-  ]);
-  const STAGE_LABELS = Object.freeze({ considering: "Considering", applied: "Applied", assessment: "Assessment", interview: "Interview", offer: "Offer", closed: "Closed" });
-  const CLOSED_REASON_LABELS = Object.freeze({ rejected: "Rejected", withdrawn: "Withdrawn", no_reply: "No reply" });
+  (() => {
+    'use strict';
 
-  const DAY = 86400000;
-  // submitted_at and next_due_at hold a calendar date, but the column is
-  // timestamptz and the server stores the picked day at UTC midnight (or UTC
-  // end of day). Reading one back as an instant and rendering it locally moves
-  // it a day west of UTC -- pick Sep 8, the list says Sep 7 while the drawer's
-  // own date input still says Sep 8. The leading YYYY-MM-DD is the day that was
-  // meant, so every date-only field is compared and formatted from that and
-  // never from a local-time conversion. Event timestamps are real instants and
-  // are deliberately left alone.
-  const calendarDay = value => String(value || "").match(/^\d{4}-\d{2}-\d{2}/)?.[0] || "";
-  const dayIndex = day => Math.floor(Date.parse(`${day}T00:00:00Z`) / DAY);
-  const todayLocal = (now = new Date()) => `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  const safeDate = value => { const date = new Date(String(value)); return value && !Number.isNaN(date.getTime()) ? date : null; };
-  const dueState = (value, now = new Date()) => {
-    const day = calendarDay(value), rank = day ? dayIndex(day) : NaN;
-    if (!day || Number.isNaN(rank)) return { key: "none", label: "No due date", rank: Number.MAX_SAFE_INTEGER };
-    // Whole days between calendar dates, so "due today" lasts the reader's
-    // whole day rather than expiring when UTC end-of-day passes locally.
-    const days = rank - dayIndex(todayLocal(now));
-    if (days < 0) return { key: "overdue", label: `${-days}d overdue`, rank };
-    if (days === 0) return { key: "soon", label: "Due today", rank };
-    if (days === 1) return { key: "soon", label: "Due tomorrow", rank };
-    return { key: days <= 7 ? "upcoming" : "none", label: `Due in ${days}d`, rank };
-  };
-  const DATE_FORMAT = Object.freeze({ month: "short", day: "numeric", year: "numeric" });
-  const formatDay = value => { const day = calendarDay(value); return day ? new Intl.DateTimeFormat(undefined, { ...DATE_FORMAT, timeZone: "UTC" }).format(new Date(`${day}T00:00:00Z`)) : "Not set"; };
-  const formatMoment = value => { const date = safeDate(value); return date ? new Intl.DateTimeFormat(undefined, DATE_FORMAT).format(date) : "Not set"; };
-  const groupForStage = stage => String(stage || "").toLowerCase() === "closed" ? "archive" : ACTIVE_GROUPS.find(group => group.stages.includes(String(stage || "").toLowerCase()))?.key || "considering";
-  const applicationStageLabel = application => String(application.stage || "").toLowerCase() === "closed" ? CLOSED_REASON_LABELS[application.closed_reason] || STAGE_LABELS.closed : STAGE_LABELS[application.stage] || application.stage;
-  const applicationCounts = applications => ({ active: applications.filter(item => String(item.stage).toLowerCase() !== "closed").length, archive: applications.filter(item => String(item.stage).toLowerCase() === "closed").length });
-  const filterApplications = (applications, options = {}, now = new Date()) => applications.filter(application => {
-    const stage = String(application.stage || "considering").toLowerCase(), archived = stage === "closed";
-    if ((options.statusView === "archive") !== archived) return false;
-    const query = String(options.query || "").trim().toLowerCase(), text = `${application.company || ""} ${application.title || ""} ${application.location || ""} ${application.next_action || ""} ${application.closed_reason || ""}`.toLowerCase();
-    if (query && !text.includes(query)) return false;
-    if (options.quickFilter === "attention" && !["overdue", "soon"].includes(dueState(application.next_due_at, now).key)) return false;
-    if (options.quickFilter === "interviews" && stage !== "interview") return false;
-    if (options.quickFilter === "offers" && stage !== "offer") return false;
-    return true;
-  });
-  // The server derives stage_changed_at from the last stage_changed event, so
-  // it is an instant and not a calendar day -- two cards dragged in the same
-  // afternoon still order against each other. updated_at is the fallback for
-  // rows written before the event log existed.
-  const stageMoment = application => Date.parse(application.stage_changed_at || application.updated_at || "") || 0;
-  const sortApplications = (applications, sort = "moved") => [...applications].sort((a, b) => {
-    if (sort === "company") return String(a.company || "").localeCompare(String(b.company || ""));
-    if (sort === "applied") return String(b.submitted_at || "").localeCompare(String(a.submitted_at || ""));
-    if (sort === "updated") return String(b.updated_at || b.events?.[0]?.occurred_at || "").localeCompare(String(a.updated_at || a.events?.[0]?.occurred_at || ""));
-    if (sort === "moved") return stageMoment(b) - stageMoment(a);
-    // Every card without a due date ranks MAX_SAFE_INTEGER and ties. Left there
-    // the tie resolved to whatever order the payload arrived in, which is how a
-    // card you just dragged ended up at the bottom of its new column.
-    return (dueState(a.next_due_at).rank - dueState(b.next_due_at).rank) || (stageMoment(b) - stageMoment(a));
-  });
-  // Auto-apply is rolled out for Greenhouse hosted boards only: the one form
-  // the server knows how to drive. Embedded company-site forms stay manual.
-  const GREENHOUSE_HOSTED = /^https:\/\/(?:job-boards(?:\.eu)?|boards)\.greenhouse\.io\/[^/]+\/jobs\/\d+\/?(?:[?#].*)?$/i;
-  const autoApplyEligible = application => Boolean(application) && !application.external
-    && String(application.stage || "").toLowerCase() === "considering"
-    && GREENHOUSE_HOSTED.test(String(application.apply_url_snapshot || ""));
-  const withTimeout = (promise, milliseconds = 8000) => new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("The applications request timed out.")), milliseconds);
-    Promise.resolve(promise).then(
-      value => { clearTimeout(timer); resolve(value); },
-      error => { clearTimeout(timer); reject(error); },
-    );
-  });
-
-  // A column renders at most this many cards; the rest sit behind "Show more".
-  // The DOM cost of the board is per column, so the cap is too.
-  const COLUMN_CAP = 50;
-  const exported = { ACTIVE_GROUPS, STAGE_LABELS, CLOSED_REASON_LABELS, COLUMN_CAP, calendarDay, formatDay, todayLocal, dueState, groupForStage, applicationStageLabel, applicationCounts, filterApplications, sortApplications, stageMoment, withTimeout, autoApplyEligible };
-  if (typeof module !== "undefined" && module.exports) module.exports = exported;
-  if (!root.document) return;
-
-  const $ = selector => document.querySelector(selector), $$ = selector => [...document.querySelectorAll(selector)];
-  const content = $("#application-content"), drawer = $("#application-drawer"), drawerContent = $("#drawer-content"), addDialog = $("#add-dialog"), addForm = $("#add-form"), applyDialog = $("#apply-dialog"), applyForm = $("#apply-form"), toast = $("#toast");
-  const state = { applications: [], resumes: null, query: "", quickFilter: "", statusView: "active", display: "board", sort: "moved", selectedId: null, dragId: null, picked: new Set(), lastPicked: null, flash: new Set(), expanded: {} };
-  const esc = value => String(value == null ? "" : value).replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
-  const safeHref = value => /^https?:\/\//i.test(String(value || "")) ? String(value) : "";
-  const initials = value => String(value || "?").split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase();
-  const markColor = value => { const colors = ["#244a3a", "#3e5e82", "#74533e", "#5f4a78", "#47636a", "#7a4c55"], sum = [...String(value || "")].reduce((total, character) => total + character.charCodeAt(0), 0); return colors[sum % colors.length]; };
-  const dateInputValue = calendarDay;
-  const stageMutation = (application, stage, closedReason = null) => {
-    const body = { stage, closed_reason: stage === "closed" ? closedReason : null };
-    if (stage === "applied" && application.stage !== "applied") {
-      body.submitted_at = application.submitted_at || todayLocal();
-    }
-    return body;
-  };
-  const selectedApplication = () => state.applications.find(application => String(application.id) === String(state.selectedId));
-  const showToast = (message, action) => { toast.replaceChildren(); const copy = document.createElement("span"); copy.textContent = message; toast.append(copy); if (action) { const button = document.createElement("button"); button.type = "button"; button.textContent = action.label; button.addEventListener("click", async () => { toast.classList.remove("show"); try { await action.run(); } catch (error) { showToast(error.message || "That could not be undone."); } }, { once: true }); toast.append(button); } toast.classList.add("show"); clearTimeout(showToast.timer); showToast.timer = setTimeout(() => toast.classList.remove("show"), action ? 6500 : 3400); };
-
-  function dueBadge(application) { if (!application.next_due_at) return ""; const due = dueState(application.next_due_at); return `<span class="due-badge ${due.key}"><svg aria-hidden="true"><use href="#icon-calendar"/></svg>${esc(due.label)}</span>`; }
-  // Both trailing rows are conditional. Rendered unconditionally they cost
-  // ~80px of every card to print "No next action" and hold an empty badge, and
-  // a Considering column after a mass-apply run is almost entirely those.
-  function applicationCard(application) {
-    const key = String(application.id), picked = state.picked.has(key);
-    const nextStep = application.next_action ? `<span class="next-step"><span>Next action</span><p>${esc(application.next_action)}</p></span>` : "";
-    const footer = application.next_due_at ? `<span class="card-footer">${dueBadge(application)}<i class="card-open"><svg aria-hidden="true"><use href="#icon-chevron"/></svg></i></span>` : "";
-    return `<article class="application-card${picked ? " picked" : ""}${state.flash.has(key) ? " just-moved" : ""}" data-card="${esc(key)}"><input class="card-pick" type="checkbox" data-pick="${esc(key)}"${picked ? " checked" : ""} aria-label="Select ${esc(application.title)} at ${esc(application.company)}"><button class="card-face" type="button" draggable="true" data-application-id="${esc(key)}" aria-label="Open ${esc(application.title)} at ${esc(application.company)}"><span class="card-company-row"><i class="company-mark" style="--mark-color:${markColor(application.company)}">${esc(initials(application.company))}</i><strong>${esc(application.company || "Unknown company")}</strong></span><h3>${esc(application.title || "Untitled role")}</h3><p class="card-location">${esc(application.location || "Location not set")}</p>${nextStep}${footer}</button></article>`;
-  }
-  function boardMarkup(applications) {
-    if (state.statusView === "archive") return listMarkup(applications);
-    return `<div class="board${state.picked.size ? " selecting" : ""}" aria-label="Active application pipeline">${ACTIVE_GROUPS.map(group => {
-      const items = applications.filter(application => groupForStage(application.stage) === group.key);
-      const shown = state.expanded[group.key] ? items : items.slice(0, COLUMN_CAP), hidden = items.length - shown.length;
-      const body = items.length
-        ? shown.map(applicationCard).join("") + (hidden ? `<button class="show-more" type="button" data-expand="${group.key}">Show ${hidden} more</button>` : "")
-        : '<div class="empty-column">No applications here</div>';
-      return `<section class="board-column" data-drop-group="${group.key}" style="--column-color:${group.color}"><header class="column-header"><span></span><h2>${group.label}</h2><b>${hidden ? `${shown.length} / ${items.length}` : items.length}</b></header><div class="column-stack">${body}</div></section>`;
-    }).join("")}</div>`;
-  }
-  function listMarkup(applications) {
-    return `<div class="application-list"><div class="list-head"><span>Application</span><span>Stage</span><span>Applied</span><span>Next action</span><span>Due</span><span></span></div>${applications.map(application => { const due = dueState(application.next_due_at); return `<button class="application-row" type="button" data-application-id="${esc(application.id)}"><span class="row-role"><i class="company-mark" style="--mark-color:${markColor(application.company)}">${esc(initials(application.company))}</i><div><strong>${esc(application.title || "Untitled role")}</strong><span>${esc(application.company || "Unknown company")}${application.location ? ` · ${esc(application.location)}` : ""}</span></div></span><span class="stage-pill archive-stage">${esc(applicationStageLabel(application))}</span><span class="row-date">${esc(application.submitted_at ? formatDay(application.submitted_at) : "Not applied")}</span><span class="row-next">${esc(application.next_action || "No next action")}</span><span class="${application.next_due_at ? `due-badge ${due.key}` : "row-date"}">${esc(application.next_due_at ? due.label : "—")}</span><svg class="row-chevron" aria-hidden="true"><use href="#icon-chevron"/></svg></button>`; }).join("")}</div>`;
-  }
-  function emptyMarkup() {
-    const filtered = Boolean(state.query || state.quickFilter);
-    return `<div class="empty-state"><i class="empty-icon"><svg aria-hidden="true"><use href="#${filtered ? "icon-search" : "icon-briefcase"}"/></svg></i><h2>${filtered ? "No matching applications" : state.statusView === "archive" ? "Your archive is empty" : "No applications yet"}</h2><p>${filtered ? "Try a broader search or clear the quick filter." : state.statusView === "archive" ? "Closed applications will appear here." : "Add an application to begin tracking it."}</p>${filtered ? '<button class="button" type="button" data-action="clear-filters">Clear filters</button>' : state.statusView === "active" ? '<button class="button primary" type="button" data-action="open-add">Add application</button>' : ""}</div>`;
-  }
-  // Each column is its own scrollport now, so replacing innerHTML would drop
-  // every reader back to the top of every column on any state change.
-  const columnOffsets = () => Object.fromEntries($$(".board-column").map(column => [column.dataset.dropGroup, column.querySelector(".column-stack")?.scrollTop || 0]));
-  const restoreOffsets = offsets => $$(".board-column").forEach(column => {
-    const stack = column.querySelector(".column-stack"), at = offsets[column.dataset.dropGroup];
-    if (stack && at) stack.scrollTop = at;
-  });
-  function render() {
-    const offsets = columnOffsets();
-    const counts = applicationCounts(state.applications), visible = sortApplications(filterApplications(state.applications, state), state.sort);
-    $("#active-count").textContent = counts.active; $("#archive-count").textContent = counts.archive;
-    $("#active-tab").setAttribute("aria-selected", String(state.statusView === "active")); $("#archive-tab").setAttribute("aria-selected", String(state.statusView === "archive"));
-    content.setAttribute("aria-labelledby", state.statusView === "active" ? "active-tab" : "archive-tab"); $(".display-switch").hidden = state.statusView === "archive";
-    $$('[data-display]').forEach(button => button.setAttribute("aria-pressed", String(button.dataset.display === state.display)));
-    content.innerHTML = visible.length ? (state.display === "board" ? boardMarkup(visible) : listMarkup(visible)) : emptyMarkup();
-    restoreOffsets(offsets);
-    paintSelection();
-  }
-  // Extends the selection from the last box you ticked to `key`, in the order
-  // the cards are on screen -- the only order a reader can see.
-  function pickRange(key) {
-    const keys = $$("[data-pick]").map(input => input.dataset.pick);
-    const from = keys.indexOf(state.lastPicked), to = keys.indexOf(key);
-    if (from > -1 && to > -1) keys.slice(Math.min(from, to), Math.max(from, to) + 1).forEach(each => state.picked.add(each));
-  }
-  function paintSelection() {
-    $$(".application-card").forEach(card => card.classList.toggle("picked", state.picked.has(card.dataset.card)));
-    $$("[data-pick]").forEach(input => { input.checked = state.picked.has(input.dataset.pick); });
-    $(".board")?.classList.toggle("selecting", state.picked.size > 0);
-    $("#bulk-count").textContent = `${state.picked.size} selected`;
-    $("#bulk-bar").classList.toggle("show", state.picked.size > 0);
-  }
-  // The card lands at the top of its new column under the default sort, but a
-  // reader on another sort needs to be shown where it went.
-  function revealMoved(group) {
-    const stack = $(`[data-drop-group="${group}"] .column-stack`); if (!stack) return;
-    const landed = stack.querySelector(".just-moved");
-    stack.scrollTop = landed ? Math.max(0, landed.offsetTop - stack.offsetTop - 8) : 0;
-  }
-  function flashMoved(ids, group) {
-    state.flash = new Set(ids.map(String));
-    render();
-    revealMoved(group);
-    clearTimeout(flashMoved.timer);
-    flashMoved.timer = setTimeout(() => { state.flash.clear(); render(); }, 2400);
-  }
-  function stageOptions(application) { return Object.entries(STAGE_LABELS).map(([value, label]) => `<option value="${value}" ${application.stage === value ? "selected" : ""}>${label}</option>`).join(""); }
-  function closedReasonOptions(application) { return `<option value="" disabled ${application.closed_reason ? "" : "selected"}>Choose a reason</option>${Object.entries(CLOSED_REASON_LABELS).map(([value, label]) => `<option value="${value}" ${application.closed_reason === value ? "selected" : ""}>${label}</option>`).join("")}`; }
-  function resumeOptions() { return (state.resumes || []).map(name => `<option value="${esc(name)}"></option>`).join(""); }
-  function historyMarkup(events) {
-    const stageEvents = events.filter(event => event.to_stage);
-    if (!stageEvents.length) return '<div class="empty-column">No stage history yet</div>';
-    return stageEvents.map(event => `<div class="editor-history-row"><time datetime="${esc(event.occurred_at || "")}">${esc(formatMoment(event.occurred_at))}</time><div><strong>${esc(STAGE_LABELS[event.to_stage] || event.to_stage)}</strong></div></div>`).join("");
-  }
-  function renderDrawer() {
-    const application = selectedApplication(); if (!application) return;
-    const locked = application.external ? "" : " disabled", source = safeHref(application.apply_url_snapshot), events = application.events || [];
-    const closed = application.stage === "closed";
-    drawerContent.innerHTML = `<form id="editor-form" class="drawer-form"><header class="drawer-head"><i class="company-mark" style="--mark-color:${markColor(application.company)}">${esc(initials(application.company))}</i><div class="drawer-title"><h2 id="drawer-title">${esc(application.title || "Untitled role")}</h2><p>${esc(application.company || "Unknown company")}${application.location ? ` · ${esc(application.location)}` : ""}</p></div><button class="icon-button" type="button" data-action="close-drawer" aria-label="Close application details"><svg aria-hidden="true"><use href="#icon-close"/></svg></button></header><div class="drawer-body"><div class="form-grid"><label>Company<input name="company" required value="${esc(application.company || "")}"${locked}></label><label>Role<input name="title" required value="${esc(application.title || "")}"${locked}></label><label>Stage<select name="stage">${stageOptions(application)}</select></label><label data-closed-reason ${closed ? "" : "hidden"}>Closed reason<select name="closed_reason" required${closed ? "" : " disabled"}>${closedReasonOptions(application)}</select></label><label>Date applied<input name="submitted_at" type="date" value="${esc(dateInputValue(application.submitted_at))}"></label><label>Location<input name="location" value="${esc(application.location || "")}" placeholder="Optional"${locked}></label><label>Resume sent<input name="resume_variant" list="resume-options" value="${esc(application.resume_variant || "")}" placeholder="Optional" autocomplete="off"><datalist id="resume-options">${resumeOptions()}</datalist></label><label class="full">Posting URL<input name="url" type="url" value="${esc(application.apply_url_snapshot || "")}"${locked}></label><label>Next action<input name="next_action" value="${esc(application.next_action || "")}" placeholder="Optional"></label><label>Next-action date<input name="next_due_at" type="date" value="${esc(dateInputValue(application.next_due_at))}"></label><label class="full">Notes<textarea name="note" rows="5" placeholder="Optional">${esc(application.note || "")}</textarea></label></div><section class="editor-history"><h3>History</h3><div class="editor-history-list">${historyMarkup(events)}</div></section></div><footer class="drawer-footer"><button class="button danger" type="button" data-action="delete">Delete</button><div>${source ? `<a class="button" href="${esc(source)}" target="_blank" rel="noopener noreferrer">Open posting <svg aria-hidden="true"><use href="#icon-external"/></svg></a>` : ""}${autoApplyEligible(application) ? '<button class="button primary" type="button" data-action="auto-apply">Apply via Greenhouse</button>' : ""}<button class="button" type="button" data-action="tailor-resume">Tailor resume</button><button class="button" type="button" data-action="close-drawer">Cancel</button><button class="button primary" type="submit">Save</button></div></footer></form>`;
-  }
-  async function loadResumeNames() {
-    if (state.resumes) return;
-    state.resumes = [];
-    try { const payload = await root.OneShotAPI.resumes.list(); state.resumes = (payload?.resumes || []).map(resume => resume.name).filter(Boolean); } catch (_) { /* Suggestions are optional; the field is free text. */ }
-  }
-  // Build a resume target from this application and hand off to the studio,
-  // which reads the #target= hash and preselects it. The server is idempotent,
-  // so a second press reopens the same target instead of forking it.
-  async function tailorResume(button) {
-    const application = selectedApplication(); if (!application) return;
-    button.disabled = true;
-    try {
-      const target = await root.OneShotAPI.resumes.targetFromApplication(application.id);
-      location.assign(`/resume/#target=${encodeURIComponent(target.id)}`);
-    } catch (error) {
-      showToast(error.message || "Resume target could not be created.");
-      button.disabled = false;
-    }
-  }
-  // -- auto-apply -----------------------------------------------------
-  // The server pairs every question on the Greenhouse form with a value from
-  // the profile or the saved answer bank; the dialog shows that pairing so the
-  // reader confirms exactly what will be typed. Nothing is sent until they do.
-  const SOURCE_LABELS = Object.freeze({ profile: "From your profile", saved: "Saved answer", resume: "Rendered PDF", missing: "Required", skipped: "Optional" });
-  function applyFieldMarkup(field) {
-    const name = esc(field.name), label = esc(field.label), source = `<small class="apply-source">${esc(SOURCE_LABELS[field.source] || "")}</small>`;
-    const requiredAttr = field.required ? " required" : "", wide = field.type === "textarea" || field.type === "multiselect" ? " full" : "";
-    if (field.type === "file") {
-      // The resume row is a picker over the account's resumes rather than a
-      // fixed note, so the attached document is visible and changeable.
-      const preview = state.applyPreview || {}, chosen = preview.resume?.id, options = preview.resumes || [];
-      if (!options.length) return `<label class="full apply-missing">${label}${source}<input type="text" value="No resume yet — build one in the Resume studio first" disabled></label>`;
-      return `<label class="full">${label}<small class="apply-source">Attached as a PDF</small><select name="__resume" required>${options.map(resume => `<option value="${esc(resume.id)}"${String(resume.id) === String(chosen) ? " selected" : ""}>${esc(resume.name || `Resume ${resume.id}`)}</option>`).join("")}</select></label>`;
-    }
-    if (field.type === "select") return `<label class="${wide.trim()}${field.source === "missing" ? " apply-missing" : ""}">${label}${source}<select name="${name}"${requiredAttr}><option value="">Choose…</option>${field.options.map(option => `<option value="${esc(option)}"${option === field.value ? " selected" : ""}>${esc(option)}</option>`).join("")}</select></label>`;
-    if (field.type === "multiselect") { const chosen = new Set(field.value || []); return `<fieldset class="full apply-choices${field.source === "missing" ? " apply-missing" : ""}"><legend>${label}${source}</legend>${field.options.map(option => `<label><input type="checkbox" name="${name}" value="${esc(option)}"${chosen.has(option) ? " checked" : ""}>${esc(option)}</label>`).join("")}</fieldset>`; }
-    if (field.type === "textarea") return `<label class="full${field.source === "missing" ? " apply-missing" : ""}">${label}${source}<textarea name="${name}" rows="4"${requiredAttr}>${esc(field.value || "")}</textarea></label>`;
-    return `<label class="${wide.trim()}${field.source === "missing" ? " apply-missing" : ""}">${label}${source}<input name="${name}" value="${esc(field.value || "")}"${requiredAttr}></label>`;
-  }
-  function renderApplyDialog(preview) {
-    state.applyPreview = preview;
-    $("#apply-subtitle").textContent = `${preview.title || ""} · ${preview.company || ""}`;
-    $("#apply-fields").innerHTML = preview.fields.map(applyFieldMarkup).join("");
-    const status = $("#apply-status"); status.hidden = !preview.missing.length; status.classList.remove("error");
-    status.textContent = preview.missing.length ? `${preview.missing.length} required question${preview.missing.length === 1 ? "" : "s"} still need an answer.` : "";
-    $("#apply-submit").disabled = !preview.resume;
-  }
-  async function openAutoApply(button) {
-    const application = selectedApplication(); if (!application) return;
-    button.disabled = true;
-    try {
-      const preview = await root.OneShotAPI.applications.autoApplyPreview(application.id);
-      renderApplyDialog(preview);
-      if (!applyDialog.open) applyDialog.showModal();
-    } catch (error) {
-      showToast(error.message || "The Greenhouse form could not be read.");
-    } finally { button.disabled = false; }
-  }
-  function collectApplyAnswers() {
-    const answers = {}, multi = {};
-    for (const [name, value] of new FormData(applyForm).entries()) {
-      if (name === "__resume") continue;
-      const field = (state.applyPreview?.fields || []).find(item => item.name === name);
-      if (field?.type === "multiselect") { (multi[name] ||= []).push(String(value)); continue; }
-      if (String(value).trim() !== "") answers[name] = String(value).trim();
-    }
-    return { ...answers, ...multi };
-  }
-  async function submitAutoApply() {
-    const application = selectedApplication(), preview = state.applyPreview; if (!application || !preview) return;
-    const submit = $("#apply-submit"), status = $("#apply-status");
-    submit.disabled = true; status.hidden = false; status.classList.remove("error"); status.textContent = "Submitting through Greenhouse… this can take up to a minute.";
-    try {
-      const pickedResume = Number(new FormData(applyForm).get("__resume")) || preview.resume?.id || null;
-      const outcome = await root.OneShotAPI.applications.autoApply(application.id, { answers: collectApplyAnswers(), confirm: true, resume_id: pickedResume });
-      Object.assign(application, outcome?.application || { stage: "applied" });
-      applyDialog.close(); closeDrawer();
-      flashMoved([application.id], "applied");
-      showToast(`Applied to ${application.company}.`);
-    } catch (error) {
-      status.classList.add("error"); status.textContent = error.message || "The submission failed.";
-      showToast(error.message || "The submission failed.");
-    } finally { submit.disabled = false; }
-  }
-  async function openApplication(id) {
-    state.selectedId = id;
-    try { const detail = await root.OneShotAPI.applications.get(id); state.applications = state.applications.map(item => String(item.id) === String(id) ? { ...item, ...detail } : item); } catch (_) { /* Keep the list record editable if history is unavailable. */ }
-    renderDrawer(); if (!drawer.open) drawer.showModal(); history.replaceState(null, "", `#app=${encodeURIComponent(id)}`);
-  }
-  function closeDrawer() { if (drawer.open) drawer.close(); state.selectedId = null; history.replaceState(null, "", location.pathname + location.search); }
-  // The move to Applied is not only a stage change: the server stamps
-  // submitted_at and fills in a follow-up (next_action, next_due_at) when the
-  // request left them out. Undo therefore has to restore those three fields
-  // explicitly -- sending the stage alone leaves the follow-up it created
-  // sitting on a Considering card that never had one.
-  async function updateStage(application, stage) {
-    const previous = application.stage; if (!stage || stage === previous) return;
-    const before = {
-      closed_reason: application.closed_reason || null,
-      submitted_at: application.submitted_at || null,
-      next_action: application.next_action || "",
-      next_due_at: application.next_due_at || null,
+    const PAGE_SIZE = 50;
+    const DAY = 86400000;
+    const COLUMNS = [
+      { key: 'replied', label: 'Replied', caption: 'A conversation has started', color: '#859584', line: '#ced8cb', icon: 'chat', empty: 'Your next conversation starts here.' },
+      { key: 'assessment', label: 'Assessment', caption: 'A chance to show your work', color: '#b5a080', line: '#e5dccb', icon: 'resume', empty: 'Tests and take-homes, with room to focus.' },
+      { key: 'interview', label: 'Interview', caption: 'Meet the people behind the role', color: '#8b9eab', line: '#d4dee5', icon: 'calendar', empty: 'From first screens to final rounds.' },
+      { key: 'offer', label: 'Offer', caption: 'Your next chapter, within reach', color: '#528565', line: '#bcd2bf', icon: 'briefcase', empty: 'Good things are ahead.' },
+    ];
+    const STAGES = ['sent', ...COLUMNS.map(c => c.key), 'closed'];
+    const LABELS = { sent: 'Submitted', replied: 'Replied', assessment: 'Assessment', interview: 'Interview', offer: 'Offer', closed: 'Closed' };
+    const REASONS = { rejected: 'Rejected', withdrawn: 'Withdrawn', no_reply: 'No reply' };
+    const $ = selector => document.querySelector(selector);
+    const $$ = selector => [...document.querySelectorAll(selector)];
+    const icon = name => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+    const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    const clone = value => JSON.parse(JSON.stringify(value));
+    // Calendar fields are dates, not instants. UTC arithmetic avoids DST and
+    // formatting in UTC preserves the day picked by users west of UTC.
+    const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+    const dayIndex = day => Math.floor(Date.parse(`${day}T00:00:00Z`) / DAY);
+    const dateAt = offset => new Date((dayIndex(today()) + offset) * DAY).toISOString().slice(0, 10);
+    const validDay = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(dayIndex(value)) && new Date(dayIndex(value) * DAY).toISOString().slice(0, 10) === value;
+    const formatDay = (day, year = false) => validDay(day) ? new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', ...(year ? { year: 'numeric' } : {}), timeZone: 'UTC' }).format(new Date(dayIndex(day) * DAY)) : '—';
+    const age = app => validDay(app.submittedAt) ? Math.max(0, dayIndex(today()) - dayIndex(app.submittedAt)) : null;
+    const dueDays = app => validDay(app.nextDue) ? dayIndex(app.nextDue) - dayIndex(today()) : Infinity;
+    const inPipeline = app => COLUMNS.some(c => c.key === app.stage);
+    const waitingOnCompany = app => app.taskState === 'waiting';
+    const taskGroup = app => waitingOnCompany(app) ? 'waiting' : dueDays(app) < 0 ? 'overdue' : dueDays(app) === 0 ? 'today' : dueDays(app) === Infinity ? 'ready' : 'later';
+    const viewFor = stage => stage === 'sent' || stage === 'closed' ? stage : 'pipeline';
+    const dueInfo = app => {
+      const days = dueDays(app);
+      if (!Number.isFinite(days)) return null;
+      if (days < 0) return { class: 'overdue', text: `${Math.abs(days)}d overdue` };
+      if (days === 0) return { class: 'today', text: 'Due today' };
+      if (days === 1) return { class: 'soon', text: 'Tomorrow' };
+      return { class: days <= 6 ? 'soon' : '', text: formatDay(app.nextDue) };
     };
-    const body = stageMutation(application, stage);
-    const updated = await root.OneShotAPI.applications.update(application.id, body); Object.assign(application, body, updated || {}); render(); renderDrawer(); showToast(`Moved to ${STAGE_LABELS[stage]}.`, { label: "Undo", run: async () => { const undoBody = { ...stageMutation(application, previous, before.closed_reason), submitted_at: before.submitted_at, next_action: before.next_action, next_due_at: before.next_due_at }; const restored = await root.OneShotAPI.applications.update(application.id, undoBody); Object.assign(application, undoBody, restored || {}); render(); renderDrawer(); } });
-  }
-  // The tracker has no bulk endpoint, so this PATCHes each record six at a
-  // time -- enough to keep a fifty-card move quick without opening fifty
-  // sockets. The board moves first and rolls back only what the server refused.
-  const inBatches = async (items, run) => {
-    for (let cursor = 0; cursor < items.length; cursor += 6) {
-      await Promise.all(items.slice(cursor, cursor + 6).map(run));
-    }
-  };
-  async function moveMany(moving, stage) {
-    if (!moving.length) return;
-    const before = moving.map(application => ({
-      application, stage: application.stage, stage_changed_at: application.stage_changed_at,
-      closed_reason: application.closed_reason || null, submitted_at: application.submitted_at || null,
-      next_action: application.next_action || "", next_due_at: application.next_due_at || null,
-    }));
-    // One instant per card, descending, so a batch keeps the order it had
-    // rather than shuffling on a shared timestamp. The server's own value
-    // replaces these as each response lands.
-    const at = Date.now();
-    moving.forEach((application, index) => { application.stage = stage; application.stage_changed_at = new Date(at - index).toISOString(); });
-    state.picked.clear();
-    flashMoved(moving.map(application => application.id), groupForStage(stage));
-    const failed = [];
-    await inBatches(moving, async application => {
-      const body = stageMutation(application, stage);
-      try { const updated = await root.OneShotAPI.applications.update(application.id, body); Object.assign(application, body, updated || {}); }
-      catch (_) { failed.push(application); }
-    });
-    if (failed.length) {
-      before.filter(entry => failed.includes(entry.application)).forEach(entry => Object.assign(entry.application, { stage: entry.stage, stage_changed_at: entry.stage_changed_at }));
-      render();
-      showToast(failed.length === moving.length ? "Nothing could be moved. Check your connection." : `${failed.length} of ${moving.length} could not be moved.`);
-      return;
-    }
-    render();
-    showToast(`Moved ${moving.length} application${moving.length === 1 ? "" : "s"} to ${STAGE_LABELS[stage]}.`, { label: "Undo", run: async () => {
-      // Undo restores the timestamp with the stage: leave it and the card stays
-      // pinned to the top of the column it just came back to.
-      await inBatches(before, async entry => {
-        const body = { ...stageMutation(entry.application, entry.stage, entry.closed_reason), submitted_at: entry.submitted_at, next_action: entry.next_action, next_due_at: entry.next_due_at };
-        const restored = await root.OneShotAPI.applications.update(entry.application.id, body);
-        Object.assign(entry.application, body, restored || {}, { stage_changed_at: entry.stage_changed_at });
-      });
-      state.flash.clear();
-      render();
-    } });
-  }
-
-  // Deleting is immediate and skips the confirm dialog by request, so the
-  // toast carries the whole safety net. DELETE is permanent server-side -- there is no restore
-  // endpoint -- so undo re-creates each record from the snapshot taken here and
-  // replays its fields. The rows come back with new ids and without their event
-  // history; everything the board shows is restored.
-  const recreate = async snapshot => {
-    const created = snapshot.external
-      ? await root.OneShotAPI.applications.createExternal({
-          company: snapshot.company || "", title: snapshot.title || "",
-          url: snapshot.apply_url_snapshot || "", location: snapshot.location || "", note: snapshot.note || "",
-        })
-      : await root.OneShotAPI.jobs.addToApplications(snapshot.job_id, {
-          id: snapshot.job_id, title: snapshot.title, company: snapshot.company,
-          location: snapshot.location, apply_url: snapshot.apply_url_snapshot,
-        });
-    if (!created) return null;
-    const body = {
-      stage: snapshot.stage, closed_reason: snapshot.closed_reason || null,
-      submitted_at: snapshot.submitted_at || null, next_action: snapshot.next_action || "",
-      next_due_at: snapshot.next_due_at || null, note: snapshot.note || "",
-      resume_variant: snapshot.resume_variant || "",
+    const safeUrl = value => { try { const url = new URL(value); return ['https:', 'http:'].includes(url.protocol) ? url.href : ''; } catch { return ''; } };
+    const companyMark = company => {
+      const palettes = [['#eaf0eb', '#4d6f56'], ['#eeeaf2', '#6c5c7d'], ['#eaf0f3', '#526c7a'], ['#f2ece6', '#8a6e52'], ['#f1e9e7', '#8a625c']];
+      const hash = [...company].reduce((n, c) => n + c.charCodeAt(0), 0);
+      const [bg, color] = palettes[hash % palettes.length];
+      const initial = company.trim().charAt(0).toUpperCase() || '?';
+      return `<i class="company-mark" aria-hidden="true" style="--mark-bg:${bg};--mark-color:${color}">${esc(initial)}</i>`;
     };
-    const updated = await root.OneShotAPI.applications.update(created.id, body).catch(() => null);
-    return { ...created, ...body, ...(updated || {}) };
-  };
-  async function deleteMany(removing) {
-    if (!removing.length) return;
-    const snapshots = removing.map(application => ({ ...application }));
-    const ids = new Set(removing.map(application => String(application.id)));
-    const tracked = removing.some(application => !application.external);
-    state.applications = state.applications.filter(application => !ids.has(String(application.id)));
-    state.picked.clear();
-    if (state.selectedId && ids.has(String(state.selectedId))) closeDrawer();
-    render();
-    const failed = [];
-    await inBatches(removing, async application => {
-      try { await root.OneShotAPI.applications.remove(application.id); }
-      catch (_) { failed.push(application); }
-    });
-    if (failed.length) {
-      // Put back the ones the server kept, so the board matches the server.
-      state.applications = state.applications.concat(failed);
-      render();
-      showToast(failed.length === removing.length ? "Nothing could be deleted. Check your connection." : `${failed.length} of ${removing.length} could not be deleted.`);
-      return;
+
+    const state = { applications: [], loading: true, error: '', busy: false, view: 'pipeline', filters: { pipeline: { query: '', sort: 'next' }, sent: { query: '', sort: 'newest', age: 'all' }, closed: { query: '', sort: 'recent', outcome: 'all' } }, page: 1, selected: new Set(), selectedId: null, responseId: null, completionId: null, closureId: null, agendaWeek: 0, agendaOverdueOpen: false, mobileStage: 'replied', dragId: null, flashId: null };
+    const currentFilters = () => state.filters[state.view];
+    const byId = id => state.applications.find(a => a.id === id);
+    const api = globalThis.OneShotAPI;
+    const calendarDay = value => String(value || '').slice(0, 10);
+    const uiStage = stage => ['applied', 'considering'].includes(stage) ? 'sent' : stage;
+    const wireStage = stage => stage === 'sent' ? 'applied' : stage;
+    function fromAPI(raw) {
+      const stage = uiStage(raw.stage);
+      return {
+        id: String(raw.id), jobId: raw.job_id, external: raw.external === true,
+        company: raw.company || '', role: raw.title || '', location: raw.location || '',
+        url: raw.apply_url_snapshot || '', notes: raw.note || '', resumeVariant: raw.resume_variant || '',
+        submittedAt: calendarDay(raw.submitted_at), nextAction: raw.next_action || '',
+        nextDue: calendarDay(raw.next_due_at), taskState: raw.task_state || (stage === 'sent' ? 'waiting' : 'action'),
+        waitingFor: raw.waiting_for || '', stage, closedReason: raw.closed_reason,
+        lastOpenStage: uiStage(raw.last_open_stage || (stage === 'closed' ? 'applied' : raw.stage)),
+        updatedAt: raw.updated_at || '',
+        events: (raw.events || []).map(e => ({ at: e.occurred_at, text:
+          e.event_type === 'stage_changed'
+            ? (/^(Moved to |Closed · |Restored to |Change undone)/.test(e.note || '') ? e.note : `${e.to_stage === 'considering' ? 'Previously considering' : `Moved to ${LABELS[uiStage(e.to_stage)] || e.to_stage}`}${e.note ? ` · ${e.note}` : ''}`)
+            : e.note || 'Application details updated'
+        })).sort((a, b) => String(b.at).localeCompare(String(a.at))),
+      };
     }
-    if (tracked) await root.OneShotOpportunityCount.refresh().catch(() => {});
-    showToast(`Deleted ${removing.length} application${removing.length === 1 ? "" : "s"}.`, { label: "Undo", run: async () => {
-      const restored = [];
-      await inBatches(snapshots, async snapshot => {
-        const application = await recreate(snapshot).catch(() => null);
-        if (application) restored.push(application);
+    function toAPI(app, activity) {
+      return {
+        stage: wireStage(app.stage), closed_reason: app.stage === 'closed' ? app.closedReason : null,
+        submitted_at: app.submittedAt || null, next_action: app.nextAction || null,
+        next_due_at: app.nextDue || null, note: app.notes, resume_variant: app.resumeVariant || null,
+        task_state: app.taskState, waiting_for: app.waitingFor,
+        ...(app.external ? { company: app.company, title: app.role, location: app.location, apply_url_snapshot: app.url } : {}),
+        ...(activity ? { activity } : {}),
+      };
+    }
+    function replaceApplication(app) {
+      const index = state.applications.findIndex(a => a.id === app.id);
+      if (index >= 0) state.applications[index] = app;
+    }
+    async function loadApplications() {
+      if (state.busy || $$('dialog').some(d => d.open)) return;
+      setBusy(true);
+      try {
+        const result = await api.applications.list();
+        state.applications = result.applications.map(fromAPI);
+        state.error = '';
+      } catch (error) { state.error = error.message || 'Could not load applications.'; }
+      setBusy(false); state.loading = false; state.selected.clear(); render();
+    }
+    function setBusy(value) {
+      state.busy = value;
+      $('#workspace').setAttribute('aria-busy', String(value));
+      $$('button, .agenda input[type=checkbox]').forEach(button => {
+        if (value) { button.dataset.wasDisabled = String(button.disabled); button.disabled = true; }
+        else if (button.dataset.wasDisabled !== undefined) { button.disabled = button.dataset.wasDisabled === 'true'; delete button.dataset.wasDisabled; }
       });
-      state.applications = state.applications.concat(restored);
-      if (tracked) await root.OneShotOpportunityCount.refresh().catch(() => {});
+    }
+
+    function visibleApplications() {
+      const f = currentFilters();
+      const query = f.query.trim().toLocaleLowerCase();
+      return state.applications.filter(app => {
+        if (viewFor(app.stage) !== state.view) return false;
+        if (query && !`${app.company} ${app.role} ${app.location || ''} ${app.nextAction || ''} ${app.waitingFor || ''}`.toLocaleLowerCase().includes(query)) return false;
+        if (f.age === '7' && (age(app) === null || age(app) >= 7)) return false;
+        if (f.age === '30' && (age(app) === null || age(app) < 30)) return false;
+        if (f.outcome && f.outcome !== 'all' && app.closedReason !== f.outcome) return false;
+        return true;
+      }).sort((a, b) => {
+        if (f.sort === 'company') return a.company.localeCompare(b.company) || a.role.localeCompare(b.role) || a.id.localeCompare(b.id);
+        if (f.sort === 'oldest') return a.submittedAt.localeCompare(b.submittedAt) || a.id.localeCompare(b.id);
+        if (f.sort === 'newest') return b.submittedAt.localeCompare(a.submittedAt) || a.id.localeCompare(b.id);
+        const recent = String(b.updatedAt).localeCompare(String(a.updatedAt)) || a.id.localeCompare(b.id);
+        if (f.sort === 'next') return (dueDays(a) - dueDays(b) || recent);
+        return recent;
+      });
+    }
+
+    function renderHeader() {
+      const apps = state.applications, active = apps.filter(inPipeline);
+      $('#count-pipeline').textContent = active.length;
+      $('#count-sent').textContent = apps.filter(a => a.stage === 'sent').length;
+      $('#count-closed').textContent = apps.filter(a => a.stage === 'closed').length;
+      $$('[data-view]').forEach(button => { const selected = button.dataset.view === state.view; button.setAttribute('aria-selected', String(selected)); button.tabIndex = selected ? 0 : -1; });
+      $('#panel').setAttribute('aria-labelledby', `tab-${state.view}`);
+      $('#records-toolbar').hidden = state.view === 'pipeline';
+      $('#sort-control').hidden = state.view === 'pipeline';
+      $('#age-control').hidden = state.view !== 'sent';
+      $('#outcome-control').hidden = state.view !== 'closed';
+      $('#age-filter').value = state.filters.sent.age;
+      $('#outcome-filter').value = state.filters.closed.outcome;
+      $('#sort').value = currentFilters().sort;
+      const placeholder = { pipeline: 'Search tasks, companies, or roles…', sent: 'Find a submitted application…', closed: 'Search closed applications…' }[state.view];
+      $('#search').placeholder = placeholder;
+    }
+
+    function deadlineMarkup(app, className) {
+      if (waitingOnCompany(app)) return `<span class="${className}">Waiting</span>`;
+      const days = dueDays(app);
+      const label = days < 0 ? `${Math.abs(days)}d overdue` : days === 0 ? 'Due today' : days === 1 ? 'Tomorrow' : days === Infinity ? 'No deadline' : formatDay(app.nextDue);
+      const urgency = days < 0 ? 'overdue' : days === 0 ? 'today' : '';
+      return `<span class="${className} ${urgency}"${validDay(app.nextDue) ? ` title="${esc(formatDay(app.nextDue, true))}"` : ''}>${esc(label)}</span>`;
+    }
+    function cardMarkup(app) {
+      const group = taskGroup(app), waiting = waitingOnCompany(app);
+      const task = waiting ? app.waitingFor || 'Waiting on company' : app.nextAction || 'Set a next step';
+      return `<button class="card card-open ${group}" type="button" draggable="true" data-open="${esc(app.id)}" data-drag="${esc(app.id)}" aria-label="${esc(`${app.company}, ${app.role}, ${task}`)}">
+        <span class="card-identity" title="${esc(`${app.company} · ${app.role}`)}"><strong>${esc(app.company)}</strong> · ${esc(app.role)}</span><span class="card-drag" aria-hidden="true">${icon('drag')}</span>
+        <span class="card-task${waiting ? ' waiting' : ''}">${esc(task)}</span>${deadlineMarkup(app, 'card-deadline')}
+      </button>`;
+    }
+
+    // The agenda projects existing dated next actions; records and workflows stay shared.
+    function agendaApplications() {
+      const query = state.filters.pipeline.query.trim().toLocaleLowerCase();
+      return state.applications.filter(app => inPipeline(app) && !waitingOnCompany(app) && app.nextAction.trim() && validDay(app.nextDue))
+        .filter(app => !query || `${app.company} ${app.role} ${app.location} ${app.nextAction} ${app.waitingFor}`.toLocaleLowerCase().includes(query))
+        .sort((a, b) => a.nextDue.localeCompare(b.nextDue) || a.nextAction.localeCompare(b.nextAction));
+    }
+    function agendaRow(app, showRole) {
+      const days = dueDays(app), group = days < 0 ? 'overdue' : days === 0 ? 'today' : 'later';
+      const identity = showRole ? `${app.company} · ${app.role}` : app.company;
+      return `<div class="agenda-row ${group}" data-agenda-app="${esc(app.id)}"><label class="agenda-check"><input class="complete-task" type="checkbox" data-agenda-complete="${esc(app.id)}" aria-label="Complete task: ${esc(app.nextAction)} at ${esc(app.company)}" title="Complete task" ${state.busy ? 'disabled' : ''}></label><button class="agenda-open" type="button" data-agenda-open="${esc(app.id)}" aria-label="${esc(`${app.nextAction}, ${app.company}, ${app.role}, ${formatDay(app.nextDue, true)}`)}"><span class="agenda-title" title="${esc(app.nextAction)}">${esc(app.nextAction)}</span><span class="agenda-identity" title="${esc(`${app.company} · ${app.role}`)}">${esc(identity)}</span>${days < 0 ? `<span class="agenda-time overdue">${Math.abs(days)}d overdue</span>` : ''}</button></div>`;
+    }
+    function agendaMarkup() {
+      const all = agendaApplications();
+      const companyApps = new Map();
+      for (const app of state.applications.filter(a => inPipeline(a) && !waitingOnCompany(a) && a.nextAction.trim())) {
+        const key = app.company.trim().toLocaleLowerCase();
+        if (!companyApps.has(key)) companyApps.set(key, new Set());
+        companyApps.get(key).add(app.id);
+      }
+      const rows = apps => apps.map(app => agendaRow(app, companyApps.get(app.company.trim().toLocaleLowerCase()).size > 1)).join('');
+      const weekday = new Date(dayIndex(today()) * DAY).getUTCDay();
+      const start = dayIndex(today()) - (weekday + 6) % 7 + state.agendaWeek * 7;
+      const dayAt = offset => new Date((start + offset) * DAY).toISOString().slice(0, 10);
+      const end = dayAt(6);
+      const range = dayAt(0).slice(0, 7) === end.slice(0, 7) ? `${formatDay(dayAt(0))}–${Number(end.slice(8))}` : `${formatDay(dayAt(0))}–${formatDay(end)}`;
+      const overdueApps = state.agendaWeek === 0 ? all.filter(app => dueDays(app) < 0) : [];
+      const overdue = overdueApps.length === 1 ? rows(overdueApps) : overdueApps.length ? `<details class="agenda-fold" data-agenda-overdue ${state.agendaOverdueOpen ? 'open' : ''}><summary>${overdueApps.length} overdue</summary>${rows(overdueApps)}</details>` : '';
+      const dated = all.filter(app => dayIndex(app.nextDue) >= Math.max(start, dayIndex(today())) && dayIndex(app.nextDue) < start + 7);
+      const schedule = [...new Set([...dated.map(app => app.nextDue), ...(overdue ? [today()] : [])])].sort().map(day => {
+        const label = new Intl.DateTimeFormat(undefined, { weekday: 'short', timeZone: 'UTC' }).format(new Date(dayIndex(day) * DAY)) + ` ${Number(day.slice(8))}`;
+        const title = day === today() ? `Today · ${label}` : label;
+        return `<section class="agenda-group" aria-label="${esc(title)}" data-agenda-day="${day}"><h3>${esc(title)}</h3>${day === today() ? overdue : ''}${rows(dated.filter(app => app.nextDue === day))}</section>`;
+      }).join('');
+      const query = state.filters.pipeline.query.trim();
+      const clear = !schedule ? `<p class="agenda-clear">${query ? 'No matching items this week.' : 'Nothing scheduled this week.'}</p>` : '';
+      const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const zoneLabel = new Intl.DateTimeFormat(undefined, { timeZoneName: 'short' }).formatToParts(new Date()).find(part => part.type === 'timeZoneName')?.value || zone;
+      return `<aside class="agenda" aria-label="Agenda"><header class="agenda-head"><h2>Agenda</h2><div class="agenda-week"><button type="button" data-agenda-week="-1" aria-label="Previous week">‹</button><time datetime="${dayAt(0)}" title="${esc(`${formatDay(dayAt(0), true)} – ${formatDay(end, true)}. ${zone}`)}">${esc(range)} · ${esc(zoneLabel)}</time><button type="button" data-agenda-week="1" aria-label="Next week">›</button></div></header><div class="agenda-scroll">${schedule}${clear}</div></aside>`;
+    }
+
+    function boardMarkup(apps) {
+      return `<div class="mobile-stages" role="group" aria-label="Visible hiring stage">${COLUMNS.map(c => `<button type="button" data-mobile-stage="${c.key}" aria-pressed="${state.mobileStage === c.key}">${c.label} <span class="mono">${apps.filter(a => a.stage === c.key).length}</span></button>`).join('')}</div>
+        <div class="board">${COLUMNS.map(c => {
+          const items = apps.filter(a => a.stage === c.key);
+          return `<section class="column${state.mobileStage === c.key ? ' mobile-current' : ''}" data-drop="${c.key}" aria-label="${c.label}"><header class="column-head"><h2>${c.label}</h2><span class="count">${items.length}</span></header><div class="column-stack">${items.map(cardMarkup).join('')}</div></section>`;
+        }).join('')}</div>`;
+    }
+
+    function tableMarkup(apps, filtered = false) {
+      const sent = state.view === 'sent';
+      const pages = Math.max(1, Math.ceil(apps.length / PAGE_SIZE));
+      state.page = Math.min(state.page, pages);
+      const start = (state.page - 1) * PAGE_SIZE;
+      const items = apps.slice(start, start + PAGE_SIZE);
+      const selectedCount = [...state.selected].filter(id => byId(id)?.stage === 'sent').length;
+      const allPageSelected = items.length && items.every(a => state.selected.has(a.id));
+      const emptyRow = `<tr class="table-empty"><td colspan="6">${filtered ? 'No matching applications.' : sent ? 'No submitted applications yet.' : 'No closed applications.'}</td></tr>`;
+      const bulk = sent && selectedCount ? `<div class="bulk"><strong>${selectedCount} selected</strong><button class="text-button" type="button" data-action="clear-selection">Clear</button><button class="button small" type="button" data-action="bulk-close">${icon('archive')}Close as no reply</button></div>` : '';
+      return `${bulk}<div class="table-scroll"><table class="${sent ? 'sent' : 'closed'}-table"><caption class="sr-only">${sent ? 'Applications awaiting a response' : 'Closed applications'}</caption><thead><tr>${sent ? `<th class="check-cell"><input id="select-page" type="checkbox" aria-label="Select all applications on this page" ${allPageSelected ? 'checked' : ''}></th>` : ''}<th class="company-cell" scope="col">Company</th><th class="role-cell" scope="col">Role</th><th class="date-cell" scope="col">Submitted</th><th class="waiting-cell" scope="col">${sent ? 'Waiting' : 'Outcome'}</th>${sent ? '' : '<th class="waiting-cell" scope="col">Last stage</th>'}<th class="action-cell" scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+        <tbody>${items.map(a => `<tr${state.selected.has(a.id) ? ' class="selected"' : ''}>${sent ? `<td class="check-cell"><input type="checkbox" data-select="${esc(a.id)}" aria-label="Select ${esc(`${a.company}, ${a.role}`)}" ${state.selected.has(a.id) ? 'checked' : ''}></td>` : ''}<td><span class="company-row">${sent ? '' : companyMark(a.company)}<button class="text-button" type="button" data-open="${esc(a.id)}" title="${esc(a.company)}">${esc(a.company)}</button></span></td><td><button class="text-button role-title" type="button" data-open="${esc(a.id)}" title="${esc(a.role)}">${esc(a.role)}</button>${sent ? '' : `<span class="row-location">${esc(a.location || 'Location not set')}</span>`}</td><td><time class="table-date" datetime="${esc(a.submittedAt)}">${esc(sent ? a.submittedAt || '—' : formatDay(a.submittedAt, true))}</time></td><td>${sent ? `<span class="waiting${age(a) >= 30 ? ' quiet' : ''}">${age(a) === null ? '—' : age(a) === 0 ? 'Today' : `${age(a)}d`}</span>` : `<span class="outcome ${a.closedReason}">${REASONS[a.closedReason] || 'Closed'}</span>`}</td>${sent ? '' : `<td><span class="waiting">${LABELS[a.lastOpenStage] || 'Submitted'}</span></td>`}<td class="action-cell">${sent ? `<button class="button small" type="button" data-response="${esc(a.id)}">Record response ${icon('arrow')}</button>` : `<button class="button small" type="button" data-restore="${esc(a.id)}">Restore ${icon('reset')}</button>`}</td></tr>`).join('') || emptyRow}</tbody></table></div>
+        <div class="pagination"><span>${apps.length ? `${(start + 1).toLocaleString()}–${Math.min(start + PAGE_SIZE, apps.length).toLocaleString()} of ${apps.length.toLocaleString()} applications` : '0 applications'}</span><div class="pagination-controls"><button class="button small" type="button" data-page="previous" ${state.page === 1 ? 'disabled' : ''}>Previous</button><span class="mono">${state.page} / ${pages}</span><button class="button small" type="button" data-page="next" ${state.page >= pages ? 'disabled' : ''}>Next</button></div></div>`;
+    }
+
+    function render() {
+      const overdueFold = $('[data-agenda-overdue]');
+      if (overdueFold) state.agendaOverdueOpen = overdueFold.open;
+      const offsets = Object.fromEntries($$('.column').map(c => [c.dataset.drop, c.querySelector('.column-stack').scrollTop]));
+      const agendaScroll = $('.agenda-scroll')?.scrollTop || 0;
+      const boardLeft = $('.board-pane')?.scrollLeft || 0;
+      const tableScroll = $('.table-scroll')?.scrollTop || 0;
+      const tableLeft = $('.table-scroll')?.scrollLeft || 0;
+      renderHeader();
+      const apps = visibleApplications();
+      const f = currentFilters();
+      const filtered = Boolean(f.query || (f.age && f.age !== 'all') || (f.outcome && f.outcome !== 'all'));
+      $('#result-count').textContent = filtered ? `${apps.length} match${apps.length === 1 ? '' : 'es'}` : '';
+      $('#panel').innerHTML = state.loading ? '<div class="empty-state" role="status">Loading applications…</div>' : state.error ? `<div class="empty-state"><h2>Could not load applications</h2><p>${esc(state.error)}</p><button class="button" type="button" data-action="retry">Try again</button></div>` : state.view === 'pipeline' ? `<div class="progress-layout">${agendaMarkup()}<div class="board-pane">${boardMarkup(apps)}</div></div>` : tableMarkup(apps, filtered);
+      $$('.column').forEach(c => { c.querySelector('.column-stack').scrollTop = offsets[c.dataset.drop] || 0; });
+      if ($('.table-scroll')) { $('.table-scroll').scrollTop = tableScroll; $('.table-scroll').scrollLeft = tableLeft; }
+      if ($('.agenda-scroll')) $('.agenda-scroll').scrollTop = agendaScroll;
+      if ($('.board-pane')) $('.board-pane').scrollLeft = boardLeft;
+      updatePageCheckbox();
+    }
+
+    function switchView(view, focus = false) {
+      state.view = view; state.page = 1; state.selected.clear();
+      $('#search').value = currentFilters().query;
       render();
-      if (restored.length < snapshots.length) showToast(`${restored.length} of ${snapshots.length} could be restored.`);
-    } });
-  }
-
-  async function loadApplications() {
-    content.innerHTML = '<div class="loading-state"><span></span><p>Loading applications…</p></div>';
-    loadResumeNames();
-    try { const payload = await withTimeout(root.OneShotAPI.applications.list()); state.applications = payload.applications; render(); const requested = new URLSearchParams(location.hash.replace(/^#/, "")).get("app"); if (requested && state.applications.some(item => String(item.id) === requested)) openApplication(requested); }
-    catch (error) { content.innerHTML = `<div class="error-state"><h2>Applications could not load</h2><p>${esc(error.message || error)}</p><button class="button primary" type="button" data-action="retry">Try again</button></div>`; }
-  }
-
-  document.addEventListener("click", event => {
-    const applicationTrigger = event.target.closest("[data-application-id]"); if (applicationTrigger) return openApplication(applicationTrigger.dataset.applicationId);
-    const action = event.target.closest("[data-action]")?.dataset.action;
-    if (action === "open-add") { addForm.reset(); return addDialog.showModal(); }
-    if (action === "close-add") return addDialog.close();
-    if (action === "close-drawer") return closeDrawer();
-    if (action === "delete") { const application = selectedApplication(); return application ? deleteMany([application]) : undefined; }
-    if (action === "clear-filters") { state.query = ""; state.quickFilter = ""; $("#application-search").value = ""; $$('[data-quick-filter]').forEach(button => button.setAttribute("aria-pressed", "false")); return render(); }
-    if (action === "retry") return loadApplications();
-    if (action === "tailor-resume") return tailorResume(event.target.closest("[data-action]"));
-    if (action === "auto-apply") return openAutoApply(event.target.closest("[data-action]"));
-    if (action === "close-apply") return applyDialog.close();
-  });
-  document.addEventListener("click", event => {
-    const expand = event.target.closest("[data-expand]");
-    if (expand) { state.expanded[expand.dataset.expand] = true; return render(); }
-    const pick = event.target.closest("[data-pick]");
-    if (pick) {
-      const key = pick.dataset.pick;
-      // Shift extends from the last box you ticked, in the order the cards are
-      // on screen -- the only order a reader can see.
-      if (event.shiftKey && state.lastPicked) pickRange(key);
-      else if (pick.checked) state.picked.add(key);
-      else state.picked.delete(key);
-      state.lastPicked = key;
-      return paintSelection();
+      if (focus) $(`#tab-${view}`).focus();
     }
-    const bulk = event.target.closest("[data-bulk]");
-    if (bulk) {
-      if (bulk.dataset.bulk === "clear") { state.picked.clear(); return paintSelection(); }
-      const selected = state.applications.filter(application => state.picked.has(String(application.id)));
-      // No confirmation by request; the toast's undo is the way back.
-      if (bulk.dataset.bulk === "delete") return deleteMany(selected);
-      const stage = $("#bulk-stage").value;
-      return moveMany(selected.filter(application => application.stage !== stage), stage);
+
+    let toastTimer, dialogOrder = 0;
+    function showToast(message, undo) {
+      clearTimeout(toastTimer);
+      const toast = $('#toast');
+      toast.replaceChildren();
+      const text = document.createElement('span');
+      text.textContent = message;
+      toast.append(text);
+      if (undo) {
+        const button = document.createElement('button'); button.type = 'button'; button.textContent = 'Undo';
+        button.addEventListener('click', async () => { if (state.busy) return; toast.classList.remove('visible'); clearTimeout(toastTimer); await undo(); $('#panel').focus({ preventScroll: true }); }, { once: true });
+        toast.append(button);
+      }
+      toast.classList.add('visible');
+      toastTimer = setTimeout(() => { if (!toast.contains(document.activeElement)) toast.classList.remove('visible'); }, undo ? 12000 : 6000);
     }
-    const status = event.target.closest("[data-status-view]"); if (status) { state.statusView = status.dataset.statusView; state.quickFilter = ""; state.picked.clear(); $$('[data-quick-filter]').forEach(button => button.setAttribute("aria-pressed", "false")); render(); }
-    const filter = event.target.closest("[data-quick-filter]"); if (filter) { const clearing = state.quickFilter === filter.dataset.quickFilter; state.quickFilter = clearing ? "" : filter.dataset.quickFilter; $$('[data-quick-filter]').forEach(button => button.setAttribute("aria-pressed", String(!clearing && button === filter))); render(); }
-    const display = event.target.closest("[data-display]"); if (display) { state.display = display.dataset.display; state.picked.clear(); render(); }
-  });
-  // Rendering on every keystroke rebuilt every card in the board. At a few
-  // hundred applications that is the whole DOM per keypress.
-  let searchTimer;
-  document.addEventListener("input", event => {
-    if (event.target.id !== "application-search") return;
-    const value = event.target.value;
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => { state.query = value; render(); }, 120);
-  });
-  document.addEventListener("change", event => { if (event.target.id === "application-sort") { state.sort = event.target.value; render(); } if (event.target.name === "stage" && event.target.form?.id === "editor-form") { const reason = event.target.form.querySelector("[data-closed-reason]"), select = reason?.querySelector("select"), closed = event.target.value === "closed"; if (reason) reason.hidden = !closed; if (select) select.disabled = !closed; } });
-  document.addEventListener("submit", async event => {
-    if (event.target === applyForm) { event.preventDefault(); return submitAutoApply(); }
-    if (event.target === addForm) { event.preventDefault(); const submit = addForm.querySelector('[type="submit"]'), data = new FormData(addForm); submit.disabled = true; try { const application = await root.OneShotAPI.applications.createExternal({ company: String(data.get("company") || "").trim(), title: String(data.get("title") || "").trim(), url: String(data.get("url") || "").trim(), location: String(data.get("location") || "").trim(), note: String(data.get("note") || "").trim() }); state.applications.unshift(application); addDialog.close(); render(); showToast("Application added."); openApplication(application.id); } catch (error) { showToast(error.message || "Application could not be added."); } finally { submit.disabled = false; } return; }
-    if (event.target.id === "editor-form") { event.preventDefault(); const application = selectedApplication(), data = new FormData(event.target), stage = String(data.get("stage")), body = { ...stageMutation(application, stage, String(data.get("closed_reason") || "") || null), submitted_at: String(data.get("submitted_at") || "") || null, next_action: String(data.get("next_action") || "").trim(), next_due_at: String(data.get("next_due_at") || "") || null, note: String(data.get("note") || "").trim() }; body.resume_variant = String(data.get("resume_variant") || "").trim(); if (application.external) { body.company = String(data.get("company") || "").trim(); body.title = String(data.get("title") || "").trim(); body.location = String(data.get("location") || "").trim(); body.apply_url_snapshot = String(data.get("url") || "").trim(); } try { const updated = await root.OneShotAPI.applications.update(application.id, body); Object.assign(application, body, updated || {}); closeDrawer(); render(); showToast("Application updated."); } catch (error) { showToast(error.message || "Application could not be updated."); } return; }
-  });
-  // Arrow keys walk the checkboxes in on-screen order; Shift+arrow extends
-  // the selection the same way Shift+click does.
-  document.addEventListener("keydown", event => {
-    if (!event.target.matches("[data-pick]") || !["ArrowDown", "ArrowUp"].includes(event.key)) return;
-    const boxes = $$("[data-pick]"), next = boxes[boxes.indexOf(event.target) + (event.key === "ArrowDown" ? 1 : -1)];
-    if (!next) return;
-    event.preventDefault();
-    next.focus();
-    if (!event.shiftKey) return;
-    if (!state.lastPicked || !state.picked.has(event.target.dataset.pick)) { state.picked.add(event.target.dataset.pick); state.lastPicked = event.target.dataset.pick; }
-    pickRange(next.dataset.pick);
-    paintSelection();
-  });
-  document.addEventListener("keydown", event => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") { event.preventDefault(); $("#application-search").focus(); } if (event.key === "Escape" && state.picked.size && !drawer.open && !addDialog.open) { event.preventDefault(); state.picked.clear(); paintSelection(); } if (event.target.matches('[role="tab"]') && ["ArrowLeft", "ArrowRight"].includes(event.key)) { const tabs = [...event.target.parentElement.querySelectorAll('[role="tab"]')], at = tabs.indexOf(event.target), next = tabs[(at + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length]; next.focus(); next.click(); } });
-  // Columns scroll on their own now, so a drag has to be able to scroll them:
-  // without this every card past a column's fold is an unreachable target.
-  const dragScroll = { stack: null, dy: 0, dx: 0, frame: null };
-  const edgeSpeed = (position, min, max, zone) => position < min + zone ? -Math.ceil((min + zone - position) / 4)
-    : position > max - zone ? Math.ceil((position - (max - zone)) / 4) : 0;
-  const stepScroll = () => {
-    if (!dragScroll.dy && !dragScroll.dx) { dragScroll.frame = null; return; }
-    if (dragScroll.stack) dragScroll.stack.scrollTop += dragScroll.dy;
-    const board = $(".board"); if (board && dragScroll.dx) board.scrollLeft += dragScroll.dx;
-    dragScroll.frame = requestAnimationFrame(stepScroll);
-  };
-  const endDrag = () => {
-    dragScroll.stack = null; dragScroll.dy = 0; dragScroll.dx = 0;
-    if (dragScroll.frame) { cancelAnimationFrame(dragScroll.frame); dragScroll.frame = null; }
-    $$(".dragging").forEach(card => card.classList.remove("dragging"));
-    $$(".drag-over").forEach(column => column.classList.remove("drag-over"));
-    state.dragId = null;
-  };
-  // Dragging one card of a selection drags the selection.
-  const draggedKeys = () => state.picked.has(String(state.dragId)) ? [...state.picked] : [String(state.dragId)];
-  document.addEventListener("dragstart", event => {
-    const face = event.target.closest("[data-application-id]");
-    if (!face || !face.closest(".application-card")) return;
-    state.dragId = face.dataset.applicationId;
-    draggedKeys().forEach(key => $(`[data-card="${key}"]`)?.classList.add("dragging"));
-    event.dataTransfer.effectAllowed = "move";
-  });
-  document.addEventListener("dragend", endDrag);
-  document.addEventListener("dragover", event => {
-    const column = event.target.closest("[data-drop-group]"); if (!column || !state.dragId) return;
-    event.preventDefault();
-    $$(".drag-over").forEach(each => { if (each !== column) each.classList.remove("drag-over"); });
-    column.classList.add("drag-over");
-    const stack = column.querySelector(".column-stack"), board = $(".board");
-    const box = stack.getBoundingClientRect(), rail = board.getBoundingClientRect();
-    dragScroll.stack = stack;
-    dragScroll.dy = edgeSpeed(event.clientY, box.top, box.bottom, 64);
-    dragScroll.dx = board.scrollWidth > board.clientWidth ? edgeSpeed(event.clientX, rail.left, rail.right, 90) : 0;
-    if (!dragScroll.frame && (dragScroll.dy || dragScroll.dx)) dragScroll.frame = requestAnimationFrame(stepScroll);
-  });
-  document.addEventListener("dragleave", event => {
-    const column = event.target.closest("[data-drop-group]");
-    if (column && !column.contains(event.relatedTarget)) { column.classList.remove("drag-over"); dragScroll.dy = 0; dragScroll.dx = 0; }
-  });
-  document.addEventListener("drop", async event => {
-    const column = event.target.closest("[data-drop-group]"); if (!column || !state.dragId) return;
-    event.preventDefault();
-    const group = ACTIVE_GROUPS.find(item => item.key === column.dataset.dropGroup), keys = draggedKeys();
-    endDrag();
-    if (!group) return;
-    const moving = state.applications.filter(item => keys.includes(String(item.id)) && item.stage !== group.stages[0]);
-    try { await moveMany(moving, group.stages[0]); }
-    catch (error) { showToast(error.message || "Application could not be moved."); render(); }
-  });
-  [drawer, addDialog].forEach(dialog => dialog.addEventListener("click", event => { if (event.target !== dialog) return; if (dialog === drawer) closeDrawer(); else dialog.close(); }));
-  drawer.addEventListener("close", () => { if (state.selectedId) { state.selectedId = null; history.replaceState(null, "", location.pathname + location.search); } });
-  loadApplications();
-})(typeof window !== "undefined" ? window : globalThis);
+
+    function showSaveError(message) {
+      const dialog = $$('dialog[open]').sort((a, b) => (a.openedOrder || 0) - (b.openedOrder || 0)).at(-1);
+      if (dialog) {
+        let alert = dialog.querySelector('[data-save-error]');
+        if (!alert) {
+          alert = document.createElement('p'); alert.dataset.saveError = '';
+          alert.setAttribute('role', 'alert'); alert.className = 'save-error';
+          (dialog.querySelector('.form-body, .drawer-body') || dialog).append(alert);
+        }
+        alert.textContent = message; alert.scrollIntoView({ block: 'nearest' });
+      }
+      showToast(message);
+    }
+
+    async function commit(ids, apply, message, undoable = true) {
+      if (state.busy) return false;
+      const before = [...new Set(ids)].map(byId).filter(Boolean).map(clone);
+      setBusy(true);
+      const succeeded = [], failed = [];
+      // Bound requests for bulk work; preserve server IDs and update each record.
+      for (let cursor = 0; cursor < before.length; cursor += 6) {
+        await Promise.all(before.slice(cursor, cursor + 6).map(async old => {
+          const desired = clone(old); apply(desired);
+          try {
+            const saved = fromAPI(await api.applications.update(old.id, toAPI(desired, desired.events[0]?.text)));
+            replaceApplication(saved); succeeded.push(old);
+          } catch (error) { failed.push({ old, error }); }
+        }));
+      }
+      setBusy(false); state.selected = new Set(failed.map(f => f.old.id)); render();
+      if ($('#drawer').open && succeeded.some(a => a.id === state.selectedId)) renderDrawer();
+      const feedback = failed.length ? `${succeeded.length} updated; ${failed.length} could not be saved. ${failed[0].error.message}` : message;
+      if (failed.length && !succeeded.length) { showSaveError(feedback); return false; }
+      showToast(feedback, undoable && succeeded.length ? async () => {
+        if (state.busy) return;
+        setBusy(true); const undoFailed = [];
+        for (const old of succeeded) {
+          try { replaceApplication(fromAPI(await api.applications.update(old.id, toAPI(old, 'Change undone')))); }
+          catch (error) { undoFailed.push(error); }
+        }
+        setBusy(false); state.selected.clear(); render();
+        if ($('#drawer').open) renderDrawer();
+        showToast(undoFailed.length ? `${undoFailed.length} changes could not be undone. ${undoFailed[0].message}` : 'Change undone.');
+      } : null);
+      return failed.length === 0;
+    }
+
+    function addEvent(app, text) {
+      app.updatedAt = new Date().toISOString();
+      app.events.unshift({ at: app.updatedAt, text });
+    }
+    function setStage(app, stage, reason = null) {
+      if (stage === 'closed') { if (app.stage !== 'closed') app.lastOpenStage = app.stage; app.closedReason = reason; }
+      else { app.closedReason = null; app.lastOpenStage = stage; }
+      app.stage = stage;
+      addEvent(app, stage === 'closed' ? `Closed · ${REASONS[reason]}` : `Moved to ${LABELS[stage]}`);
+    }
+
+    function openDialog(id) {
+      const dialog = $(`#${id}`);
+      if (dialog.open) return;
+      dialog.opener = document.activeElement;
+      dialog.openedOrder = ++dialogOrder;
+      dialog.showModal();
+    }
+    function closeDialog(id) { if ($(`#${id}`).open) $(`#${id}`).close(); }
+
+    function openClosure(id) {
+      const app = byId(id);
+      if (!app || app.stage === 'closed') return;
+      state.closureId = id;
+      $('#close-form').reset();
+      $('#close-form [data-save-error]')?.remove();
+      $('#close-context').textContent = `${app.company} · ${app.role}`;
+      openDialog('close-dialog');
+    }
+
+    function renderDrawer() {
+      const app = byId(state.selectedId); if (!app) return;
+      const closed = app.stage === 'closed';
+      const url = safeUrl(app.url), snapshotDisabled = app.external ? '' : 'disabled';
+      $('#drawer-content').innerHTML = `<form id="detail-form" class="drawer-form"><header class="drawer-head">${companyMark(app.company)}<div class="drawer-title"><h2 id="drawer-title">${esc(app.role)}</h2><p>${esc(app.company)}</p></div><button class="icon-button" type="button" data-close="drawer" aria-label="Close application details" autofocus>${icon('close')}</button></header>
+        <div class="drawer-body"><div class="form-grid"><label class="field ${closed ? '' : 'full'}">Stage<select name="stage" id="detail-stage">${STAGES.map(s => `<option value="${s}" ${app.stage === s ? 'selected' : ''}>${LABELS[s]}${s === 'sent' ? ' · awaiting a response' : ''}</option>`).join('')}</select></label><label class="field" id="detail-reason-field" ${closed ? '' : 'hidden'}>Outcome<select name="closedReason" ${closed ? 'required' : 'disabled'}><option value="">Choose an outcome</option>${Object.entries(REASONS).map(([value, label]) => `<option value="${value}" ${app.closedReason === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label>
+        <label class="field">Company<input ${snapshotDisabled} name="company" required maxlength="200" value="${esc(app.company)}"></label><label class="field">Role<input ${snapshotDisabled} name="role" required maxlength="500" value="${esc(app.role)}"></label>
+        <label class="field">Date submitted<input name="submittedAt" type="date" max="${today()}" value="${esc(app.submittedAt)}"></label><label class="field">Location<input ${snapshotDisabled} name="location" maxlength="200" value="${esc(app.location)}" placeholder="Optional"></label>
+        <label class="field full">Posting URL<input ${snapshotDisabled} name="url" type="url" maxlength="2000" value="${esc(app.url)}" placeholder="https://… (optional)"></label>
+        <label class="field full">Whose move?<select name="taskState" id="detail-task-state"><option value="action" ${!waitingOnCompany(app) ? 'selected' : ''}>Mine · I have a task to do</option><option value="waiting" ${waitingOnCompany(app) ? 'selected' : ''}>Company · waiting for a response</option></select></label>
+        <label class="field full" id="detail-waiting-field" ${waitingOnCompany(app) ? '' : 'hidden'}>Waiting for<input name="waitingFor" maxlength="500" value="${esc(app.waitingFor)}" placeholder="Optional context" ${waitingOnCompany(app) ? '' : 'disabled'}></label>
+        <label class="field" id="detail-next-action-field" ${waitingOnCompany(app) ? 'hidden' : ''}>Next task<input name="nextAction" maxlength="500" value="${esc(app.nextAction)}" placeholder="What happens next?" ${waitingOnCompany(app) ? 'disabled' : ''}></label><label class="field" id="detail-next-due-field" ${waitingOnCompany(app) ? 'hidden' : ''}>Due date<input name="nextDue" type="date" value="${esc(app.nextDue)}" ${waitingOnCompany(app) ? 'disabled' : ''}></label>
+        <label class="field full">Resume sent<input name="resumeVariant" maxlength="200" value="${esc(app.resumeVariant)}" placeholder="Optional"></label><label class="field full">Notes<textarea name="notes" maxlength="8000" rows="4" placeholder="People, prep, resume version, or anything to remember…">${esc(app.notes)}</textarea></label></div>
+        <h3 class="section-heading">Activity</h3><ol class="history">${app.events.map(e => `<li><strong>${esc(String(e.text).replace(/\bSent\b/g, 'Submitted'))}</strong><time datetime="${esc(e.at)}">${esc(formatDay(String(e.at).slice(0, 10), true))}</time></li>`).join('')}</ol></div>
+        <footer class="dialog-foot drawer-foot">${closed ? `<button class="button ghost" type="button" data-restore="${esc(app.id)}">${icon('reset')}Restore</button>` : `<button class="button ghost danger" type="button" data-action="close-application">Close application</button>`}${url ? `<a class="button ghost" href="${esc(url)}" target="_blank" rel="noopener noreferrer" aria-label="Open posting in a new tab">${icon('external')}Posting</a>` : ''}${app.stage === 'sent' ? `<button class="button" type="button" data-response="${esc(app.id)}">Record response</button>` : inPipeline(app) && !waitingOnCompany(app) && app.nextAction ? `<button class="button" type="button" data-complete="${esc(app.id)}">Complete task</button>` : ''}<button class="button" type="button" data-action="tailor-resume">Tailor resume</button><button class="button primary" type="submit">Save changes</button></footer></form>`;
+    }
+
+    async function openApplication(id) {
+      if (!byId(id) || state.busy) return;
+      setBusy(true);
+      try {
+        replaceApplication(fromAPI(await api.applications.get(id)));
+        state.selectedId = id; renderDrawer(); openDialog('drawer');
+      } catch (error) { showToast(`Could not open application. ${error.message}`); }
+      finally { setBusy(false); }
+    }
+    function openResponse(id) {
+      const app = byId(id); if (!app) return;
+      state.responseId = id;
+      $('#response-form').reset();
+      $('#response-context').innerHTML = `${companyMark(app.company)}<div><strong>${esc(app.company)}</strong><span>${esc(app.role)}</span></div>`;
+      $('#response-form').elements.nextAction.value = app.nextAction || '';
+      $('#response-form').elements.nextDue.value = app.nextDue || '';
+      updateResponseFields(); openDialog('response-dialog');
+    }
+    function updateResponseFields() {
+      const stage = $('#response-form').elements.response.value;
+      const rejected = stage === 'rejected';
+      $('#response-next-fields').hidden = rejected;
+      $('#response-form').elements.nextAction.disabled = rejected;
+      $('#response-form').elements.nextDue.disabled = rejected;
+      $('#response-submit').innerHTML = `${rejected ? 'Close as rejected' : `Move to ${LABELS[stage]}`} ${icon(rejected ? 'archive' : 'arrow')}`;
+    }
+    function openCompletion(id) {
+      const app = byId(id);
+      if (!app || !inPipeline(app) || waitingOnCompany(app) || !app.nextAction) return;
+      state.completionId = id;
+      $('#complete-form').reset();
+      $('#complete-form').elements.nextAction.setCustomValidity('');
+      $('#complete-context').textContent = `${app.nextAction} · ${app.company}`;
+      updateCompletionFields();
+      openDialog('complete-dialog');
+    }
+    function updateCompletionFields() {
+      const form = $('#complete-form'), anotherTask = form.elements.after.value === 'action';
+      $('#complete-next-fields').hidden = !anotherTask;
+      $('#complete-waiting-field').hidden = anotherTask;
+      form.elements.nextAction.disabled = !anotherTask;
+      form.elements.nextAction.required = anotherTask;
+      form.elements.nextDue.disabled = !anotherTask;
+      form.elements.waitingFor.disabled = anotherTask;
+    }
+    function updateTaskFields() {
+      const waiting = $('#detail-task-state').value === 'waiting';
+      for (const id of ['detail-next-action-field', 'detail-next-due-field']) {
+        $(`#${id}`).hidden = waiting;
+        $(`#${id} input`).disabled = waiting;
+      }
+      $('#detail-waiting-field').hidden = !waiting;
+      $('#detail-waiting-field input').disabled = !waiting;
+    }
+    async function restore(id) {
+      const app = byId(id); if (!app || app.stage !== 'closed') return;
+      const stage = app.lastOpenStage || 'sent';
+      const saved = await commit([id], a => { setStage(a, stage); a.events[0].text = `Restored to ${LABELS[stage]}`; }, `${app.company} restored to ${LABELS[stage]}.`);
+      if (!saved) return;
+      closeDialog('drawer');
+      state.mobileStage = stage === 'sent' ? state.mobileStage : stage;
+      switchView(viewFor(stage));
+    }
+    function updatePageCheckbox() {
+      const box = $('#select-page'); if (!box) return;
+      const boxes = $$('[data-select]');
+      box.disabled = state.busy || boxes.length === 0;
+      box.indeterminate = boxes.some(b => b.checked) && !boxes.every(b => b.checked);
+    }
+    function restoreCheckboxFocus(id) {
+      render();
+      const checkbox = $$('[data-select]').find(b => b.dataset.select === id);
+      (checkbox || $('#select-page') || $('#panel')).focus({ preventScroll: true });
+    }
+
+    if (typeof module !== 'undefined' && module.exports) module.exports = { fromAPI, toAPI, age, dueDays, validDay, viewFor, taskGroup, STAGES, state, visibleApplications };
+    if (typeof document === 'undefined') return;
+
+    document.addEventListener('click', async event => {
+      const target = event.target.closest('button, a'); if (!target) return;
+      if (state.busy) return;
+      if (target.dataset.agendaWeek) {
+        state.agendaWeek += Number(target.dataset.agendaWeek);
+        render(); $('.agenda-scroll').scrollTop = 0;
+        $(`[data-agenda-week="${target.dataset.agendaWeek}"]`).focus({ preventScroll: true });
+        return;
+      }
+      if (target.dataset.close) return closeDialog(target.dataset.close);
+      if (target.dataset.view) return switchView(target.dataset.view, true);
+      if (target.dataset.agendaOpen) return openApplication(target.dataset.agendaOpen);
+      if (target.dataset.complete) return openCompletion(target.dataset.complete);
+      if (target.dataset.open) return openApplication(target.dataset.open);
+      if (target.dataset.response) return openResponse(target.dataset.response);
+      if (target.dataset.restore) return restore(target.dataset.restore);
+      if (target.dataset.mobileStage) {
+        state.mobileStage = target.dataset.mobileStage; render();
+        $(`[data-mobile-stage="${state.mobileStage}"]`).focus({ preventScroll: true }); return;
+      }
+      if (target.dataset.page) {
+        state.page += target.dataset.page === 'next' ? 1 : -1; render();
+        if ($('.table-scroll')) $('.table-scroll').scrollTop = 0;
+        $('#panel').focus({ preventScroll: true }); return;
+      }
+      switch (target.dataset.action) {
+        case 'log': $('#log-form').reset(); $('#log-form').elements.submittedAt.value = today(); $('#log-form').elements.submittedAt.max = today(); openDialog('log-dialog'); break;
+        case 'retry': state.loading = true; state.error = ''; render(); await loadApplications(); break;
+        case 'tailor-resume': {
+          const app = byId(state.selectedId); if (!app) break;
+          setBusy(true);
+          try {
+            const target = await api.resumes.targetFromApplication(app.id);
+            window.location.assign(`/resume/#target=${encodeURIComponent(target.id)}`);
+          } catch (error) { showToast(error.message); }
+          finally { setBusy(false); }
+          break;
+        }
+        case 'go-sent': switchView('sent', true); break;
+        case 'clear-filters': {
+          const f = currentFilters(); f.query = ''; if (f.age) f.age = 'all'; if (f.outcome) f.outcome = 'all'; $('#search').value = ''; state.page = 1; render(); $('#search').focus(); break;
+        }
+        case 'clear-selection': state.selected.clear(); render(); $('#select-page')?.focus(); break;
+        case 'bulk-close': {
+          const ids = [...state.selected].filter(id => byId(id)?.stage === 'sent');
+          if (!ids.length) break;
+          await commit(ids, a => setStage(a, 'closed', 'no_reply'), `${ids.length} application${ids.length === 1 ? '' : 's'} closed as no reply.`); $('#panel').focus(); break;
+        }
+        case 'close-application': {
+          openClosure(state.selectedId); break;
+        }
+      }
+    });
+
+    function updateDetailReason() {
+      const closed = $('#detail-stage').value === 'closed';
+      const field = $('#detail-reason-field'), select = field.querySelector('select');
+      field.hidden = !closed; select.disabled = !closed; select.required = closed;
+      $('#detail-stage').closest('label').classList.toggle('full', !closed);
+    }
+    document.addEventListener('change', event => {
+      const el = event.target;
+      if (el.dataset.agendaComplete) {
+        el.checked = false;
+        if (!state.busy) openCompletion(el.dataset.agendaComplete);
+        return;
+      }
+      if (el.id === 'sort') { currentFilters().sort = el.value; state.page = 1; render(); }
+      if (el.id === 'age-filter') { state.filters.sent.age = el.value; state.selected.clear(); state.page = 1; render(); }
+      if (el.id === 'outcome-filter') { state.filters.closed.outcome = el.value; state.page = 1; render(); }
+      if (el.id === 'detail-stage') updateDetailReason();
+      if (el.name === 'response') updateResponseFields();
+      if (el.name === 'after') updateCompletionFields();
+      if (el.id === 'detail-task-state') updateTaskFields();
+      if (el.dataset.select) { if (el.checked) state.selected.add(el.dataset.select); else state.selected.delete(el.dataset.select); restoreCheckboxFocus(el.dataset.select); }
+      if (el.id === 'select-page') {
+        const ids = $$('[data-select]').map(b => b.dataset.select);
+        for (const id of ids) { if (el.checked) state.selected.add(id); else state.selected.delete(id); }
+        render(); $('#select-page').focus({ preventScroll: true });
+      }
+    });
+    function highlightAgendaApplication(id) {
+      $$('.card').forEach(card => card.classList.toggle('agenda-hover', card.dataset.drag === id));
+    }
+    for (const name of ['mouseover', 'focusin']) document.addEventListener(name, event => {
+      const row = event.target.closest('.agenda-row');
+      if (row) highlightAgendaApplication(row.dataset.agendaApp);
+    });
+    for (const name of ['mouseout', 'focusout']) document.addEventListener(name, event => {
+      const row = event.target.closest('.agenda-row');
+      if (row && !row.contains(event.relatedTarget)) highlightAgendaApplication(null);
+    });
+    document.addEventListener('toggle', event => {
+      if (event.target.isConnected && event.target.matches('[data-agenda-overdue]')) state.agendaOverdueOpen = event.target.open;
+    }, true);
+
+    $('#search').addEventListener('input', event => {
+      currentFilters().query = event.target.value; state.page = 1; state.selected.clear(); render();
+    });
+    // Trim required text before native validation so whitespace-only names are
+    // rejected without adding a second, conflicting validation system.
+    document.addEventListener('input', event => { if (['company', 'role'].includes(event.target.name)) event.target.setCustomValidity(event.target.value.trim() ? '' : 'Enter a name.'); });
+    $('#complete-form [name="nextAction"]').addEventListener('input', event => event.target.setCustomValidity(event.target.value.trim() ? '' : 'Enter the next task.'));
+    document.addEventListener('submit', async event => {
+      const form = event.target;
+      if (!['log-form', 'response-form', 'detail-form', 'complete-form', 'close-form'].includes(form.id)) return;
+      event.preventDefault();
+      if (state.busy) return;
+      form.querySelector('[data-save-error]')?.remove();
+      const data = new FormData(form), text = key => String(data.get(key) || '').trim();
+      if (form.id === 'close-form') {
+        const app = byId(state.closureId), reason = text('closedReason');
+        if (!app || app.stage === 'closed' || !Object.hasOwn(REASONS, reason)) return;
+        const saved = await commit([app.id], a => setStage(a, 'closed', reason), `${app.company} closed as ${REASONS[reason].toLowerCase()}.`);
+        if (saved) { closeDialog('close-dialog'); closeDialog('drawer'); }
+        return;
+      }
+      if (form.id === 'log-form') {
+        setBusy(true);
+        try {
+          const app = fromAPI(await api.applications.createExternal({ company: text('company'), title: text('role'), submitted_at: text('submittedAt'), location: text('location'), url: text('url'), note: text('notes') }));
+          state.applications.unshift(app);
+          closeDialog('log-dialog'); state.filters.sent.query = ''; state.filters.sent.age = 'all';
+          switchView('sent', true); showToast(`${app.company} added to Submitted.`);
+        } catch (error) { showSaveError(`Could not add application. ${error.message}`); }
+        finally { setBusy(false); }
+        return;
+      }
+      if (form.id === 'complete-form') {
+        const app = byId(state.completionId);
+        if (!app || !inPipeline(app) || waitingOnCompany(app) || !app.nextAction) return;
+        const completedTask = app.nextAction, after = text('after');
+        const saved = await commit([app.id], a => {
+          a.taskState = after; a.nextAction = after === 'action' ? text('nextAction') : '';
+          a.nextDue = after === 'action' ? text('nextDue') : '';
+          a.waitingFor = after === 'waiting' ? text('waitingFor') : '';
+          addEvent(a, `Completed: ${completedTask}`);
+        }, after === 'waiting' ? `${app.company}: task done. Waiting on company.` : `${app.company}: task done. Next step added.`);
+        if (saved) { closeDialog('complete-dialog'); closeDialog('drawer'); $('#panel').focus({ preventScroll: true }); }
+        return;
+      }
+      if (form.id === 'response-form') {
+        const app = byId(state.responseId); if (!app) return;
+        const response = text('response'), rejected = response === 'rejected';
+        const saved = await commit([app.id], a => {
+          if (!rejected) { a.nextAction = text('nextAction'); a.nextDue = text('nextDue'); a.taskState = 'action'; a.waitingFor = ''; }
+          setStage(a, rejected ? 'closed' : response, rejected ? 'rejected' : null);
+        }, `${app.company} ${rejected ? 'closed as rejected' : `moved to ${LABELS[response]}`}.`);
+        if (!saved) return;
+        closeDialog('response-dialog'); closeDialog('drawer');
+        if (!rejected) { state.filters.pipeline.query = ''; state.mobileStage = response; switchView('pipeline', true); }
+        else { render(); $('#panel').focus({ preventScroll: true }); }
+        return;
+      }
+      const app = byId(state.selectedId); if (!app) return;
+      const stage = text('stage'), previousStage = app.stage;
+      const reason = stage === 'closed' ? text('closedReason') : null;
+      const fields = ['notes', 'resumeVariant', 'nextAction', 'submittedAt', 'nextDue', 'taskState', 'waitingFor', ...(app.external ? ['company', 'role', 'location', 'url'] : [])];
+      const changes = Object.fromEntries(fields.map(key => [key, text(key)]));
+      const changed = fields.some(key => changes[key] !== app[key]) || stage !== app.stage || reason !== app.closedReason;
+      if (!changed) { closeDialog('drawer'); return; }
+      const saved = await commit([app.id], a => {
+        Object.assign(a, changes);
+        if (stage !== a.stage || reason !== a.closedReason) setStage(a, stage, reason);
+        else addEvent(a, 'Application details updated');
+      }, stage === previousStage ? 'Application updated.' : `${app.company} moved to ${stage === 'closed' ? REASONS[reason] : LABELS[stage]}.`);
+      if (!saved) return;
+      closeDialog('drawer');
+      if (stage !== previousStage) { if (COLUMNS.some(c => c.key === stage)) state.mobileStage = stage; switchView(viewFor(stage), true); }
+    });
+
+    document.addEventListener('keydown', event => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k' && !$$('dialog').some(d => d.open)) { event.preventDefault(); $('#search').focus(); $('#search').select(); }
+      const tab = event.target.closest('[role="tab"]');
+      if (tab && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+        event.preventDefault(); const views = ['pipeline', 'sent', 'closed']; let i = views.indexOf(tab.dataset.view);
+        i = event.key === 'Home' ? 0 : event.key === 'End' ? 2 : (i + (event.key === 'ArrowRight' ? 1 : 2)) % 3;
+        switchView(views[i], true);
+      }
+      const task = event.target.closest('.card-open');
+      if (task && ['ArrowDown', 'ArrowUp'].includes(event.key)) {
+        const rows = [...task.closest('.column-stack').querySelectorAll('.card-open')], index = rows.indexOf(task);
+        const next = rows[index + (event.key === 'ArrowDown' ? 1 : -1)];
+        if (next) { event.preventDefault(); next.focus(); }
+      }
+    });
+
+    document.addEventListener('dragstart', event => {
+      if (state.busy) { event.preventDefault(); return; }
+      if (event.target.closest('[data-complete]')) { event.preventDefault(); return; }
+      const card = event.target.closest('[data-drag]'); if (!card) return;
+      state.dragId = card.dataset.drag; card.classList.add('dragging'); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', state.dragId);
+    });
+    document.addEventListener('dragover', event => {
+      const column = event.target.closest('[data-drop]'); if (!column || !state.dragId) return;
+      event.preventDefault(); event.dataTransfer.dropEffect = 'move'; column.classList.add('drag-over');
+    });
+    document.addEventListener('dragleave', event => { const column = event.target.closest('[data-drop]'); if (column && !column.contains(event.relatedTarget)) column.classList.remove('drag-over'); });
+    document.addEventListener('drop', async event => {
+      const column = event.target.closest('[data-drop]'), app = byId(state.dragId);
+      if (!column || !app) return;
+      event.preventDefault(); const stage = column.dataset.drop; state.dragId = null;
+      if (app.stage === stage) { column.classList.remove('drag-over'); return; }
+      state.flashId = app.id;
+      await commit([app.id], a => setStage(a, stage), `${app.company} moved to ${LABELS[stage]}.`);
+    });
+    document.addEventListener('dragend', () => { state.dragId = null; $$('.dragging, .drag-over').forEach(el => el.classList.remove('dragging', 'drag-over')); });
+
+    $$('dialog').forEach(dialog => {
+      // Backdrop clicks close only when both pointer endpoints are outside the
+      // dialog, avoiding lost edits from a text-selection drag that ends outside.
+      dialog.addEventListener('cancel', event => { if (state.busy) event.preventDefault(); });
+      let startedOutside = false;
+      const outside = event => { const r = dialog.getBoundingClientRect(); return event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom; };
+      dialog.addEventListener('pointerdown', event => { startedOutside = event.target === dialog && outside(event); });
+      dialog.addEventListener('click', event => { if (!state.busy && startedOutside && event.target === dialog && outside(event)) dialog.close(); startedOutside = false; });
+      dialog.addEventListener('close', () => {
+        // A record may disappear from its old view after a move. Restore focus
+        // to the active tab when its original opener no longer exists.
+        const opener = dialog.opener;
+        if ($$('dialog').some(d => d.open)) return;
+        if (opener?.isConnected) opener.focus({ preventScroll: true });
+        else $(`#tab-${state.view}`).focus({ preventScroll: true });
+      });
+    });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) loadApplications(); });
+    window.addEventListener('storage', async event => {
+      if (event.key === 'oneshot.visitor-data.state.v1' && await window.OneShotVisitorData.isLocal()) window.location.reload();
+    });
+    render();
+    loadApplications();
+  })();

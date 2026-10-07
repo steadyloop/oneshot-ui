@@ -4,106 +4,132 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <meta name="description" content="The OneShot application tracker.">
+  <meta name="description" content="Track submitted applications, replies and next steps with OneShot.">
   <title>Applications · OneShot</title>
-  <link rel="stylesheet" href="/static/application/styles.css?v=auto-apply-20260910">
-  <link rel="stylesheet" href="/static/navigation.css?v=lockup-20260901">
-  <script defer src="/static/sample-data.js?v=guest-empty-20260903"></script>
-  <script defer src="/static/api-client.js?v=auto-apply-20260910"></script>
-  <script defer src="/static/nav-count.js?v=visitor-local-20260816"></script>
-  <script defer src="/static/application/app.js?v=auto-apply-20260910"></script>
+  <link rel="stylesheet" href="/static/application/styles.css?v=tracker-tabs-20261007">
+  <link rel="stylesheet" href="/static/navigation.css?v=sidebar-profile-20261006">
 </head>
-<body>
+<body class="application-app">
   <a class="skip-link" href="#workspace">Skip to applications</a>
-  <svg class="icon-sprite" aria-hidden="true">
-    <symbol id="icon-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></symbol>
-    <symbol id="icon-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="5" cy="6" r="1"/><circle cx="5" cy="12" r="1"/><circle cx="5" cy="18" r="1"/></symbol>
-    <symbol id="icon-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
-    <symbol id="icon-opportunities" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
-    <symbol id="icon-applications" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></symbol>
-    <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
-    <symbol id="icon-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></symbol>
-    <symbol id="icon-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"/></symbol>
-    <symbol id="icon-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
-    <symbol id="icon-chevron" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
-    <symbol id="icon-briefcase" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18"/></symbol>
-    <symbol id="icon-feed-status" viewBox="0 0 24 24"><path d="M3 17V9M9 17V4M15 17v-6M21 17V7"/></symbol>
-    <symbol id="icon-resume" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/></symbol>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-resume" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h5"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 6 9 7 9-7"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="i-drag" viewBox="0 0 24 24"><path d="M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01" stroke-width="3"/></symbol>
+    <symbol id="i-reset" viewBox="0 0 24 24"><path d="M3 10a9 9 0 1 1 1 7M3 4v6h6"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"/></symbol>
+    <symbol id="i-archive" viewBox="0 0 24 24"><path d="M5 9v11h14V9M9 13h6"/><rect x="3" y="3" width="18" height="6" rx="1"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 1-8 8H4l1-5a8 8 0 1 1 15-3Z"/><path d="M8 10h8M8 13h5"/></symbol>
+    <symbol id="i-briefcase" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V4h8v3M3 12h18M10 12v3h4v-3"/></symbol>
   </svg>
 
-  <div class="shell">
+  <header class="app-topbar">
+    <a class="brand-cell" href="/" aria-label="OneShot Applications home">
+      <span class="wordmark"><span class="wordmark-name">OneShot</span><span class="wordmark-descriptor">Applications</span></span>
+    </a>
+    <div class="topbar-space"></div>
+    <label class="topbar-search" for="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="search" type="search" placeholder="Search tasks, companies, or roles…" aria-label="Search tasks, companies, or roles…" autocomplete="off"></label>
+  </header>
+  <div class="shell app-shell">
     <aside class="sidebar" aria-label="Primary navigation">
-      <a class="brand" href="/"><img class="brand-mark" src="/static/brand-mark.svg?v=20260813" alt="" width="32" height="32"><span class="brand-word">OneShot</span><span class="brand-sub">Application</span></a>
-      <nav class="side-nav">
-        <p>Discover</p>
-        <a href="/"><svg class="nav-icon" aria-hidden="true"><use href="#icon-opportunities"/></svg>Opportunities <b data-opportunity-count>—</b></a>
-        <p>Track</p>
-        <a class="active" href="/application/" aria-current="page"><svg class="nav-icon" aria-hidden="true"><use href="#icon-applications"/></svg>Applications</a>
-        <a href="/resume/"><svg class="nav-icon" aria-hidden="true"><use href="#icon-resume"/></svg>Resume</a>
-        <p>System</p>
-        <a href="/source-coverage/"><svg class="nav-icon" aria-hidden="true"><use href="#icon-feed-status"/></svg>Feed Status</a>
+      <nav class="side-nav" aria-label="Primary">
+        <a href="/"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Discover</span><b data-opportunity-count hidden aria-hidden="true">—</b></a>
+        <a class="active" href="/application/" aria-current="page"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="m9 14 2 2 4-4"/></svg><span>Applied</span></a>
+        <a href="/resume/"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/></svg><span>Resume</span></a>
+        <a href="/source-coverage/" title="Feed Status"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1" fill="currentColor"/></svg><span>Feeds</span></a>
       </nav>
+      <div class="account-slot" data-account-slot aria-label="Account"></div>
     </aside>
 
-    <main id="workspace" class="workspace" tabindex="-1">
-      <header class="workspace-header">
-        <div><p class="eyebrow">Track</p><h1>Applications</h1></div>
-        <div class="workspace-actions">
-          <button class="primary-action" type="button" data-action="open-add"><svg aria-hidden="true"><use href="#icon-plus"/></svg>Add application</button>
+    <main id="workspace" class="workspace" tabindex="-1" aria-label="Applications">
+      <div class="tabs-row">
+        <div class="tabs" role="tablist" aria-label="Applications">
+          <button class="tab" id="tab-pipeline" type="button" role="tab" aria-selected="true" aria-controls="panel" data-view="pipeline"><span class="count" id="count-pipeline">0</span> In progress</button>
+          <button class="tab" id="tab-sent" type="button" role="tab" aria-selected="false" aria-controls="panel" tabindex="-1" data-view="sent"><span class="count" id="count-sent">0</span> Submitted</button>
+          <button class="tab" id="tab-closed" type="button" role="tab" aria-selected="false" aria-controls="panel" tabindex="-1" data-view="closed"><span class="count" id="count-closed">0</span> Closed</button>
         </div>
-      </header>
-
-      <section class="control-surface" aria-label="Application controls">
-        <div class="view-tabs" role="tablist" aria-label="Application status">
-          <button id="active-tab" role="tab" aria-selected="true" aria-controls="application-content" data-status-view="active">Active <span id="active-count">0</span></button>
-          <button id="archive-tab" role="tab" aria-selected="false" aria-controls="application-content" data-status-view="archive">Archive <span id="archive-count">0</span></button>
-        </div>
-        <div class="toolbar">
-          <label class="search-field"><svg aria-hidden="true"><use href="#icon-search"/></svg><span class="sr-only">Search applications</span><input id="application-search" type="search" placeholder="Search company, role, location, or next action" autocomplete="off"><kbd>⌘ K</kbd></label>
-          <div class="quick-filters" aria-label="Quick filters">
-            <button type="button" data-quick-filter="attention" aria-pressed="false">Needs attention</button>
-            <button type="button" data-quick-filter="interviews" aria-pressed="false">Interviews</button>
-            <button type="button" data-quick-filter="offers" aria-pressed="false">Offers</button>
-          </div>
-          <label class="select-control"><span class="sr-only">Sort applications</span><select id="application-sort"><option value="moved">Recently moved</option><option value="next_due">Next action</option><option value="updated">Recently updated</option><option value="applied">Date applied</option><option value="company">Company</option></select></label>
-          <div class="display-switch" aria-label="Display style"><button type="button" data-display="board" aria-pressed="true" aria-label="Board view"><svg aria-hidden="true"><use href="#icon-grid"/></svg></button><button type="button" data-display="list" aria-pressed="false" aria-label="List view"><svg aria-hidden="true"><use href="#icon-list"/></svg></button></div>
-        </div>
-      </section>
-
-      <section id="application-content" class="application-content" role="tabpanel" aria-labelledby="active-tab" aria-live="polite"><div class="loading-state"><span></span><p>Loading applications…</p></div></section>
+        <button class="button primary" type="button" data-action="log" aria-label="Add application" title="Add application"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg><span class="log-label">Add application</span></button>
+      </div>
+      <div class="toolbar" id="records-toolbar" aria-label="Filter and sort applications" hidden>
+        <label id="age-control" hidden><span class="sr-only">Filter by time waiting</span><select id="age-filter"><option value="all">Any time waiting</option><option value="7">Submitted in the last 7 days</option><option value="30">30+ days waiting</option></select></label>
+        <label id="outcome-control" hidden><span class="sr-only">Filter by outcome</span><select id="outcome-filter"><option value="all">All outcomes</option><option value="rejected">Rejected</option><option value="withdrawn">Withdrawn</option><option value="no_reply">No reply</option></select></label>
+        <span id="result-count" class="result-count" aria-live="polite" aria-atomic="true"></span>
+        <label class="sort-control" id="sort-control" hidden><span class="sr-only">Sort applications</span><select id="sort"><option value="next">Next action first</option><option value="recent">Recently updated</option><option value="newest">Newest submitted</option><option value="oldest">Oldest submitted</option><option value="company">Company A–Z</option></select></label>
+      </div>
+      <section id="panel" class="panel" role="tabpanel" aria-labelledby="tab-pipeline" tabindex="0"></section>
+      <noscript><p style="padding: 24px">Enable JavaScript to explore the application tracker.</p></noscript>
     </main>
   </div>
 
-  <dialog id="application-drawer" class="drawer" aria-labelledby="drawer-title"><div id="drawer-content"></div></dialog>
-
-  <dialog id="add-dialog" class="modal" aria-labelledby="add-title">
-    <form id="add-form" method="dialog">
-      <header class="dialog-header"><div><p class="eyebrow">New record</p><h2 id="add-title">Add an application</h2><p>Add an external opportunity to the existing application tracker.</p></div><button class="icon-button" type="button" data-action="close-add" aria-label="Close add application dialog"><svg aria-hidden="true"><use href="#icon-close"/></svg></button></header>
-      <div class="form-grid"><label>Company<input name="company" required maxlength="500" autocomplete="organization"></label><label>Role<input name="title" required maxlength="1000" autocomplete="organization-title"></label><label class="full">Posting URL<input name="url" type="url" required placeholder="https://company.com/jobs/…" inputmode="url"></label><label class="full">Location<input name="location" placeholder="Optional"></label><label class="full">Note<textarea name="note" rows="4" placeholder="Optional"></textarea></label></div>
-      <footer class="dialog-actions"><button class="button" type="button" data-action="close-add">Cancel</button><button class="button primary" type="submit">Add to Applications</button></footer>
+  <dialog id="log-dialog" class="modal" aria-labelledby="log-title">
+    <form id="log-form">
+      <header class="modal-head"><h2 id="log-title">Add application</h2><button class="icon-button" type="button" data-close="log-dialog" aria-label="Close add application dialog"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></header>
+      <div class="form-body form-grid">
+        <label class="field">Company<input name="company" required maxlength="200" autocomplete="organization" autofocus></label>
+        <label class="field">Role<input name="role" required maxlength="500"></label>
+        <label class="field">Date submitted<input name="submittedAt" type="date" required></label>
+        <label class="field">Location <span class="sr-only">(optional)</span><input name="location" maxlength="200" placeholder="Optional"></label>
+        <label class="field full">Posting URL <span class="sr-only">(optional)</span><input name="url" type="url" maxlength="2000" placeholder="https://"></label>
+        <label class="field full">Notes <span class="sr-only">(optional)</span><textarea name="notes" maxlength="8000" rows="3" placeholder="Optional"></textarea></label>
+      </div>
+      <footer class="dialog-foot"><button class="button" type="button" data-close="log-dialog">Cancel</button><button class="button primary" type="submit">Add application</button></footer>
     </form>
   </dialog>
 
-  <dialog id="apply-dialog" class="modal apply-modal" aria-labelledby="apply-title">
-    <form id="apply-form" method="dialog">
-      <header class="dialog-header"><div><p class="eyebrow">Apply via Greenhouse</p><h2 id="apply-title">Review and confirm</h2><p id="apply-subtitle"></p></div><button class="icon-button" type="button" data-action="close-apply" aria-label="Close apply dialog"><svg aria-hidden="true"><use href="#icon-close"/></svg></button></header>
-      <div id="apply-fields" class="form-grid apply-fields"></div>
-      <p id="apply-status" class="apply-status" hidden></p>
-      <footer class="dialog-actions"><button class="button" type="button" data-action="close-apply">Cancel</button><button class="button primary" type="submit" id="apply-submit">Confirm and submit</button></footer>
+  <dialog id="response-dialog" class="modal" aria-labelledby="response-title">
+    <form id="response-form">
+      <header class="modal-head"><div><p class="eyebrow">An update from them</p><h2 id="response-title">Record a response</h2></div><button class="icon-button" type="button" data-close="response-dialog" aria-label="Close record response"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></header>
+      <div class="form-body">
+        <div id="response-context" class="response-context"></div>
+        <fieldset class="response-options"><legend>What did you hear?</legend>
+          <label class="response-choice"><input type="radio" name="response" value="replied" checked><span><strong>Recruiter reply</strong><small>A conversation, availability, or more information</small></span><svg class="icon" aria-hidden="true"><use href="#i-chat"/></svg></label>
+          <label class="response-choice"><input type="radio" name="response" value="assessment"><span><strong>Assessment invitation</strong><small>A test, take-home, or coding challenge</small></span><svg class="icon" aria-hidden="true"><use href="#i-resume"/></svg></label>
+          <label class="response-choice"><input type="radio" name="response" value="interview"><span><strong>Interview invitation</strong><small>A screen, interview, or final round</small></span><svg class="icon" aria-hidden="true"><use href="#i-calendar"/></svg></label>
+          <label class="response-choice"><input type="radio" name="response" value="offer"><span><strong>Offer</strong><small>Something to celebrate, consider, and negotiate</small></span><svg class="icon" aria-hidden="true"><use href="#i-briefcase"/></svg></label>
+          <label class="response-choice"><input type="radio" name="response" value="rejected"><span><strong>Rejection</strong><small>Close this application and keep the record</small></span><svg class="icon" aria-hidden="true"><use href="#i-archive"/></svg></label>
+        </fieldset>
+        <div class="form-grid" id="response-next-fields"><label class="field">Next action<input name="nextAction" maxlength="500" placeholder="Optional"></label><label class="field">Due date<input name="nextDue" type="date"></label></div>
+        <p class="field-hint" style="margin: 14px 0 0">A submission confirmation? No update needed — keep it in Submitted.</p>
+      </div>
+      <footer class="dialog-foot"><button class="button" type="button" data-close="response-dialog">Cancel</button><button class="button primary" id="response-submit" type="submit">Move to Replied <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></button></footer>
     </form>
   </dialog>
 
-  <div id="bulk-bar" class="bulk-bar" role="region" aria-label="Bulk actions">
-    <b id="bulk-count">0 selected</b>
-    <hr>
-    <label for="bulk-stage">Move to</label>
-    <select id="bulk-stage"><option value="applied">Applied</option><option value="assessment">Assessment</option><option value="interview">Interview</option><option value="offer">Offer</option><option value="considering">Considering</option></select>
-    <button class="bulk-go" type="button" data-bulk="move">Move</button>
-    <hr>
-    <button class="bulk-danger" type="button" data-bulk="delete">Delete</button>
-    <button class="bulk-plain" type="button" data-bulk="clear">Clear</button>
-  </div>
+  <dialog id="close-dialog" class="modal" aria-labelledby="close-title">
+    <form id="close-form">
+      <header class="modal-head"><div><h2 id="close-title">Close application</h2><p id="close-context"></p></div><button class="icon-button" type="button" data-close="close-dialog" aria-label="Cancel closing application"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></header>
+      <div class="form-body">
+        <label class="field">Outcome<select name="closedReason" required autofocus><option value="">Choose an outcome</option><option value="rejected">Rejected</option><option value="withdrawn">Withdrawn</option><option value="no_reply">No reply</option></select></label>
+      </div>
+      <footer class="dialog-foot"><button class="button" type="button" data-close="close-dialog">Cancel</button><button class="button primary" type="submit">Close application</button></footer>
+    </form>
+  </dialog>
 
-  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <dialog id="complete-dialog" class="modal" aria-labelledby="complete-title">
+    <form id="complete-form">
+      <header class="modal-head"><div><p class="eyebrow">One thing done</p><h2 id="complete-title">What happens next?</h2><p id="complete-context"></p></div><button class="icon-button" type="button" data-close="complete-dialog" aria-label="Close complete task"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></header>
+      <div class="form-body">
+        <fieldset class="response-options"><legend>After completing this task</legend>
+          <label class="response-choice"><input type="radio" name="after" value="waiting" checked><span><strong>Waiting on company</strong><small>My part is done. The next move is theirs.</small></span></label>
+          <label class="response-choice"><input type="radio" name="after" value="action"><span><strong>I have another task</strong><small>Keep the next step on my list.</small></span></label>
+        </fieldset>
+        <label class="field" id="complete-waiting-field">Waiting for<input name="waitingFor" maxlength="500" placeholder="e.g. Assessment results (optional)"></label>
+        <div class="form-grid" id="complete-next-fields" hidden><label class="field">Next task<input name="nextAction" maxlength="500" placeholder="What do you need to do?" disabled></label><label class="field">Due date<input name="nextDue" type="date" disabled></label></div>
+      </div>
+      <footer class="dialog-foot"><button class="button" type="button" data-close="complete-dialog">Cancel</button><button class="button primary" type="submit">Complete task</button></footer>
+    </form>
+  </dialog>
+  <dialog id="drawer" class="drawer" aria-labelledby="drawer-title"><div id="drawer-content" style="height: 100%"></div></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="/static/sample-data.js?v=tracker-20261006"></script>
+  <script src="/static/api-client.js?v=tracker-20261006"></script>
+  <script src="/static/nav-count.js?v=sidebar-profile-20261006"></script>
+  <script src="/static/application/app.js?v=tracker-20261006-subtle-empty-lists-agenda"></script>
 </body>
 </html>

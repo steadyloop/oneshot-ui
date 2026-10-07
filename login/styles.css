@@ -100,10 +100,3 @@ h1 {
   text-align: left;
 }
 
-.invite {
-  margin: 22px 0 0;
-  color: var(--muted);
-  font: 10px var(--mono);
-  letter-spacing: .08em;
-  text-transform: uppercase;
-}

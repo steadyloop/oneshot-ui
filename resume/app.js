@@ -11,7 +11,7 @@
     resumes: [],
     resumeId: null,
     browserLocal: false,
-    tab: "profile",
+    tab: location.hash === "#resumes" ? "resumes" : "profile",
     mode: "content",
     addingKind: null,
     addingSkill: false,
@@ -107,6 +107,7 @@
   }
 
   const currentResume = () => state.resumes.find(resume => resume.id === state.resumeId) || null;
+  const templateFor = resume => resume.selection?.template || resume.template || "main";
   const entriesOf = kind => state.entries.filter(entry => entry.kind === kind);
   const dates = entry => [entry.start_date, entry.end_date].filter(Boolean).join(" – ");
   const targetFor = resume => state.jobs.find(job => job.id === resume?.target_job_id) || null;
@@ -117,7 +118,7 @@
   const showsDetail = (resume, entryId) => (resume.selection?.entries || []).find(item => item.entry_id === entryId)?.show_detail !== false;
 
   function audienceOptions(selected, { includeAll = true } = {}) {
-    const options = includeAll ? [{ key: "all", label: "All resumes" }] : [{ key: "", label: "No variant" }];
+    const options = includeAll ? [{ key: "all", label: "All resumes" }] : [{ key: "", label: "All profile content" }];
     return options.concat(state.variants).map(({ key, label }) =>
       `<option value="${esc(key)}" ${key === (selected ?? "") ? "selected" : ""}>${esc(label || key)}</option>`
     ).join("");
@@ -131,6 +132,8 @@
     });
     document.querySelector("[data-resume-count]").textContent = state.resumes.length;
     view.setAttribute("aria-labelledby", state.tab === "profile" ? "profile-tab" : "resumes-tab");
+    tabAction.hidden = state.tab !== "profile";
+    view.classList.toggle("tailoring-view", state.tab === "resumes");
     renderTabAction();
   }
 
@@ -149,8 +152,9 @@
       return;
     }
     const missing = missingSections();
+    tabAction.hidden = !missing.length;
     tabAction.innerHTML = missing.length ? `<div class="add-section">
-      <button type="button" data-action="toggle-add-section" aria-expanded="false">${icon("plus")}Add Section</button>
+      <button type="button" data-action="toggle-add-section" aria-expanded="false">${icon("plus")}Add section</button>
       <div class="popover" data-add-section-menu hidden>${missing.map(item =>
         `<button type="button" data-action="add-section" data-section="${item.key}">${esc(item.label)}</button>`).join("")}</div>
     </div>` : "";
@@ -165,7 +169,7 @@
   function sectionBar(key, title, addLabel = "", fixed = false) {
     const open = fixed || state.openSections.has(key);
     return `<header class="section-bar">
-      ${fixed ? "" : `<button class="section-toggle" type="button" data-action="toggle-section" data-section="${key}" aria-label="${open ? "Collapse" : "Expand"} ${esc(title)}">${icon("down")}</button>`}
+      ${fixed ? "" : `<button class="section-toggle" type="button" data-action="toggle-section" data-section="${key}" aria-expanded="${open}" aria-label="${open ? "Collapse" : "Expand"} ${esc(title)}">${icon("down")}</button>`}
       <h2>${esc(title)}</h2>
       ${addLabel ? `<button class="section-add" type="button" data-action="section-add" data-section="${key}">${icon("plus")}${esc(addLabel)}</button>` : ""}
     </header>`;
@@ -177,25 +181,32 @@
       : type === "entry" ? `data-action="edit-entry-field" data-entry="${esc(id.split(":")[0])}" data-field="${esc(id.split(":")[1])}"`
         : type === "resume" ? `data-action="edit-resume-field" data-field="${esc(id)}"`
           : "";
-    return `<div class="field-value ${value ? "" : "is-empty"}"><strong>${esc(value || empty)}</strong>
-      <button class="field-pencil" type="button" ${attrs} aria-label="Edit ${esc(label)}">${icon("edit")}</button></div>`;
+    return `<div class="field-value ${value ? "" : "is-empty"}"><strong><button class="value-trigger" type="button" ${attrs} aria-label="Edit ${esc(label)}"><span>${esc(value || empty)}</span><svg class="edit-cue" aria-hidden="true"><use href="#icon-edit"/></svg></button></strong></div>`;
   }
 
   function contactSection(readOnly = false, resume = null) {
     const profile = state.profile || {};
-    // Availability belongs to the resume, not the profile: an internship and
-    // a full-time document say different things. It renders under the
-    // contacts in the PDF, so it lives with them here.
-    const availability = resume ? `<div class="display-field resume-field"><span class="field-label">Availability</span>${editableValue("Availability", resume.availability_line, "resume", "availability_line", "Add availability")}</div>` : "";
-    const field = (label, key, empty) => `<div class="display-field"><span class="field-label">${label}</span>${readOnly
-      ? `<div class="field-value ${profile[key] ? "" : "is-empty"}"><strong>${esc(profile[key] || "—")}</strong></div>`
-      : editableValue(label, profile[key], "profile", key, empty)}</div>`;
-    const links = (profile.links || []).map((link, index) => `<span class="link-item"><a href="${href(link.url)}" target="_blank" rel="noreferrer">${esc(link.label || link.url)}</a>${readOnly ? "" : `<button class="field-pencil" type="button" data-action="edit-link" data-index="${index}" aria-label="Edit ${esc(link.label || "link")}">${icon("edit")}</button>`}</span>`).join("");
+    if (readOnly) {
+      const details = [profile.email, profile.phone, profile.location].filter(Boolean);
+      const links = (profile.links || []).map(link => `<a href="${href(link.url)}" target="_blank" rel="noreferrer">${esc(link.label || link.url)}</a>`).join("");
+      return `<article class="resume-section contact-section">
+        <header class="section-bar"><h2>Contact</h2></header>
+        <div class="section-body compact-contact">
+          <div class="contact-summary"><strong>${esc(profile.full_name || "Add your name in Profile")}</strong>
+            <div class="contact-details">${details.map(detail => `<span>${esc(detail)}</span>`).join("") || `<span>No contact details added.</span>`}</div>
+            ${links ? `<div class="profile-links">${links}</div>` : ""}</div>
+        </div></article>`;
+    }
+    const field = (label, key, empty) => editableValue(label, profile[key], "profile", key, empty);
+    const links = (profile.links || []).map((link, index) => `<span class="link-item"><a href="${href(link.url)}" target="_blank" rel="noreferrer">${esc(link.label || link.url)}</a><button class="field-pencil" type="button" data-action="edit-link" data-index="${index}" aria-label="Edit ${esc(link.label || "link")}">${icon("edit")}</button></span>`).join("");
     return `<article class="resume-section contact-section">
       ${sectionBar("contact", "Contact", "", true)}
-      <div class="section-body">
-        <div class="contact-grid">${field("Name", "full_name", "Add name")}${field("Email", "email", "Add email")}${field("Phone", "phone", "Add phone")}${field("Location", "location", "Add location")}${availability}</div>
-        <div class="profile-links"><span class="field-label">Links</span>${links || `<span class="readonly-note">${readOnly ? "—" : "No links"}</span>`}${readOnly ? "" : `<button class="link-add" type="button" data-action="add-link" aria-label="Add link">${icon("plus")}</button>`}</div>
+      <div class="section-body compact-contact profile-contact">
+        <div class="contact-summary">
+          <div class="profile-contact-name">${field("Name", "full_name", "Add name")}</div>
+          <div class="contact-details">${field("Email", "email", "Add email")}${field("Phone", "phone", "Add phone")}${field("Location", "location", "Add location")}</div>
+          <div class="profile-links">${links}<button class="link-add" type="button" data-action="add-link" aria-label="Add link">${icon("plus")}Add link</button></div>
+        </div>
       </div>
     </article>`;
   }
@@ -206,8 +217,8 @@
     const entries = education.map(entry => educationEntry(entry, readOnly, resume)).join("");
     const courseItems = courses.map(course => {
       const picked = !resume || selectedSkill(resume, course.id);
-      return `<span class="course-item ${resume && !picked ? "not-selected" : ""} ${resume ? "selectable" : ""}" ${resume ? `role="button" tabindex="0" data-action="toggle-skill" data-id="${course.id}"` : ""}>
-        <span>${esc(course.name)}</span>${readOnly ? "" : `<button class="field-pencil" type="button" data-action="edit-skill" data-id="${course.id}" aria-label="Edit ${esc(course.name)}">${icon("edit")}</button>`}</span>`;
+      return `<span class="course-item ${resume && !picked ? "not-selected" : ""} ${resume ? "selectable" : ""}" ${resume ? `role="button" tabindex="0" aria-pressed="${picked}" aria-label="Include ${esc(course.name)}" data-action="toggle-skill" data-id="${course.id}"` : ""}>
+        ${readOnly ? `<span>${esc(course.name)}</span>` : `<button class="value-trigger" type="button" data-action="edit-skill" data-id="${course.id}" aria-label="Edit ${esc(course.name)}"><span>${esc(course.name)}</span><svg class="edit-cue" aria-hidden="true"><use href="#icon-edit"/></svg></button>`}</span>`;
     }).join("");
     const addForm = state.addingKind === "education" && !readOnly ? newEntryForm("education") : "";
     const courseForm = state.addingCourse && !readOnly ? skillForm(true) : "";
@@ -222,18 +233,18 @@
 
   function educationEntry(entry, readOnly, resume = null) {
     const gpaShown = !resume || showsDetail(resume, entry.id);
-    const gpaAttrs = resume ? `class="display-field selectable ${gpaShown ? "" : "not-selected"}" role="button" tabindex="0" data-action="toggle-detail" data-id="${entry.id}" aria-pressed="${gpaShown}" title="${gpaShown ? "Hide GPA on this resume" : "Show GPA on this resume"}"` : `class="display-field"`;
+    const gpaAttrs = resume ? `class="education-detail selectable ${gpaShown ? "" : "not-selected"}" role="button" tabindex="0" data-action="toggle-detail" data-id="${entry.id}" aria-pressed="${gpaShown}" aria-label="Include GPA" title="${gpaShown ? "Hide GPA on this resume" : "Show GPA on this resume"}"` : `class="education-detail"`;
     const value = (label, field, shown, empty) => readOnly
       ? `<div class="field-value ${shown ? "" : "is-empty"}"><strong>${esc(shown || "—")}</strong></div>`
       : editableValue(label, shown, "entry", `${entry.id}:${field}`, empty);
-    return `<div class="entry-block" data-entry-id="${entry.id}">
-      <div class="entry-head"><div class="entry-heading"><div class="entry-title-line">${value("School", "org", entry.org, "Add school")}</div></div>
+    return `<div class="entry-block education-entry" data-entry-id="${entry.id}">
+      <div class="entry-head"><div class="entry-heading"><div class="entry-title-line">${value("School", "org", entry.org, "Add school")}</div>
+        <div class="education-degree">${value("Degree", "role", entry.role, "Add degree")}</div></div>
         ${readOnly ? "" : entryActions(entry)}</div>
-      <div class="education-fields">
-        <div class="display-field"><span class="field-label">Degree</span>${value("Degree", "role", entry.role, "Add degree")}</div>
-        <div class="display-field"><span class="field-label">Location</span>${value("Location", "location", entry.location, "Add location")}</div>
-        <div class="display-field"><span class="field-label">Dates</span>${value("Dates", "dates", dates(entry), "Add dates")}</div>
-        <div ${gpaAttrs}><span class="field-label">GPA</span>${value("GPA", "detail", String(entry.detail || "").replace(/^GPA\s*:\s*/i, ""), "Add GPA")}</div>
+      <div class="education-meta">
+        ${value("Dates", "dates", dates(entry), "Add dates")}<span class="separator" aria-hidden="true">·</span>
+        ${value("Location", "location", entry.location, "Add location")}<span class="separator" aria-hidden="true">·</span>
+        <div ${gpaAttrs}><span>GPA</span>${value("GPA", "detail", String(entry.detail || "").replace(/^GPA\s*:\s*/i, ""), "Add GPA")}</div>
       </div>
     </div>`;
   }
@@ -244,8 +255,8 @@
       const skills = state.skills.filter(skill => group.categories.includes(skill.category));
       return `<div class="skill-row"><span class="skill-label">${esc(group.title)}</span><div class="skill-list">${skills.map(skill => {
         const picked = !resume || selectedSkill(resume, skill.id);
-        return `<span class="skill-item ${resume && !picked ? "not-selected" : ""} ${resume ? "selectable" : ""}" ${resume ? `role="button" tabindex="0" data-action="toggle-skill" data-id="${skill.id}"` : ""}>
-          <span>${esc(skill.name)}</span>${readOnly ? "" : `<button class="field-pencil" type="button" data-action="edit-skill" data-id="${skill.id}" aria-label="Edit ${esc(skill.name)}">${icon("edit")}</button>`}</span>`;
+        return `<span class="skill-item ${resume && !picked ? "not-selected" : ""} ${resume ? "selectable" : ""}" ${resume ? `role="button" tabindex="0" aria-pressed="${picked}" aria-label="Include ${esc(skill.name)}" data-action="toggle-skill" data-id="${skill.id}"` : ""}>
+          ${readOnly ? `<span>${esc(skill.name)}</span>` : `<button class="value-trigger" type="button" data-action="edit-skill" data-id="${skill.id}" aria-label="Edit ${esc(skill.name)}"><span>${esc(skill.name)}</span><svg class="edit-cue" aria-hidden="true"><use href="#icon-edit"/></svg></button>`}</span>`;
       }).join("") || `<span class="readonly-note">—</span>`}</div></div>`;
     }).join("");
     return `<article class="resume-section ${open ? "" : "collapsed"}">${sectionBar("skills", "Skills", readOnly ? "" : "Add skill")}
@@ -288,18 +299,21 @@
       ["Location", "location", entry.location],
       ["Dates", "dates", dates(entry)],
       ["Link", "url", entry.url ? "View link" : "Add link"],
-    ].map(([label, field, value], index) => {
+    ].filter(([, field, value]) => !readOnly || (field === "url" ? Boolean(entry.url) : Boolean(value))).map(([label, field, value], index) => {
       const shown = field === "url" && entry.url ? `<a href="${href(entry.url)}" target="_blank" rel="noreferrer">${esc(value)}</a>` : esc(value || `Add ${label.toLowerCase()}`);
-      const display = readOnly ? `<span>${shown}</span>` : `<span class="field-value ${entry[field] || field === "dates" && dates(entry) ? "" : "is-empty"}"><strong>${shown}</strong><button class="field-pencil" type="button" data-action="edit-entry-field" data-entry="${entry.id}" data-field="${field}" aria-label="Edit ${label}">${icon("edit")}</button></span>`;
+      const display = readOnly ? `<span>${shown}</span>` : field === "url" && entry.url
+        ? `<span class="field-value"><strong>${shown}</strong><button class="field-pencil" type="button" data-action="edit-entry-field" data-entry="${entry.id}" data-field="${field}" aria-label="Edit ${label}">${icon("edit")}</button></span>`
+        : editableValue(label, field === "url" ? entry.url : value, "entry", `${entry.id}:${field}`, `Add ${label.toLowerCase()}`);
       return `${index ? '<span class="separator">·</span>' : ""}${display}`;
     }).join("");
     const pickedCount = resume ? entry.bullets.filter(bullet => selectedBullet(resume, bullet.id)).length : 0;
-    const headAttrs = resume ? `role="button" tabindex="0" data-action="toggle-entry" data-id="${entry.id}"` : "";
+    const partial = resume && pickedCount > 0 && pickedCount < entry.bullets.length;
+    const headAttrs = resume ? `role="button" tabindex="0" aria-pressed="${partial ? "mixed" : picked}" aria-label="Include ${esc(entry.role || entry.org)}" data-action="toggle-entry" data-id="${entry.id}"` : "";
     return `<div class="entry-block ${resume && !picked ? "not-selected" : ""}" data-entry-id="${entry.id}">
-      <div class="entry-head ${resume ? "selectable" : ""}" ${headAttrs}><div class="entry-heading"><div class="entry-title-line">${title}</div><div class="entry-meta">${meta}</div></div>
-        ${resume ? `<span class="entry-pick-count">${pickedCount}/${entry.bullets.length}</span>` : entryActions(entry)}</div>
+      <div class="entry-head ${resume ? "selectable" : ""}" ${headAttrs}><div class="entry-heading"><div class="entry-title-line">${title}</div><div class="entry-meta">${meta}${resume ? `<span class="entry-pick-count">${pickedCount} of ${entry.bullets.length} bullets</span>` : ""}</div></div>
+        ${resume ? "" : entryActions(entry)}</div>
       <div class="bullet-list">${entry.bullets.map(bullet => bulletRow(entry, bullet, readOnly, resume)).join("")}</div>
-      ${readOnly ? "" : state.addingBulletEntry === entry.id ? bulletForm(entry.id) : `<button class="bullet-add-tail" type="button" data-action="add-bullet" data-entry="${entry.id}" aria-label="Add bullet">${icon("plus")}</button>`}
+      ${readOnly ? "" : state.addingBulletEntry === entry.id ? bulletForm(entry.id) : `<button class="bullet-add-tail" type="button" data-action="add-bullet" data-entry="${entry.id}" aria-label="Add bullet">${icon("plus")}Add bullet</button>`}
     </div>`;
   }
 
@@ -307,7 +321,7 @@
     const pick = resume ? selectedEntry(resume, entry.id)?.bullets?.find(item => item.bullet_id === bullet.id) : null;
     const selected = !resume || Boolean(pick);
     const text = pick?.text_override || bullet.text;
-    return `<div class="bullet-row ${resume && !selected ? "not-selected" : ""} ${resume ? "selectable" : ""}" ${resume ? `role="button" tabindex="0" data-action="toggle-bullet" data-entry="${entry.id}" data-id="${bullet.id}"` : ""}>
+    return `<div class="bullet-row ${resume && !selected ? "not-selected" : ""} ${resume ? "selectable" : ""}" ${resume ? `role="button" tabindex="0" aria-pressed="${selected}" aria-label="Include bullet: ${esc(text)}" data-action="toggle-bullet" data-entry="${entry.id}" data-id="${bullet.id}"` : ""}>
       <span class="bullet-mark" aria-hidden="true">•</span><div class="bullet-value"><p>${esc(text)}</p>
       <button class="field-pencil" type="button" data-action="${resume ? "edit-resume-bullet" : "edit-bullet"}" data-entry="${entry.id}" data-id="${bullet.id}" aria-label="Edit bullet">${icon("edit")}</button></div></div>`;
   }
@@ -361,19 +375,18 @@
 
   function resumePicker(resume) {
     const cards = state.resumes.map(item => {
-      const target = targetFor(item);
       const date = item.updated_at ? new Date(item.updated_at).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "";
       if (state.renamingResumeId === item.id) return `<div class="resume-card ${item.id === resume.id ? "selected" : ""}"><form data-form="rename-resume" data-id="${item.id}" class="inline-editor"><input name="name" value="${esc(item.name)}" required autofocus><button class="inline-icon" type="submit" aria-label="Save">${icon("check")}</button><button class="inline-icon cancel" type="button" data-action="cancel-rename" aria-label="Cancel">${icon("close")}</button></form></div>`;
-      return `<div class="resume-card ${item.id === resume.id ? "selected" : ""}"><button class="resume-card-main" type="button" data-action="choose-resume" data-id="${item.id}"><strong>${esc(item.name)}</strong><span>${esc(target ? `${target.company} · ${target.title}` : "No target role")}${date ? ` · Edited ${date}` : ""}</span></button>
+      return `<div class="resume-card ${item.id === resume.id ? "selected" : ""}"><button class="resume-card-main" type="button" data-action="choose-resume" data-id="${item.id}"><strong>${esc(item.name)}</strong>${date ? `<span>Edited ${date}</span>` : ""}</button>
         <span class="card-menu"><button class="entry-more" type="button" data-action="toggle-resume-menu" aria-label="Resume actions" aria-expanded="false">${icon("more")}</button><span class="popover" hidden><button type="button" data-action="rename-resume" data-id="${item.id}">Rename</button><button class="danger" type="button" data-action="delete-resume" data-id="${item.id}">Delete</button></span></span></div>`;
     }).join("");
-    return `<div class="resume-picker"><button class="resume-picker-trigger" type="button" data-action="toggle-resume-picker" aria-label="Choose resume" aria-expanded="false" title="Choose resume">${icon("copy")}</button><div class="popover resume-list" hidden>${cards}</div></div>`;
+    return `<div class="resume-picker"><button class="resume-picker-trigger" type="button" data-action="toggle-resume-picker" aria-label="Choose resume" aria-expanded="false" title="Choose resume"><span>${esc(resume.name)}</span>${icon("down")}</button><div class="popover resume-list" hidden>${cards}<button class="resume-list-create" type="button" data-action="new-resume">${icon("plus")}New resume</button></div></div>`;
   }
 
   function renderResumes() {
     const resume = currentResume();
     if (!resume) {
-      view.innerHTML = `<section class="empty-state"><h2>No resumes yet</h2><p>Create a resume, then choose exactly what from your Profile belongs in it.</p><button class="button primary" data-action="new-resume">${icon("plus")}New resume</button></section>`;
+      view.innerHTML = `<section class="empty-state resume-empty"><button class="button primary" type="button" data-action="new-resume">${icon("plus")}New resume</button><p>Create resume with customized profile</p></section>`;
       return;
     }
     const target = targetFor(resume);
@@ -381,11 +394,12 @@
     if (state.skills.some(skill => skill.category !== "coursework")) content.push(skillsSection(true, resume));
     ["experience", "project", "research", "leadership"].forEach(kind => content.push(resumeEntrySection(kind, resume)));
     view.innerHTML = `<article class="resume-document">
-      <header class="document-head">${resumePicker(resume)}<div class="document-title"><span class="autosave">${icon("check")}Saved automatically</span><h2>${esc(resume.name)}</h2></div>
-        <div class="document-actions"><select class="design-select" data-resume-template aria-label="Design">${[["main", "Main"], ["barlow", "Barlow"]].map(([value, label]) => `<option value="${value}" ${(resume.template || "main") === value ? "selected" : ""}>${label} design</option>`).join("")}</select><div class="mode-switch" aria-label="Resume display"><button type="button" data-action="show-content" aria-pressed="${state.mode === "content"}">${icon("edit")}Content</button><button type="button" data-action="show-pdf" aria-pressed="${state.mode === "pdf"}">${icon("eye")}PDF</button></div><button class="button primary small" type="button" data-action="export-pdf">${icon("download")}Export PDF</button></div>
+      <header class="document-head"><div class="document-identity"><div class="document-title">${resumePicker(resume)}</div></div>
+        <div class="document-actions"><div class="mode-switch" aria-label="Resume display"><button type="button" data-action="show-content" aria-pressed="${state.mode === "content"}">${icon("edit")}Content</button><button type="button" data-action="show-pdf" aria-pressed="${state.mode === "pdf"}">${icon("eye")}Preview</button></div><button class="button small" type="button" data-action="export-pdf">${icon("download")}Export PDF</button></div>
       </header>
+      <div class="resume-availability resume-field"><span class="field-label">Availability</span>${editableValue("Availability", resume.availability_line, "resume", "availability_line", "Add availability")}</div>
       ${target ? `<div class="target-line"><span>Target</span><strong>${esc(target.company)} · ${esc(target.title)}</strong>${target.url ? `<a href="${href(target.url)}" target="_blank" rel="noreferrer">View role ${icon("external")}</a>` : ""}</div>` : ""}
-      ${state.mode === "content" ? `<div class="resume-content section-list">${content.join("")}</div>` : `<div class="pdf-stage"><p class="pdf-loading">Building preview…</p><iframe class="pdf-frame" title="Resume PDF preview" hidden></iframe></div>`}
+      ${state.mode === "content" ? `<div class="resume-content section-list">${content.join("")}</div>` : `<div class="resume-preview"><div class="preview-tools"><label for="resume-design">Design</label><select id="resume-design" class="design-select" data-resume-template>${[["main", "Main"], ["barlow", "Barlow"]].map(([value, label]) => `<option value="${value}" ${templateFor(resume) === value ? "selected" : ""}>${label}</option>`).join("")}</select></div><div class="pdf-stage"><p class="pdf-loading">Building preview…</p><iframe class="pdf-frame" title="Resume PDF preview" hidden></iframe></div></div>`}
     </article>`;
     queueMicrotask(() => {
       growAll();
@@ -486,17 +500,45 @@
     const scope = button.closest(config.scope);
     if (!scope || scope.querySelector(".inline-editor")) return;
     const original = scope.innerHTML;
-    scope.innerHTML = `<form class="inline-editor"><input name="value" value="${esc(config.value)}" aria-label="${esc(config.label)}" autofocus><button class="inline-icon" type="submit" aria-label="Save">${icon("check")}</button><button class="inline-icon cancel" type="button" aria-label="Cancel">${icon("close")}</button>${config.remove ? `<button class="inline-icon cancel remove" type="button" aria-label="Delete">${icon("trash")}</button>` : ""}</form>`;
+    const text = scope.querySelector(".value-trigger > span") || scope.querySelector("strong") || scope;
+    const textStyle = getComputedStyle(text);
+    const font = textStyle.font;
+    const measure = document.createElement("canvas").getContext("2d");
+    measure.font = `${textStyle.fontWeight} ${textStyle.fontSize} ${textStyle.fontFamily}`;
+    const chip = scope.matches(".skill-item, .course-item");
+    if (chip) {
+      const bounds = scope.getBoundingClientRect();
+      scope.style.width = `${bounds.width}px`;
+      scope.style.height = `${bounds.height}px`;
+      scope.classList.add("editing-chip");
+    }
+    scope.innerHTML = `<form class="inline-editor value-editor"><input name="value" value="${esc(config.value)}" aria-label="${esc(config.label)}" autofocus><button class="inline-icon" type="submit" aria-label="Save">${icon("check")}</button><button class="inline-icon cancel" type="button" aria-label="Cancel">${icon("close")}</button>${config.remove ? `<button class="inline-icon cancel remove" type="button" aria-label="Delete">${icon("trash")}</button>` : ""}</form>`;
     const form = scope.querySelector("form");
-    form.querySelector(".cancel").onclick = () => { scope.innerHTML = original; };
+    form.style.font = font;
+    const restore = () => {
+      scope.innerHTML = original;
+      if (chip) { scope.classList.remove("editing-chip"); scope.style.removeProperty("width"); scope.style.removeProperty("height"); }
+      scope.querySelector(".value-trigger, .field-pencil")?.focus({ preventScroll: true });
+    };
+    form.querySelector(".cancel").onclick = restore;
+    form.addEventListener("keydown", event => {
+      if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); restore(); }
+    });
     if (config.remove) form.querySelector(".remove").onclick = config.remove;
     form.onsubmit = async event => {
       event.preventDefault();
       const value = form.elements.value.value.trim();
-      try { await config.save(value); } catch (error) { say(error.message); scope.innerHTML = original; }
+      try { await config.save(value); } catch (error) { say(error.message); restore(); }
     };
     const input = form.elements.value;
-    const fit = () => { input.size = Math.max(6, input.value.length + 2); };
+    const fit = () => {
+      form.style.setProperty("--edit-input-width", `${Math.ceil(Math.max(chip ? 40 : 64, measure.measureText(input.value || " ").width + 10))}px`);
+      if (chip) {
+        form.style.left = "-1px";
+        const overflow = form.getBoundingClientRect().right - (innerWidth - 20);
+        if (overflow > 0) form.style.left = `${-1 - overflow}px`;
+      }
+    };
     fit();
     input.addEventListener("input", fit);
     input.focus();
@@ -534,11 +576,17 @@
     const resume = currentResume();
     const pick = resumeOverride ? selectedEntry(resume, entry.id)?.bullets?.find(item => item.bullet_id === bullet.id) : null;
     const value = pick?.text_override || bullet.text;
+    const textFont = getComputedStyle(row.querySelector(".bullet-value p")).font;
     const original = row.innerHTML;
     row.innerHTML = `<span class="bullet-mark">•</span><form class="inline-editor"><textarea name="text" autofocus>${esc(value)}</textarea><button class="inline-icon" type="submit" aria-label="Save">${icon("check")}</button><button class="inline-icon cancel" type="button" aria-label="Cancel">${icon("close")}</button>${resumeOverride ? "" : `<button class="inline-icon cancel remove" type="button" aria-label="Delete bullet">${icon("trash")}</button>`}</form>`;
     const form = row.querySelector("form");
+    form.style.font = textFont;
     growAll(row);
-    form.querySelector(".cancel").onclick = () => { row.innerHTML = original; };
+    const restore = () => { row.innerHTML = original; row.querySelector(".field-pencil")?.focus({ preventScroll: true }); };
+    form.querySelector(".cancel").onclick = restore;
+    form.addEventListener("keydown", event => {
+      if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); restore(); }
+    });
     if (!resumeOverride) form.querySelector(".remove").onclick = async () => {
       if (!confirm("Delete this bullet?")) return;
       await api(`/bullets/${bullet.id}`, { method: "DELETE" });
@@ -614,15 +662,17 @@
     const frame = view.querySelector(".pdf-frame");
     const loading = view.querySelector(".pdf-loading");
     if (!frame) return;
+    const resume = currentResume();
     try {
-      const blob = await loadPdfBlob(currentResume());
+      const blob = await loadPdfBlob(resume);
+      if (!frame.isConnected || state.mode !== "pdf") return;
       if (state.pdfUrl) URL.revokeObjectURL(state.pdfUrl);
       state.pdfUrl = URL.createObjectURL(blob);
       frame.src = state.pdfUrl;
       frame.hidden = false;
       loading.hidden = true;
     } catch (error) {
-      loading.textContent = error.message;
+      if (loading.isConnected) loading.textContent = error.message;
     }
   }
 
@@ -638,9 +688,9 @@
   }
 
   function buildInitialSelection(variant) {
-    const matches = audience => !audience || audience === "all" || audience === variant;
+    const matches = audience => !variant || !audience || audience === "all" || audience === variant;
     return {
-      entries: state.entries.filter(entry => entry.kind !== "education").map(entry => ({
+      entries: state.entries.map(entry => ({
         entry_id: entry.id,
         bullets: entry.bullets.filter(bullet => matches(bullet.audience)).map(bullet => ({ bullet_id: bullet.id, text_override: null })),
       })).filter(pick => pick.bullets.length || !state.entries.find(entry => entry.id === pick.entry_id)?.bullets.length),
@@ -662,7 +712,7 @@
 
   async function handleAction(button) {
     const action = button.dataset.action;
-    if (action === "new-resume") return openResumeDialog();
+    if (action === "new-resume") { closeMenus(); return openResumeDialog(); }
     if (action === "toggle-add-section") {
       const menu = button.nextElementSibling; const opening = menu.hidden; closeMenus(menu); menu.hidden = !opening; button.setAttribute("aria-expanded", String(opening)); return;
     }
@@ -697,7 +747,17 @@
     }
     if (action === "edit-skill") return startSkillEditor(button);
     if (action === "toggle-entry-menu" || action === "toggle-resume-menu") {
-      const menu = button.nextElementSibling; const opening = menu.hidden; closeMenus(menu); menu.hidden = !opening; button.setAttribute("aria-expanded", String(opening)); return;
+      const menu = button.nextElementSibling; const opening = menu.hidden; closeMenus(menu); menu.hidden = !opening; button.setAttribute("aria-expanded", String(opening));
+      if (opening && action === "toggle-resume-menu") {
+        // Keep actions outside the picker's scroll clipping, including its last row.
+        menu.style.position = "fixed";
+        menu.style.right = "auto";
+        const anchor = button.getBoundingClientRect();
+        const popup = menu.getBoundingClientRect();
+        menu.style.left = `${Math.max(8, Math.min(anchor.right - popup.width, innerWidth - popup.width - 8))}px`;
+        menu.style.top = `${Math.max(8, anchor.bottom + popup.height + 4 <= innerHeight ? anchor.bottom + 4 : anchor.top - popup.height - 4)}px`;
+      }
+      return;
     }
     if (action === "delete-entry") {
       if (confirm("Delete this entry and its bullets?")) { await api(`/entries/${Number(button.dataset.id)}`, { method: "DELETE" }); await refresh(); }
@@ -738,12 +798,24 @@
 
   view.addEventListener("change", async event => {
     if (!event.target.matches("[data-resume-template]")) return;
-    try { await patchResume(currentResume(), { template: event.target.value }); renderResumes(); } catch (error) { say(error.message); }
+    try {
+      const resume = currentResume();
+      const selection = cloneSelection(resume);
+      selection.template = event.target.value;
+      await patchResume(resume, { selection });
+      renderResumes();
+      view.querySelector("[data-resume-template]")?.focus({ preventScroll: true });
+    } catch (error) { say(error.message); }
   });
 
   view.addEventListener("click", async event => {
+    // Links inside a selectable entry remain ordinary navigation links.
+    if (event.target.closest("a[href]")) return;
     const button = event.target.closest("[data-action]");
     if (!button) return;
+    // Saving an inline editor must not activate its selectable parent row.
+    const editingForm = event.target.closest("form");
+    if (editingForm && !editingForm.contains(button)) return;
     event.preventDefault();
     event.stopPropagation();
     try { await handleAction(button); } catch (error) { say(error.message); }
@@ -807,10 +879,26 @@
   document.querySelector(".page-tabs").addEventListener("click", event => {
     const button = event.target.closest("[data-tab]");
     if (!button) return;
-    state.tab = button.dataset.tab; state.mode = "content"; render();
+    state.tab = button.dataset.tab; state.mode = "content";
+    history.replaceState(null, "", state.tab === "resumes" ? "#resumes" : location.pathname + location.search);
+    render();
   });
 
-  document.querySelector("[data-action=new-resume]").addEventListener("click", () => openResumeDialog());
+  document.querySelector(".page-tabs").addEventListener("keydown", event => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const tabs = [...document.querySelectorAll("[data-tab]")];
+    const index = tabs.indexOf(document.activeElement);
+    const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1
+      : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+    tabs[next].click(); tabs[next].focus();
+  });
+  document.addEventListener("keydown", event => {
+    if (event.key !== "Escape") return;
+    closeMenus();
+    document.querySelectorAll("details[open]").forEach(item => item.open = false);
+  });
+
   document.querySelectorAll("[data-close-dialog]").forEach(button => button.addEventListener("click", () => button.closest("dialog").close()));
   document.getElementById("resume-form").addEventListener("submit", async event => {
     event.preventDefault();

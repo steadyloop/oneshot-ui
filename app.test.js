@@ -7,7 +7,7 @@ const { ROUTES, query } = require("./api-client.js");
 const { opportunityTotal } = require("./nav-count.js");
 
 test("visible filters map to PostgreSQL job types", () => {
-  const labels = ["Internships", "Co-ops", "Student Jobs", "New Grad", "Research"];
+  const labels = ["Internships", "Co-ops", "Student jobs", "New grad", "Research"];
   const keys = ["internships", "coops", "students", "new_grads", "research"];
   const types = ["intern", "coop", "student", "new_grad", "research"];
 
@@ -33,84 +33,6 @@ test("job freshness labels stay concise", () => {
   assert.equal(opportunities.relativeTime("2026-08-08T11:56:00Z", now), "4m ago");
 });
 
-test("sample jobs match the live list contract", async () => {
-  const state = sampleData.createState();
-  assert.deepEqual(
-    [...new Set(state.jobs.flatMap(job => job.skills.map(skill => skill.category)).filter(Boolean))].sort(),
-    ["concept", "datastore", "format", "framework", "hardware", "language", "library", "method", "platform", "protocol", "tool"],
-  );
-  const listing = await (await sampleData.handle("/jobs?limit=100", {}, state)).json();
-  assert.equal(listing.total, 8);
-  for (const job of listing.jobs) {
-    assert.deepEqual(
-      Object.keys(job).sort(),
-      ["apply_url", "attributes", "company", "first_seen_at", "id", "job_type", "last_seen_at", "location", "locations", "other_sources", "posted_at", "remote", "skills", "source", "source_url", "status", "summary", "title"],
-    );
-    assert.ok(Array.isArray(job.locations));
-    assert.ok(job.locations.every(location =>
-      Object.keys(location).sort().join(",") === "city,country,state"));
-    assert.ok(Array.isArray(job.skills));
-    assert.equal(job.attributes.version, 1);
-    // Parse-time columns, alongside attributes rather than inside it. job_type
-    // is NULL when no vendor rule matched; remote always states a value.
-    assert.ok(job.job_type === null || ["intern", "coop", "student", "new_grad", "research"].includes(job.job_type));
-    assert.ok(["yes", "hybrid", "unknown"].includes(job.remote));
-  }
-});
-
-test("sample job search uses title, company, and precomputed skills only", async () => {
-  const state = sampleData.createState();
-  const bySkill = await (await sampleData.handle("/jobs?q=Kubernetes&limit=100", {}, state)).json();
-  assert.ok(bySkill.jobs.some(job => job.id === "sample-software"));
-
-  const bySummary = await (await sampleData.handle("/jobs?q=reproducible%20experiments&limit=100", {}, state)).json();
-  assert.equal(bySummary.total, 0);
-  const byLocation = await (await sampleData.handle("/jobs?q=San%20Diego&limit=100", {}, state)).json();
-  assert.equal(byLocation.total, 0);
-});
-
-test("sample seasonal views search titles and descriptions", async () => {
-  const state = sampleData.createState();
-  state.applications = [];
-  const fall = state.jobs.find(job => job.id === "sample-software");
-  const winter = state.jobs.find(job => job.id === "sample-platform");
-  fall.title = "Software Engineering Intern";
-  fall.summary = "Join the Fall 2027 internship cohort.";
-  winter.title = "Winter 2027 Platform Intern";
-
-  const listing = await (await sampleData.handle("/jobs?season=fall&limit=100", {}, state)).json();
-  assert.equal(listing.jobs.some(job => job.id === fall.id), true);
-  assert.equal(listing.jobs.some(job => job.id === winter.id), false);
-});
-
-test("sample fresh order is day first, then US location bucket", async () => {
-  const state = sampleData.createState();
-  state.applications = [];
-  const copy = id => structuredClone(state.jobs.find(job => job.id === id));
-  const norcalHub = copy("sample-new-grad");
-  const socalHub = copy("sample-software");
-  const seattleHub = {
-    ...copy("sample-software"), id: "sample-seattle", location: "Seattle, WA",
-    locations: [{ country: "US", state: "WA", city: "Seattle" }],
-  };
-  const otherHub = copy("sample-platform");
-  const suburb = copy("sample-graduate-research");
-  const rest = copy("sample-research");
-  const foreign = copy("sample-working-student");
-  const missing = { ...copy("sample-research"), id: "sample-no-location", locations: [], location: null };
-  for (const job of [norcalHub, socalHub, seattleHub, otherHub, suburb, rest, foreign, missing]) {
-    job.posted_at = "2026-08-21T12:00:00Z";
-    job.first_seen_at = job.posted_at;
-  }
-  state.jobs = [missing, foreign, rest, suburb, otherHub, seattleHub, socalHub, norcalHub];
-
-  const listing = await (await sampleData.handle("/jobs?sort=fresh&limit=100", {}, state)).json();
-  assert.deepEqual(listing.jobs.map(job => job.id), [
-    "sample-new-grad", "sample-software", "sample-seattle", "sample-platform",
-    "sample-graduate-research", "sample-research", "sample-no-location",
-  ]);
-});
-
 test("a browser-local resume renders through the public route, not a canned file", () => {
   const source = fs.readFileSync(require.resolve("./resume/app.js"), "utf8");
   // Export is real Typst in every mode now, so the pre-rendered sample files
@@ -120,43 +42,11 @@ test("a browser-local resume renders through the public route, not a canned file
   assert.match(source, /fetch\("\/api\/resume\/render\/pdf"/);
 });
 
-test("sample jobs honor limit and offset like the live API", async () => {
-  const state = sampleData.createState();
-  const first = await (await sampleData.handle("/jobs?limit=2&offset=0", {}, state)).json();
-  assert.equal(first.jobs.length, 2);
-  assert.equal(first.limit, 2);
-  assert.equal(first.offset, 0);
-  const second = await (await sampleData.handle("/jobs?limit=2&offset=2", {}, state)).json();
-  assert.equal(second.jobs.length, 2);
-  assert.equal(second.total, first.total);
-  assert.deepEqual(first.job_type_counts, {
-    intern: 3, coop: 1, student: 2, new_grad: 1, research: 1,
-  });
-  assert.deepEqual(
-    second.jobs.map(job => job.id).filter(id => first.jobs.some(job => job.id === id)),
-    [],
-  );
-});
-
 test("Opportunities pages past the first hundred results instead of dropping them", () => {
   const source = fs.readFileSync(require.resolve("./opportunities/app.js"), "utf8");
   assert.match(source, /data-action="load-more"/);
   assert.match(source, /const offset = append \? \(state\.jobs \|\| \[\]\)\.length : 0;/);
   assert.match(source, /state\.total = payload\.total;/);
-});
-
-test("sample Add to Applications creates one Considering record", async () => {
-  const state = sampleData.createState();
-  const firstResponse = await sampleData.handle("/jobs/sample-software/applications", { method: "POST" }, state);
-  const first = await firstResponse.json();
-  assert.equal(firstResponse.status, 201);
-  assert.equal(first.stage, "considering");
-  assert.equal(first.job_id, "sample-software");
-  assert.equal((await (await sampleData.handle("/jobs", {}, state)).json()).total, 7);
-
-  const duplicate = await (await sampleData.handle("/jobs/sample-software/applications", { method: "POST" }, state)).json();
-  assert.equal(duplicate.id, first.id);
-  assert.equal(duplicate.already_exists, true);
 });
 
 test("sample application mutations match the editor", async () => {
@@ -176,12 +66,11 @@ test("sample application mutations match the editor", async () => {
   assert.equal(updated.events.at(-1).to_stage, "interview");
 
   const discovered = state.applications.find(application => !application.external);
-  const protectedApplication = await (await sampleData.handle(`/applications/${discovered.id}`, {
-    method: "PATCH",
-    body: JSON.stringify({ company: "Wrong Company", next_action: "Review" }),
-  }, state)).json();
-  assert.notEqual(protectedApplication.company, "Wrong Company");
-  assert.equal(protectedApplication.next_action, "Review");
+  const protectedResponse = await sampleData.handle(`/applications/${discovered.id}`, {
+    method: "PATCH", body: JSON.stringify({ company: "Wrong Company", next_action: "Review" }),
+  }, state);
+  assert.equal(protectedResponse.status, 422);
+  assert.notEqual(discovered.company, 'Wrong Company');
 
   assert.equal((await sampleData.handle(`/applications/${external.id}`, { method: "DELETE" }, state)).status, 204);
 });
@@ -230,38 +119,38 @@ test("frontend client builds current API routes", () => {
   assert.match(source, /applications:[\s\S]*privateData|applications:[\s\S]*, true\)/);
 });
 
-test("navigation count reuses the Opportunities response on its main page", () => {
+test("navigation count is the unfiltered total on every page", () => {
   assert.equal(opportunityTotal({ total: 428 }), 428);
   assert.equal(opportunityTotal({ total: null }), 0);
   const helper = fs.readFileSync(require.resolve("./nav-count.js"), "utf8");
   assert.match(helper, /jobs\.list\(\{ limit: 1, offset: 0 \}\)/);
-  assert.match(helper, /ownsOpportunityCount/);
+  assert.doesNotMatch(helper, /ownsOpportunityCount/);
   const opportunitiesApp = fs.readFileSync(require.resolve("./opportunities/app.js"), "utf8");
-  assert.match(opportunitiesApp, /OneShotOpportunityCount\?\.set\?\./);
+  // A tab or filter total belongs on the tab, not the sidebar.
+  assert.doesNotMatch(opportunitiesApp, /OneShotOpportunityCount\??\.set/);
   assert.doesNotMatch(opportunitiesApp, /OneShotAPI\.health\(\)/);
   for (const page of ["./index.html", "./application/index.html", "./source-coverage/index.html"]) {
     const html = fs.readFileSync(require.resolve(page), "utf8");
-    assert.match(html, /data-opportunity-count/);
+    if (page !== "./application/index.html") assert.match(html, /data-opportunity-count/);
     assert.match(html, /nav-count\.js/);
   }
 });
 
-test("Opportunities exposes its action and workspace navigation", () => {
+test("Opportunities exposes live controls and canonical navigation", () => {
   const source = fs.readFileSync(require.resolve("./opportunities/app.js"), "utf8");
   const html = fs.readFileSync(require.resolve("./index.html"), "utf8");
-  assert.match(source, /data-action=\"add-to-applications\"/);
-  assert.match(source, /class=\"discover-controls-pane\".*\$\{searchMarkup\(\)\}.*class=\"discover-sort\"/);
-  assert.match(source, /class="discover-search-surface"><button class="search-toggle"/);
-  assert.doesNotMatch(source, /<span>Sort<\/span>/);
-  // Canonical page URLs, not the /static/ mount path the shells also answer on.
-  assert.match(html, /href=\"\/application\/\"/);
-  assert.match(html, /href=\"\/source-coverage\/\"/);
-  assert.doesNotMatch(html, /href=\"\/static\/[a-z-]+\/index\.html\"/);
-  assert.match(html, /href=\"\/static\/opportunities\/styles\.css\?v=skill-bundles-/);
-  assert.match(html, /src=\"\/static\/opportunities\/app\.js\?v=skill-bundles-/);
-  // The versioned directories are gone; no shell may still point at them.
-  assert.doesNotMatch(html, /opportunities-v[23]/);
-  assert.match(html, /href="\/static\/navigation\.css\?v=[\w-]+"/);
+  assert.match(source, /data-action="add-to-applications"/);
+  assert.match(source, /class="discover-controls-pane"/);
+  assert.match(source, /data-action="toggle-fields"/);
+  assert.match(source, /class="discover-sort"/);
+  assert.match(html, /id="opportunities-search" data-search/);
+  assert.match(html, /<label class="topbar-search"[^>]*>[\s\S]*data-search/);
+  assert.match(html, /href="\/application\/"/);
+  assert.match(html, /href="\/source-coverage\/"/);
+  assert.doesNotMatch(html, /href="\/static\/[a-z-]+\/index\.html"/);
+  assert.match(html, /opportunities\/styles\.css\?v=white-layout-/);
+  assert.match(html, /opportunities\/app\.js\?v=white-layout-/);
+  assert.match(html, /navigation\.css\?v=[\w-]+"/);
 });
 
 test("production pages never enable fixture mode", () => {
@@ -305,55 +194,23 @@ test("production pages never enable fixture mode", () => {
   assert.match(helper, /OneShotSampleData\?\.disableAll\?\.\(\)/);
 });
 
-test("shared navigation keeps active states from changing geometry", () => {
-  const navigation = fs.readFileSync(require.resolve("./navigation.css"), "utf8");
-  assert.match(navigation, /min-height: 38px/);
-  assert.match(navigation, /font: 400 14px\/20px/);
-  // min-width, so a four-digit count widens the pill instead of overflowing it.
-  assert.match(navigation, /min-width: 24px/);
-  assert.doesNotMatch(navigation, /\n  width: 24px;/);
-  assert.match(navigation, /a\.active \{\s*font-weight: 650;/);
-  assert.match(navigation, /a\.active \{[\s\S]*?order: initial/);
-  assert.doesNotMatch(navigation, /a\.active \{\s*order: -1/);
-  assert.match(navigation, /\.side-nav \.nav-icon \{[\s\S]*?fill: none;[\s\S]*?stroke: currentColor;/);
-  assert.match(navigation, /\.side-nav p:first-child \{\s*margin-top: 0;/);
-
-  for (const page of ["./index.html", "./application/index.html", "./resume/index.html", "./source-coverage/index.html"]) {
+test("shared navigation preserves routes, active states and account access", () => {
+  const helper = fs.readFileSync(require.resolve("./nav-count.js"), "utf8");
+  assert.match(helper, /querySelector\("\[data-account-slot\]"\)/);
+  assert.match(helper, /el\("button", "account-avatar"/);
+  const pages = ["./index.html", "./application/index.html", "./resume/index.html", "./source-coverage/index.html"];
+  const routes = ["/", "/application/", "/resume/", "/source-coverage/"];
+  pages.forEach((page, index) => {
     const html = fs.readFileSync(require.resolve(page), "utf8");
-    assert.match(html, /class="icon-sprite"/);
-    assert.doesNotMatch(html, /icon-(?:compass|pipeline|radar)\b/);
-    for (const icon of ["opportunities", "applications", "resume", "feed-status"]) {
-      assert.match(html, new RegExp(`href="#icon-${icon}"`));
-    }
-    // Four hand-copied sidebars, so the section labels are asserted on each:
-    // Discover over Opportunities, Track over Applications, System over Feed Status.
-    assert.match(html, /<p>Discover<\/p>\s*<a[^>]*href="\/"/);
-    assert.match(html, /<p>Track<\/p>\s*<a[^>]*href="\/application\/"/);
-    assert.match(html, /<p>System<\/p>\s*<a[^>]*href="\/source-coverage\/"/);
-  }
-});
-
-test("Opportunities exposes only its canonical layout", () => {
-  const pages = [
-    fs.readFileSync(require.resolve("./index.html"), "utf8"),
-    fs.readFileSync(require.resolve("./application/index.html"), "utf8"),
-    fs.readFileSync(require.resolve("./source-coverage/index.html"), "utf8"),
-  ];
-  const styles = fs.readFileSync(require.resolve("./opportunities/styles.css"), "utf8");
-
-  for (const page of pages) {
-    assert.doesNotMatch(page, /opportunities-(?:full|split|v2|v3)|Opportunities \((?:Left|Full|Split|v2|v3)\)/);
-  }
-  assert.doesNotMatch(styles, /data-opportunities-layout/);
-  assert.match(styles, /\.discover-search-surface \{[^}]*display: flex/);
-  assert.match(styles, /\.discover-search-surface \{[^}]*gap: 12px/);
-  assert.match(styles, /\.filter\.active \{[^}]*background: transparent; color: var\(--ink\)/);
-  // The selected tab is marked by contrast alone -- no underline bar.
-  assert.doesNotMatch(styles, /\.filter\.active::after/);
-  assert.match(styles, /\.filter \{[^}]*color: var\(--faint\)/);
-  // Search and sort share the focus row, so the grid has no row of their own.
-  assert.match(styles, /\.discover-sort select \{[^}]*width: 118px; height: 30px[^}]*font-size: 12px/);
-  assert.match(styles, /grid-template-areas: "controls controls" "list detail"/);
+    assert.match(html, /class="app-topbar"/);
+    assert.match(html, /data-account-slot/);
+    assert.match(html, /class="wordmark-name">OneShot<\/span><span class="wordmark-descriptor">Applications/);
+    assert.ok(html.indexOf('navigation.css') > html.indexOf('/styles.css'), `${page} loads the shared shell after its inner-page styles`);
+    assert.equal((html.match(/aria-current="page"/g) || []).length, 1);
+    assert.ok(html.includes(`class="active" href="${routes[index]}" aria-current="page"`));
+    for (const route of routes) assert.ok(html.includes(`href="${route}"`));
+    assert.doesNotMatch(html, /<img class="brand-mark"/);
+  });
 });
 
 test("the application drawer can hand a queued job to the resume studio", () => {
@@ -371,7 +228,7 @@ test("the application drawer can hand a queued job to the resume studio", () => 
 
   const drawer = fs.readFileSync(require.resolve("./application/app.js"), "utf8");
   assert.match(drawer, /data-action="tailor-resume"/);
-  assert.match(drawer, /resumes\.targetFromApplication\(application\.id\)/);
+  assert.match(drawer, /resumes\.targetFromApplication\(app\.id\)/);
   // The studio reads this hash to preselect the target it was handed.
   assert.match(drawer, /\/resume\/#target=\$\{encodeURIComponent\(target\.id\)\}/);
 });

@@ -26,21 +26,22 @@ const {
   commonTerms,
   openMarkup,
   detailPaneMarkup,
+  detailFactsMarkup,
   reportRows,
+  reportMarkup,
   hiddenReason,
   SKIP_REASONS,
   workplaceLabel,
   cardMetaMarkup,
-  detailPostedMarkup,
   initials,
   logoSrc,
   logoMarkup,
   recencyBucket,
 } = require("./app.js");
 
-test("V2 job type tabs cover every student job type exactly once", () => {
+test("job type tabs cover every student job type exactly once", () => {
   const counts = { intern: 42, coop: 7, student: 11, new_grad: 5, research: 3 };
-  assert.deepEqual(FILTERS.map(filter => filter.label), ["Internships", "Co-ops", "Student Jobs", "New Grad", "Research"]);
+  assert.deepEqual(FILTERS.map(filter => filter.label), ["Internships", "Co-ops", "Student jobs", "New grad", "Research"]);
   // One tab per type, so the counts partition the corpus and sum to the total.
   assert.deepEqual(FILTERS.map(filter => tabCount(counts, filter)), [42, 7, 11, 5, 3]);
   assert.equal(FILTERS.reduce((total, filter) => total + tabCount(counts, filter), 0), 68);
@@ -50,7 +51,7 @@ test("V2 job type tabs cover every student job type exactly once", () => {
   assert.match(design, /filters: \["internships"\]/);
 });
 
-test("V2 labels the outer recency buckets by calendar day", () => {
+test("labels the outer recency buckets by calendar day", () => {
   const now = new Date("2026-08-21T18:00:00Z");
   assert.deepEqual(recencyBucket({ posted_at: "2026-08-21T16:00:00Z" }, now), {
     key: "2026-08-21", label: "Opened today",
@@ -64,13 +65,13 @@ test("V2 labels the outer recency buckets by calendar day", () => {
   assert.match(design, /class="recency-bucket"/);
 });
 
-test("V2 offers oldest-first sorting while retaining date buckets", () => {
+test("offers oldest-first sorting while retaining date buckets", () => {
   const design = fs.readFileSync(require.resolve("./app.js"), "utf8");
   assert.match(design, /<option value="oldest"[^>]*>Oldest first<\/option>/);
   assert.match(design, /\["fresh", "oldest"\]\.includes\(sortOrder\(state\.sort\)\)/);
 });
 
-test("V2 replaces alphabetical sorts with seasonal title/description filters", () => {
+test("replaces alphabetical sorts with seasonal title/description filters", () => {
   const design = fs.readFileSync(require.resolve("./app.js"), "utf8");
   assert.match(design, /<option value="fall"[^>]*>Fall Only<\/option>/);
   assert.match(design, /<option value="winter"[^>]*>Winter Only<\/option>/);
@@ -83,9 +84,9 @@ test("V2 replaces alphabetical sorts with seasonal title/description filters", (
   assert.match(design, /season: seasonFilter\(state\.sort\)/);
 });
 
-test("V2 exposes the three bio-career focus filters", () => {
+test("exposes the three bio-career focus filters", () => {
   // Keys are the API's degree_field values (VALID_DEGREE_FIELDS in
-  // oneshot_ui/repository.py); anything else is rejected with 400.
+  // api/repository.py); anything else is rejected with 400.
   assert.deepEqual(DEGREE_FILTERS, [
     { key: "software", label: "Software" },
     { key: "finance", label: "Finance" },
@@ -101,13 +102,13 @@ test("V2 exposes the three bio-career focus filters", () => {
     "clinical_affairs",
   ]);
   const design = fs.readFileSync(require.resolve("./app.js"), "utf8");
-  assert.match(design, /degreeFilters: \["software"\]/);
-  assert.match(design, /Focus area mentioned/);
+  assert.match(design, /degreeFilters: \["software", "finance"\]/);
+  assert.match(design, /aria-label="Fields"/);
   assert.match(design, /data-degree-filter/);
   assert.match(design, /degree_field: degreeFields\(state\.degreeFilters\)/);
 });
 
-test("V2 renders canonical skill metadata and keeps legacy string compatibility", () => {
+test("renders canonical skill metadata and keeps legacy string compatibility", () => {
   assert.deepEqual(skillDetails({
     skills: [
       { id: "go", name: "Go", label: "Go", category: "language" },
@@ -127,7 +128,7 @@ test("V2 renders canonical skill metadata and keeps legacy string compatibility"
   ]);
 });
 
-test("V2 skill section escapes labels and stays hidden when empty", () => {
+test("skill section escapes labels and stays hidden when empty", () => {
   const markup = detailSkillsMarkup({
     skills: [{ id: 'unsafe"', name: '<Full & "name">', label: "<script>alert(1)</script>", category: "stack" }],
   });
@@ -142,7 +143,7 @@ test("V2 skill section escapes labels and stays hidden when empty", () => {
   assert.equal(detailSkillsMarkup({ attributes: { skills: [] } }), "");
 });
 
-test("V2 detail shows every skill while the card keeps only language and stack", () => {
+test("detail shows every skill while the card keeps only language and stack", () => {
   const job = { skills: [
     { id: "ai", name: "Artificial intelligence", label: "AI", category: "concept" },
     { id: "go", name: "Go", label: "Go", category: "language" },
@@ -160,7 +161,7 @@ test("V2 detail shows every skill while the card keeps only language and stack",
   assert.doesNotMatch(tags, />\+\d+</);
 });
 
-test("V2 orders every skill by category then label within peer detail sections", () => {
+test("orders every skill by category then label within peer detail sections", () => {
   assert.deepEqual(SKILL_CATEGORIES.map(category => category.key), [
     "language", "framework", "library", "platform", "tool", "datastore",
     "protocol", "format", "hardware", "method", "concept",
@@ -183,7 +184,7 @@ test("V2 orders every skill by category then label within peer detail sections",
   assert.doesNotMatch(markup, /class="(?:skill-group-title|section-kicker)">(?:Languages|Frameworks|Libraries|Datastores|Platforms|Tools|Protocols|Formats|Hardware|Methods|Concepts)</);
 });
 
-test("V2 detail presents methods and concepts as one low-emphasis expertise flow", () => {
+test("detail presents methods and concepts as one low-emphasis expertise flow", () => {
   const markup = detailSkillsMarkup({ skills: [
     { id: "python", name: "Python", label: "Python", category: "language" },
     { id: "distillation", name: "Knowledge distillation", label: "Knowledge distillation", category: "method" },
@@ -199,15 +200,15 @@ test("V2 detail presents methods and concepts as one low-emphasis expertise flow
   assert.doesNotMatch(markup, /data-skill-(?:group|section)="(?:method|concept)"/);
 
   const styles = fs.readFileSync(require.resolve("./styles.css"), "utf8");
-  assert.match(styles, /\.detail-skill-section \.skill-list \{[^}]*display: flex[^}]*flex-wrap: wrap[^}]*margin-top: 8px/);
-  assert.match(styles, /\.expertise-list \{[^}]*display: flex[^}]*flex-wrap: wrap[^}]*gap: 5px[^}]*color: #667168[^}]*font: 500 12px\/1\.4 var\(--sans\)/);
-  assert.match(styles, /\.expertise-term \{[^}]*max-width: 100%[^}]*display: inline-flex[^}]*border-radius: 5px[^}]*background: #f1f3ef[^}]*padding: 2px 7px[^}]*white-space: normal/);
+  assert.match(styles, /\.skill-list \{[^}]*display: flex[^}]*flex-wrap: wrap/);
+  assert.match(styles, /\.expertise-list \{[^}]*display: flex[^}]*flex-wrap: wrap[^}]*gap: 5px[^}]*color: #667168[^}]*font: 500 12px\/1\.4 var\(--sans\)/i);
+  assert.match(styles, /\.expertise-term \{[^}]*max-width: 100%[^}]*display: inline-flex[^}]*border-radius: 5px[^}]*background: #F1F3EF[^}]*padding: 2px 7px[^}]*white-space: normal/);
   assert.doesNotMatch(styles, /\.expertise-term[^}]*::(?:before|after)/);
   assert.doesNotMatch(styles, /\.expertise-term\[data-skill-category="method"\]/);
   assert.doesNotMatch(styles, /\.expertise-term(?:\[[^\]]+\])? \{[^}]*linear-gradient/);
 });
 
-test("V2 expertise expands raw compact compounds into polished canonical labels", () => {
+test("expertise expands raw compact compounds into polished canonical labels", () => {
   const markup = detailSkillsMarkup({ skills: [
     { id: "model-deployment", name: "Model deployment", label: "ModelDeploy", category: "method" },
     { id: "data-science", name: "Data science", label: "DataScience", category: "concept" },
@@ -223,14 +224,7 @@ test("V2 expertise expands raw compact compounds into polished canonical labels"
   assert.match(markup, /title="Model deployment · Methods" aria-label="Model deployment, Methods"/);
 });
 
-test("V2 detail skills reuse the green taxonomy tones", () => {
-  const styles = fs.readFileSync(require.resolve("./styles.css"), "utf8");
-  assert.match(styles, /\.detail-skill-section \.skill\[data-skill-category="language"\] \{[^}]*#e3f2e8[^}]*#d8eadf[^}]*color: #1f6848/);
-  assert.match(styles, /\.detail-skill-section \.skill\[data-skill-category="library"\][\s\S]*#e8f2eb[^}]*#deebe3[^}]*color: #3b634d/);
-  assert.match(styles, /\.detail-skill-section \.skill\[data-skill-category="platform"\][\s\S]*#f0f5f1[^}]*#e7eee9[^}]*color: #4f6658/);
-});
-
-test("V2 card skills retain complete bundles but render only languages and stack", () => {
+test("card skills retain complete bundles but render only languages and stack", () => {
   assert.deepEqual(SKILL_BUNDLES, [
     { key: "languages", label: "Languages", categories: ["language"] },
     { key: "stack", label: "Stack", categories: ["framework", "library", "datastore"] },
@@ -263,7 +257,7 @@ test("V2 card skills retain complete bundles but render only languages and stack
   assert.doesNotMatch(listTags({ skills: job.skills.filter(skill => ["language", "concept"].includes(skill.category)) }), /tag-(?:stack|knowledge)|>AI</);
 });
 
-test("V2 card chips expose canonical identity, category, and accessible names", () => {
+test("card chips expose canonical identity, category, and accessible names", () => {
   const tags = listTags({ skills: [
     { id: "react", name: "React", label: "React", category: "framework" },
     { id: "python", name: "Python", label: "Python", category: "language" },
@@ -276,19 +270,7 @@ test("V2 card chips expose canonical identity, category, and accessible names", 
   assert.doesNotMatch(tags, /skill-bundle|skill-bundle-title/);
 });
 
-test("V2 card skill bundles use two green tones without visible field labels", () => {
-  const styles = fs.readFileSync(require.resolve("./styles.css"), "utf8");
-  assert.match(styles, /\.tags \{[^}]*display: flex[^}]*flex-wrap: wrap/);
-  assert.doesNotMatch(styles, /\.skill-bundle \{/);
-  assert.doesNotMatch(styles, /\.skill-bundle-title/);
-  assert.match(styles, /\.skill \{ background: #edeee8; color: var\(--muted\); \}/);
-  assert.match(styles, /\.tag-languages \{[^}]*linear-gradient\([^}]*#e3f2e8[^}]*#d8eadf[^}]*color: #1f6848/);
-  assert.match(styles, /\.tag-stack \{[^}]*linear-gradient\([^}]*#f0f5f1[^}]*#e7eee9[^}]*color: #4f6658/);
-  assert.match(styles, /font: 600 10px\/1\.25 var\(--mono\)/);
-  assert.doesNotMatch(styles, /(?:tag|skill):first-child/);
-});
-
-test("V2 formats public job metadata into reader-facing labels", () => {
+test("formats public job metadata into reader-facing labels", () => {
   assert.equal(sourceLabel("greenhouse:example"), "Greenhouse");
   assert.equal(sourceLabel("smartrecruiters:example"), "SmartRecruiters");
   assert.equal(sourceLabel("custom_board:example"), "Custom Board");
@@ -320,7 +302,7 @@ test("every distinct posting URL is a way in, vendor repeats included", () => {
 test("the posting link is one click, and a chevron appears only when it is listed twice", () => {
   const now = new Date("2026-08-18T12:00:00Z");
   const single = openMarkup({ id: 1, source: "greenhouse:acme", apply_url: "https://greenhouse.example/job" }, {}, now);
-  assert.match(single, /^<a class="button open-link" href="https:\/\/greenhouse\.example\/job" target="_blank" rel="noopener noreferrer"[^>]*><span>Greenhouse<\/span>/);
+  assert.match(single, /^<a class="button open-link" href="https:\/\/greenhouse\.example\/job" target="_blank" rel="noopener noreferrer"[^>]*><span>Apply<\/span>/);
   assert.doesNotMatch(single, /open-more|open-split/);
 
   const job = {
@@ -343,7 +325,7 @@ test("the posting link is one click, and a chevron appears only when it is liste
   assert.equal(openMarkup({ id: 3 }, {}, now), "");
 });
 
-test("the action row reads Add, the posting link, then Skip, with the flag up in the header", () => {
+test("the approved action order is Apply, Applied, then Skip, with Report in the header", () => {
   const job = {
     id: 7,
     company: "Lyft",
@@ -354,20 +336,23 @@ test("the action row reads Add, the posting link, then Skip, with the flag up in
     summary: "Build rider agents.",
   };
   const pane = detailPaneMarkup(job);
-  assert.match(pane, /<div class="detail-actions"><button class="button primary" type="button" data-action="add-to-applications" data-id="7"[^>]*>.*<span>Add to Applications<\/span><\/button><a class="button open-link"[^>]*>.*<\/a><button class="button skip" type="button" data-action="skip" data-id="7"/);
+  assert.match(pane, /<div class="detail-actions"><a class="button open-link"[^>]*>.*<span>Apply<\/span>.*<\/a><button class="button primary" type="button" data-action="add-to-applications" data-id="7"[^>]*>.*<span>Applied<\/span><\/button><button class="button skip" type="button" data-action="skip" data-id="7"/);
   assert.match(pane, /class="detail-flag" type="button" data-action="report" aria-expanded="false" aria-label="Mislabeled"/);
-  assert.match(pane, /<div class="detail-company" title="Lyft">Lyft<\/div><div class="detail-place"><span>San Francisco, CA<\/span><button class="place-more"[^>]*aria-label="Show all 2 locations">\+1<\/button>/);
-  assert.match(pane, /class="section-kicker">Role summary<\/div><p class="role-summary">Build rider agents\.<\/p>/);
+  assert.match(pane, /<div class="detail-company" title="Lyft">Lyft<\/div>/);
+  assert.match(pane, /class="detail-place">.*<span>San Francisco, CA<\/span><button class="place-more"[^>]*aria-label="Show all 2 locations">\+1<\/button>/);
+  assert.match(pane, /<h3>About the role<\/h3><p class="role-summary">Build rider agents\.<\/p>/);
   assert.doesNotMatch(pane, /data-key="[^"]*"[^>]*>[^<]*<kbd/, "key hints live in tooltips, never inside a button");
 
   const places = detailPaneMarkup(job, { ui: { places: true } });
   assert.match(places, /class="pop place-menu" role="dialog" aria-label="Locations"><p>2 locations<\/p>/);
 
-  const report = detailPaneMarkup(job, { ui: { report: { rows: { focus: { on: true, to: "Finance" } } } } });
-  assert.match(report, /<strong id="report-title">What's wrong\?<\/strong>/);
-  assert.match(report, /data-fix="focus" data-value="Finance" aria-pressed="true"/);
+  const report = reportMarkup(job, { rows: { focus: { on: true, to: "Finance" } } });
+  assert.match(report, /<h2 id="report-title">Report details<\/h2>/);
+  assert.match(report, /data-fix-select="focus"/);
+  assert.match(report, /<option value="Finance" selected>Finance<\/option>/);
   assert.match(report, /data-action="report-submit">/);
-  assert.match(detailPaneMarkup(job, { ui: { report: { rows: {} } } }), /data-action="report-submit" disabled>/);
+  assert.match(reportMarkup(job, { rows: {} }), /data-action="report-submit" disabled>/);
+  assert.doesNotMatch(detailPaneMarkup(job, { ui: { report: { rows: {} } } }), /id="report-form"/);
 
   const hidden = detailPaneMarkup(job, { hidden: { kind: "skip", skip_reason: "level" } });
   assert.match(hidden, /class="hidden-banner"><p>Skipped · Level<\/p><button class="button" type="button" data-action="restore" data-id="7"/);
@@ -423,61 +408,22 @@ test("the Hidden list names why each posting left the feed", () => {
     ["type", "Internship"], ["focus", "Unlabeled"], ["company", "Lyft"], ["location", "Remote"], ["skills", "Skills and expertise list"],
   ]);
   assert.ok(!rows[0].options.includes("Internship"));
+
+  // The server's `focus` wins over the stored domain, so a BioTech match is
+  // reported as BioTech rather than the "Unlabeled" Gold domain.
+  const bio = reportRows({ job_type: "coop", job_domain: "unlabeled", focus: "biotech", company: "sanofi", locations: [] });
+  assert.equal(bio.find(row => row.field === "focus").value, "BioTech");
+  assert.ok(!bio.find(row => row.field === "focus").options.includes("BioTech"));
+  assert.equal(reportRows({ job_domain: "software", locations: [] }).find(row => row.field === "focus").value, "Software");
+  // Stored bioengineering chips label as MedTech and Regulatory too.
+  assert.equal(reportRows({ job_domain: "unlabeled", focus: "med_device", locations: [] }).find(row => row.field === "focus").value, "MedTech");
+  assert.equal(reportRows({ job_domain: "unlabeled", focus: "clinical_affairs", locations: [] }).find(row => row.field === "focus").value, "Regulatory");
 });
 
-test("V2 posted row weights the date and trails the check only when last_seen_at is known", () => {
-  const now = new Date("2026-08-18T12:00:00Z");
-  const withCheck = detailPostedMarkup({ last_seen_at: "2026-08-18T07:00:00Z", posted_at: "2026-08-17T00:00:00Z" }, now);
-  assert.match(withCheck, /class="posted-when">Posted yesterday</);
-  assert.match(withCheck, /class="posted-checked">checked 5h ago</);
-
-  // No check time means no trailing clause, and no dangling separator either.
-  const withoutCheck = detailPostedMarkup({ posted_at: "2026-08-17T00:00:00Z" }, now);
-  assert.match(withoutCheck, /class="posted-when">Posted yesterday</);
-  assert.doesNotMatch(withoutCheck, /posted-checked|posted-sep/);
-
-  // No posted_at falls back to when we first saw it.
-  assert.match(detailPostedMarkup({ first_seen_at: "2026-08-17T00:00:00Z" }, now), /Added yesterday/);
-});
-
-test("V2 list card leads with company, drops the left accent, and carries no footline", () => {
+test("company initials handle short, multiword and missing names", () => {
   assert.equal(initials({ company: "SAP" }), "SA");
   assert.equal(initials({ company: "Jane Street" }), "JS");
-  assert.equal(initials({ company: "" }), "?");
   assert.equal(initials({}), "?");
-
-  const design = fs.readFileSync(require.resolve("./app.js"), "utf8");
-  const styles = fs.readFileSync(require.resolve("./styles.css"), "utf8");
-  assert.match(design, /class="job-company">\$\{esc\(job\.company\)\}<\/div><h3>\$\{esc\(job\.title\)\}<\/h3>/);
-  // The recency bucket already states freshness; a badge repeating it on every
-  // card in the top group said nothing.
-  assert.doesNotMatch(design, /new-badge/);
-  assert.doesNotMatch(styles, /\.new-badge/);
-  assert.doesNotMatch(design, /job-company-line/);
-  assert.doesNotMatch(design, /class="job-title-line"/);
-  assert.doesNotMatch(styles, /\.job-title-line/);
-  assert.doesNotMatch(styles, /inset 3px 0 0/);
-  // The recency bucket above the card already states the day.
-  assert.doesNotMatch(design, /job-footline/);
-  assert.doesNotMatch(styles, /\.job-footline/);
-  assert.match(styles, /\.recency-bucket::after \{[^}]*flex: 1/);
-  assert.match(styles, /\.opportunity\.selected \{[^}]*border-color: var\(--green\)/);
-});
-
-test("V2 is the main Opportunities design and links every posting source", () => {
-  const main = fs.readFileSync(require.resolve("../index.html"), "utf8");
-  const design = fs.readFileSync(require.resolve("./app.js"), "utf8");
-  assert.match(main, /\/static\/opportunities\/styles\.css\?v=skill-bundles-/);
-  assert.match(main, /\/static\/opportunities\/app\.js\?v=skill-bundles-/);
-  // The versioned directories are gone; no shell may still point at them.
-  assert.doesNotMatch(main, /opportunities-v[23]|Opportunities \(v[23]\)/);
-  assert.match(main, /class="active" href="\/" aria-current="page"/);
-  assert.doesNotMatch(design, /Design preview|View current Opportunities/);
-  assert.match(design, /class="open-split"/);
-  assert.doesNotMatch(design, /class="posting-links"/);
-  assert.doesNotMatch(design, /class="section-kicker">Posted on/);
-  assert.doesNotMatch(design, /data-action="toggle-sources"/);
-  assert.doesNotMatch(design, /Show full description|Show less/);
 });
 
 test("the card mark prefers the harvested logo and falls back to initials", () => {
@@ -501,10 +447,34 @@ test("the card mark prefers the harvested logo and falls back to initials", () =
   assert.equal(logoMarkup({ company: "Valon", logo: "https://evil.example/x.png" }), "VA");
 });
 
-test("the logo mark is contained in the 40px box rather than cropped to it", () => {
+test("the company logo is contained in the original row tile rather than cropped", () => {
   const styles = fs.readFileSync(require.resolve("./styles.css"), "utf8");
   assert.match(styles, /\.job-logo-mark \{[^}]*object-fit: contain/);
-  assert.match(styles, /\.job-logo-mark \{[^}]*box-sizing: border-box/);
+  assert.match(styles, /\.job-logo \{ width: 24px; height: 24px/);
   const design = fs.readFileSync(require.resolve("./app.js"), "utf8");
   assert.match(design, /<div class="job-logo">\$\{logoMarkup\(job\)\}<\/div>/);
+});
+
+
+test("the details table preserves all skills and only shows Posted metadata", () => {
+  const markup = detailFactsMarkup({
+    source: "ashby:acme", posted_at: "2026-10-05T12:00:00Z", first_seen_at: "2026-10-04T12:00:00Z",
+    last_seen_at: "2026-10-06T12:00:00Z",
+    attributes: { degree: ["cs", "mathematics"] },
+    skills: [
+      { id: "go", name: "Go", label: "Go", category: "language" },
+      { id: "kubernetes", name: "Kubernetes", label: "Kubernetes", category: "platform" },
+      { id: "ml", name: "Machine learning", label: "Machine learning", category: "concept" },
+      { id: "custom", name: "A < B", label: "A < B", category: null },
+    ],
+  });
+  assert.ok(markup.indexOf("Languages") < markup.indexOf("Tools"));
+  for (const value of ["Go", "Kubernetes", "Machine learning", "A &lt; B", "Oct 5, 2026 on Ashby"]) assert.ok(markup.includes(value), value);
+  assert.doesNotMatch(markup, /A < B|<dt>Degree|<dt>First seen|<dt>Last checked/);
+});
+
+test("missing posting fields never turn into invented facts or invalid dates", () => {
+  const markup = detailFactsMarkup({ source: "lever:acme", posted_at: "bad-date", attributes: {} });
+  assert.match(markup, /<dt>Posted<\/dt><dd>On Lever<\/dd>/);
+  assert.doesNotMatch(markup, /Invalid Date|First seen|Degree|Languages|Tools|Last checked/);
 });

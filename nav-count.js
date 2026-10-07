@@ -2,7 +2,6 @@
   "use strict";
 
   const opportunityTotal = payload => Math.max(0, Number(payload?.total) || 0);
-  const ownsOpportunityCount = () => ["/", "/index.html"].includes(root.location?.pathname);
 
   function setTotal(total) {
     const text = opportunityTotal({ total }).toLocaleString();
@@ -43,26 +42,31 @@
     return node;
   };
 
-  // The sidebar is copied into four pages and the copies are not identical, so
-  // the chip is built here — the one script all four already load — rather than
-  // hand-edited into each of them.
+  // All four sidebars expose the same mount; retain the sidebar fallback
+  // for older shells that still load this shared identity script.
   function mount(chip) {
-    const sidebar = root.document.querySelector(".sidebar");
-    if (!sidebar) return;
-    sidebar.querySelector(".account")?.remove();
-    sidebar.append(chip);
+    const host = root.document.querySelector("[data-account-slot]") || root.document.querySelector(".sidebar");
+    if (!host) return;
+    host.querySelector(".account")?.remove();
+    host.append(chip);
   }
 
   function avatar(account) {
-    const node = el("span", "account-avatar", initials(account?.name || account?.email));
+    const node = el("button", "account-avatar");
+    const image = el("span", "account-initials", initials(account?.name || account?.email));
+    node.type = "button";
+    node.setAttribute("aria-label", "Account menu");
+    node.setAttribute("aria-expanded", "false");
+    node.setAttribute("aria-haspopup", "true");
     const src = account?.picture_url;
     if (src) {
       const img = el("img", "account-photo");
       img.src = src;
       img.alt = "";
       img.referrerPolicy = "no-referrer";  // Google 403s some referrers
-      node.append(img);
+      image.append(img);
     }
+    node.append(image, el("span", "account-label", "Profile"));
     return node;
   }
 
@@ -70,10 +74,13 @@
     // Same geometry as the signed-in chip so nothing shifts on sign-in.
     const chip = el("a", "account is-guest");
     chip.href = "/api/auth/login";
+    chip.setAttribute("aria-label", "Guest account — sign in");
     const empty = el("span", "account-avatar is-empty");
-    empty.innerHTML =
+    const image = el("span", "account-initials is-empty");
+    image.innerHTML =
       '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.4"/>' +
       '<path d="M5.5 19.5a6.5 6.5 0 0 1 13 0"/></svg>';
+    empty.append(image, el("span", "account-label", "Profile"));
     const text = el("span", "account-text");
     text.append(el("span", "account-name", "Guest"), el("span", "account-action", "Browser-local · Sign in"));
     chip.append(empty, text);
@@ -97,6 +104,7 @@
 
     const menu = el("div", "account-menu");
     // The chip truncates the address; the menu is where it is readable in full.
+    menu.append(el("p", "account-menu-name", account.name || "Signed in"));
     menu.append(el("p", "account-menu-email", account.email || ""));
     const out = el("button", "account-menu-item", "Sign out");
     out.type = "button";
@@ -113,18 +121,21 @@
     const close = () => {
       chip.classList.remove("is-open");
       more.setAttribute("aria-expanded", "false");
+      chip.querySelector(".account-avatar")?.setAttribute("aria-expanded", "false");
     };
     more.addEventListener("click", event => {
       event.stopPropagation();
       const open = chip.classList.toggle("is-open");
       more.setAttribute("aria-expanded", String(open));
+      chip.querySelector(".account-avatar")?.setAttribute("aria-expanded", String(open));
     });
-    // On narrow screens the ⋯ is hidden, so the avatar is the tap target.
+    // The avatar and Profile label form one keyboard-accessible menu trigger.
     chip.addEventListener("click", event => {
       if (event.target.closest(".account-menu")) return;
       if (!event.target.closest(".account-avatar")) return;
       const open = chip.classList.toggle("is-open");
       more.setAttribute("aria-expanded", String(open));
+      chip.querySelector(".account-avatar")?.setAttribute("aria-expanded", String(open));
     });
     root.document.addEventListener("click", event => {
       if (!chip.contains(event.target)) close();
@@ -146,7 +157,7 @@
   const asGuest = () => {
     markGuest();
     mount(signedOutChip());
-    if (!ownsOpportunityCount()) refresh();
+    refresh();
   };
 
   async function start() {
@@ -189,7 +200,7 @@
       return;
     }
     mount(signedInChip(account));
-    if (!ownsOpportunityCount()) refresh();
+    refresh();
   }
 
   root.OneShotOpportunityCount = { refresh, set: setTotal };

@@ -7,8 +7,6 @@ const {
   stateKey,
   fleetTotals,
   todayLine,
-  shortDate,
-  tickerCard,
   problemText,
   buildBands,
   STATE_LABEL,
@@ -37,40 +35,19 @@ test("fleet totals sum board coverage into roles", () => {
   assert.equal(computed.erroring, 2);
 });
 
-test("the header's today line counts new jobs and the companies they came from", () => {
-  assert.equal(todayLine({ added_today: 4081, companies_added_today: 290 }), "4,081 new today from 290 companies");
-  assert.equal(todayLine({ added_today: 1, companies_added_today: 1 }), "1 new today from 1 company");
-  assert.equal(todayLine({ added_today: 4081 }), "4,081 new today", "older snapshots have no company count");
-  assert.equal(todayLine({ added_today: 0, companies_added_today: 0 }), "", "a quiet day shows nothing");
+test("the header uses the shared active-posting aggregate even when board coverage is older", () => {
+  const providers = [{ source: "greenhouse", boards: [{ state: "ok", coverage: 100 }] }];
+  assert.equal(fleetTotals({ providers, totals: { boards: 1, active_postings: 90 } }).roles, 90);
+  assert.equal(fleetTotals({ providers, totals: { boards: 1, active_postings: 0 } }).roles, 0);
+  assert.equal(fleetTotals({ providers, totals: { boards: 1 } }).roles, 100);
+});
+
+test("daily activity distinguishes a measured zero from an unknown closure count", () => {
+  assert.equal(todayLine({ added_today: 4081, disappeared_today: 290 }), "4,081 jobs posted, 290 jobs closed today");
+  assert.equal(todayLine({ added_today: 0, disappeared_today: 12 }), "0 jobs posted, 12 jobs closed today");
+  assert.equal(todayLine({ added_today: 0, disappeared_today: 0 }), "0 jobs posted, 0 jobs closed today");
+  assert.equal(todayLine({ added_today: 4081 }), "4,081 jobs posted today");
   assert.equal(todayLine(undefined), "");
-});
-
-test("the ticker card keeps three named examples of each kind", () => {
-  const now = new Date("2026-09-29T17:43:00Z");
-  const card = tickerCard({
-    latest_jobs: [
-      { company: "Epic Games", title: "Product Management Intern", first_seen_at: "2026-09-29T17:28:00Z" },
-      { company: "WSP", title: "Civil Engineering Intern", first_seen_at: "2026-09-29T17:27:00Z" },
-      { company: "Cisco", title: "Systems Quality Engineer", first_seen_at: "2026-09-29T17:18:00Z" },
-      { company: "Clera", title: "Founder Associate Intern", first_seen_at: "2026-09-29T17:12:00Z" },
-    ],
-    new_feeds: { latest: [
-      { company: "WSP", source: "oracle", added_on: "2026-09-09" },
-      { company: "Northrop Grumman", source: "workday", added_on: "2026-09-09" },
-      { company: "Prolific", source: "greenhouse", added_on: "2026-09-09" },
-      { company: "Amentum", source: "workday", added_on: "2026-09-09" },
-    ] },
-  }, now);
-  assert.deepEqual(card.jobs.map(job => [job.company, job.ago]), [["Epic Games", "15m ago"], ["WSP", "16m ago"], ["Cisco", "25m ago"]]);
-  assert.deepEqual(card.feeds.map(feed => [feed.company, feed.source]), [["WSP", "oracle"], ["Northrop Grumman", "workday"], ["Prolific", "greenhouse"]]);
-  assert.deepEqual(tickerCard({}), { jobs: [], feeds: [] }, "snapshots from before the card have nothing to list");
-});
-
-test("a discovery day reads as the same calendar day in every zone", () => {
-  const expected = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(2026, 8, 9));
-  assert.equal(shortDate("2026-09-09"), expected);
-  assert.equal(shortDate("not a date"), "");
-  assert.equal(shortDate(undefined), "");
 });
 
 test("people read retrying, failing and overdue, never the API's state keys", () => {
@@ -84,17 +61,29 @@ test("people read retrying, failing and overdue, never the API's state keys", ()
 
 const board = (state, coverage = 0, extra = {}) => ({ key: `${state}-${coverage}`, state, coverage, ...extra });
 
-test("the largest providers get a band each and the rest share one that keeps each provider", () => {
+test("providers rank by Discover contribution rather than board count or raw jobs", () => {
   const providers = ["a", "b", "c", "d"].map((source, index) => ({
     source,
+    discover_jobs: [0, 10, 30, 20][index],
     boards: Array.from({ length: 4 - index }, () => board("ok", 10 * (index + 1))),
   }));
   const bands = buildBands({ providers }, 2);
-  assert.deepEqual(bands.map(band => band.id), ["b", "a", "__tail"], "named bands order by jobs, the tail comes last");
+  assert.deepEqual(bands.map(band => band.id), ["c", "d", "__tail"]);
   const tail = bands.at(-1);
-  assert.equal(tail.label, "+2 more providers");
-  assert.deepEqual(tail.groups.map(group => group.id), ["c", "d"]);
-  assert.equal(tail.boards.length, 3, "the shared band draws every tail board");
+  assert.equal(tail.label, "Other");
+  assert.deepEqual(tail.groups.map(group => group.id), ["b", "a"]);
+  assert.equal(tail.boards.length, 7, "the shared band retains every remaining board");
+});
+
+test("exactly the top six Discover contributors stay visible by default", () => {
+  const providers = Array.from({ length: 8 }, (_, index) => ({
+    source: `p${index}`, discover_jobs: index * 10,
+    boards: [board("ok", 1000 - index * 100)],
+  }));
+  const bands = buildBands({ providers });
+  assert.deepEqual(bands.slice(0, 6).map(band => band.id), ["p7", "p6", "p5", "p4", "p3", "p2"]);
+  assert.equal(bands.at(-1).label, "Other");
+  assert.deepEqual(bands.at(-1).groups.map(group => group.id), ["p1", "p0"]);
 });
 
 test("no board is dropped: every board lands in exactly one band", () => {
@@ -142,7 +131,7 @@ test("feed status is the canonical read-only page and navigation label", () => {
   const page = fs.readFileSync(require.resolve("./index.html"), "utf8");
   const shells = ["../index.html", "../application/index.html", "../resume/index.html", "./index.html"]
     .map(path => fs.readFileSync(require.resolve(path), "utf8"));
-  assert.match(page, /<title>Feed Status · OneShot<\/title>/);
+  assert.match(page, /<title>Feed Overview · OneShot<\/title>/);
   assert.match(page, /id="coverage-content"/);
   assert.match(page, /id="fleet-stats"/);
   assert.match(page, /id="ticker-card"/);
@@ -150,7 +139,7 @@ test("feed status is the canonical read-only page and navigation label", () => {
   assert.doesNotMatch(page, /legend-row|data-state-count/);
   assert.doesNotMatch(page, /type="search"|<select|data-filter|data-sort/);
   for (const shell of shells) {
-    assert.match(shell, /href="\/source-coverage\/"[^>]*>[\s\S]*?Feed Status<\/a>/);
+    assert.match(shell, /href="\/source-coverage\/"[^>]*title="Feed (?:Status|Overview)"[^>]*>[\s\S]*?<span>Feeds<\/span>/);
     assert.doesNotMatch(shell, /Source coverage|Feed Health/);
   }
   assert.match(page, /navigation\.css\?v=[\w-]+"/);

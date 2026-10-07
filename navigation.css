@@ -1,398 +1,69 @@
-/* Shared navigation geometry. Active states are visual, never structural. */
-.shell {
-  grid-template-columns: 222px minmax(0, 1fr);
+/* Fonts from the approved mockup, served locally. Page content keeps its own font. */
+@font-face { font-family: 'IBM Plex Sans'; src: url('/static/fonts/plex-sans.woff2') format('woff2'); font-weight: 400 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'IBM Plex Serif'; src: url('/static/fonts/plex-serif-medium.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'IBM Plex Serif'; src: url('/static/fonts/plex-serif-semibold.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: 'IBM Plex Mono'; src: url('/static/fonts/plex-mono.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'IBM Plex Mono'; src: url('/static/fonts/plex-mono-medium.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+
+:root { --app-header-height: 65px; }
+
+.app-topbar, .app-shell > .sidebar { -webkit-font-smoothing: antialiased; }
+
+.app-topbar { position: sticky; top: 0; z-index: 20; box-sizing: border-box; display: flex; align-items: center; gap: 16px; height: var(--app-header-height); padding: 0 20px 0 0; border-bottom: 1px solid #E7E9E6; background: #FFFFFF; color: #141816; font-family: 'IBM Plex Sans', sans-serif; }
+.app-topbar .brand-cell { flex: none; display: flex; align-items: center; height: 64px; padding-left: 20px; color: #15251E; text-decoration: none; }
+.app-topbar .wordmark { display: flex; align-items: baseline; gap: 8px; white-space: nowrap; line-height: 1; }
+.app-topbar .wordmark-name { color: #15251E; font: 600 24px/1 'IBM Plex Serif', Georgia, serif; letter-spacing: -0.025em; }
+.app-topbar .wordmark-descriptor { color: #7A827C; font: 400 20px/1 'IBM Plex Sans', sans-serif; letter-spacing: -0.01em; }
+.topbar-space { flex: 1; }
+.topbar-search { display: flex; align-items: center; gap: 8px; flex: 0 1 260px; min-width: 100px; height: 32px; box-sizing: border-box; padding: 0 6px 0 10px; border: 1px solid #D9DDD9; border-radius: 6px; color: #727A74; cursor: text; }
+.topbar-search:focus-within { border-color: #8F9791; }
+.topbar-search svg { flex: none; width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.75; }
+.topbar-search input { flex: 1; min-width: 0; width: 100%; height: 30px; padding: 0; border: 0; outline: 0; background: transparent; color: #141816; font: 13px 'IBM Plex Sans', sans-serif; }
+.topbar-search input::placeholder { color: #7A827C; }
+.account-slot { flex: none; width: 64px; margin-top: auto; }
+
+/* Only the surrounding shell changes on Applications, Resume and Feed Status. */
+.shell.app-shell { display: grid; grid-template-columns: 76px minmax(0, 1fr); min-height: calc(100vh - var(--app-header-height)); }
+.app-shell > .sidebar { position: sticky; top: var(--app-header-height); z-index: 21; align-self: start; box-sizing: border-box; width: 76px; height: calc(100vh - var(--app-header-height)); min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 8px 0 14px; background: #15251E; color: #FFFFFF; }
+.app-shell .side-nav { box-sizing: border-box; display: flex; flex-direction: column; gap: 4px; width: 100%; max-width: none; margin: 0; padding: 0 6px; overflow: visible; }
+.app-shell .side-nav a { position: relative; box-sizing: border-box; flex: none; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 0; padding: 9px 0 7px; border-radius: 10px; background: transparent; color: rgb(255 255 255 / 68%); font: 500 11px/1.45 'IBM Plex Sans', sans-serif; text-decoration: none; white-space: nowrap; transition: background-color 120ms ease, color 120ms ease; }
+.app-shell .side-nav a:hover { background: #1D3027; color: #FFFFFF; }
+.app-shell .side-nav a.active { background: #22372D; color: #FFFFFF; font-weight: 600; }
+.app-shell .side-nav .nav-icon { flex: none; width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.app-shell .side-nav a.active .nav-icon { color: #D5E88A; }
+.app-shell .side-nav [hidden] { display: none; }
+.app-shell .side-nav a:focus-visible { outline: 2px solid #D9F36A; outline-offset: 2px; }
+.app-topbar a:focus-visible, .app-topbar button:focus-visible { outline: 2px solid #1E5C42; outline-offset: 2px; }
+
+/* The shared identity control stays at the foot of the navigation rail. */
+.sidebar .account { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 0; padding: 0; border: 0; border-radius: 10px; color: rgb(255 255 255 / 68%); font: 500 11px/1.45 'IBM Plex Sans', sans-serif; text-decoration: none; }
+.sidebar .account-avatar { box-sizing: border-box; flex: none; width: 64px; display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 0; padding: 9px 0 7px; border: 0; border-radius: 10px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.sidebar .account-initials { position: relative; box-sizing: border-box; width: 30px; height: 30px; display: grid; place-items: center; overflow: hidden; border-radius: 50%; background: #E1CDB5; color: #4B3928; font: 600 12px/1 'IBM Plex Sans', sans-serif; }
+.sidebar .account-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.sidebar .account-initials.is-empty { border: 1px solid rgb(255 255 255 / 22%); background: #22372D; color: rgb(255 255 255 / 68%); }
+.sidebar .account-avatar svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; }
+.sidebar .account.is-guest:hover, .sidebar .account-avatar:hover, .sidebar .account.is-open .account-avatar { background: #1D3027; color: #FFFFFF; }
+.sidebar .account.is-guest:focus-visible, .sidebar .account-avatar:focus-visible, .sidebar .account-menu-item:focus-visible { outline: 2px solid #D9F36A; outline-offset: 2px; }
+.sidebar .account-text, .sidebar .account-more { display: none; }
+.sidebar .account-menu { position: absolute; top: auto; right: auto; bottom: calc(100% + 10px); left: 0; z-index: 25; box-sizing: border-box; display: none; width: 240px; max-width: calc(100vw - 24px); border: 1px solid #D9DDD9; border-radius: 10px; background: #FFFFFF; padding: 6px; box-shadow: 0 8px 24px rgb(20 24 22 / 14%); }
+.sidebar .account.is-open .account-menu { display: block; }
+.sidebar .account-menu-name { margin: 0; padding: 6px 8px 0; color: #141816; font: 600 13px/1.5 'IBM Plex Sans', sans-serif; }
+.sidebar .account-menu-email { overflow-wrap: anywhere; margin: 0; padding: 3px 8px 8px; border-bottom: 1px solid #E7E9E6; color: #59615C; font: 400 12px/1.5 'IBM Plex Sans', sans-serif; }
+.sidebar .account-menu-item { width: 100%; display: block; margin: 4px 0 0; padding: 7px 8px; border: 0; border-radius: 6px; background: transparent; color: #2D3330; font: 500 13px/1.5 'IBM Plex Sans', sans-serif; text-align: left; cursor: pointer; }
+.sidebar .account-menu-item:hover { background: #F1F3F0; color: #141816; }
+
+@media (max-width: 760px) {
+  .app-topbar { position: static; flex-wrap: wrap; height: auto; min-height: var(--app-header-height); padding: 0 16px 8px 0; row-gap: 8px; }
+  .app-topbar .brand-cell { padding-left: 16px; }
+  .topbar-search { order: 3; flex: 1 0 calc(100% - 16px); margin-left: 16px; }
+  .shell.app-shell { display: flex; flex-direction: column; min-height: 0; }
+  .app-shell > .sidebar { position: static; align-self: stretch; flex-direction: row; width: auto; height: auto; min-height: 0; padding: 6px 12px; gap: 8px; }
+  .app-shell .side-nav { flex: 1; flex-direction: row; gap: 4px; padding: 0; }
+  .app-shell .side-nav a { flex: 1; }
+  .account-slot { width: 48px; margin-top: 0; }
+  .sidebar .account-avatar { width: 48px; padding: 2px 0; gap: 2px; }
+  .sidebar .account-menu { top: calc(100% + 10px); right: 0; bottom: auto; left: auto; }
+  .opportunities-app .sidebar .account-menu { top: auto; bottom: calc(100% + 10px); }
 }
-
-.sidebar {
-  position: sticky;
-  top: 0;
-  min-height: 100vh;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: #15251e;
-  padding: 22px 12px;
-  color: #eff4ef;
-}
-
-/* Lockup: emblem left, ONESHOT over APPLICATION right. Both lines are
-   cased by CSS so the accessible name stays "OneShot Application". The text
-   column is sized to ONESHOT and the sub is justified to its end, so the two
-   lines share a right edge and the sub rags left at ~85% of the width; the
-   negative margin drops the trailing letter-space so the ink lands flush. */
-.sidebar .brand {
-  min-height: 44px;
-  display: grid;
-  grid-template-columns: auto max-content;
-  align-items: center;
-  justify-content: start;
-  justify-items: start;
-  gap: 0 8px;
-  padding: 0 9px 24px;
-  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #f2f7f1;
-}
-
-.sidebar .brand-mark {
-  grid-row: span 2;
-  width: 32px;
-  height: 32px;
-}
-
-.sidebar .brand-word {
-  font-size: 24px;
-  font-weight: 800;
-  font-stretch: 90%;
-  line-height: 1;
-  text-transform: uppercase;
-}
-
-.sidebar .brand-sub {
-  margin-top: 4px;
-  justify-self: end;
-  margin-right: -.08em;
-  color: #d9f36a;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-}
-
-.side-nav {
-  display: grid;
-  gap: 2px;
-  margin-top: 18px;
-}
-
-.side-nav p {
-  margin: 13px 10px 4px;
-  color: rgb(255 255 255 / 40%);
-  font: 400 10px/15px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-}
-
-.side-nav p:first-child {
-  margin-top: 0;
-}
-
-.side-nav a {
-  min-height: 38px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border-radius: 8px;
-  padding: 8px 10px;
-  color: rgb(255 255 255 / 67%);
-  font: 400 14px/20px ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  white-space: nowrap;
-}
-
-.side-nav a:hover,
-.side-nav a.active {
-  background: #22372d;
-  color: white;
-}
-
-/* Weight, not just colour, marks the current page. Same size and box, so the row
-   geometry is unchanged and nothing shifts when the active item moves. */
-.side-nav a.active {
-  font-weight: 650;
-}
-
-.side-nav a.active .nav-icon {
-  color: #d9f36a;
-}
-
-.side-nav .nav-icon {
-  width: 18px;
-  height: 18px;
-  flex: 0 0 18px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-/* min-width, not width: the opportunity count runs to four digits and a comma,
-   and a fixed 24px box let "4,448" spill out of its own pill. Tabular figures so
-   the counts sit on a common width as they tick. */
-.side-nav b {
-  min-width: 24px;
-  height: 18px;
-  display: inline-grid;
-  flex: 0 0 auto;
-  place-items: center;
-  margin-left: auto;
-  border-radius: 20px;
-  background: rgb(255 255 255 / 10%);
-  padding: 0 7px;
-  font: 400 10px/18px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Injected by nav-count.js on every shell, so the four hand-copied sidebars stay
-   untouched. margin-top:auto is what holds it to the foot of the column. */
-.account {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: auto;
-  border-top: 1px solid rgb(255 255 255 / 8%);
-  padding: 14px 6px 0;
-  color: inherit;
-  text-decoration: none;
-}
-
-.account-avatar {
-  position: relative;
-  width: 34px;
-  height: 34px;
-  flex: 0 0 34px;
-  display: grid;
-  overflow: hidden;
-  border-radius: 50%;
-  background: #e1cdb5;
-  place-items: center;
-  color: #4b3928;
-  font: 800 12px/1 ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-
-/* Sits over the initials rather than replacing them, so a Google photo that
-   404s or is blocked degrades to initials with no onerror handler. */
-.account-photo {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.account-avatar.is-empty {
-  background: transparent;
-  border: 1px dashed rgb(255 255 255 / 28%);
-  color: rgb(255 255 255 / 40%);
-}
-
-/* Every page stylesheet sets `svg { fill: none; stroke: currentColor }`
-   globally. These two rules outrank a bare element selector, so the glyphs render
-   the same on all four shells. */
-.account-avatar svg {
-  width: 17px;
-  height: 17px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.7;
-  stroke-linecap: round;
-}
-
-.account-more svg {
-  width: 17px;
-  height: 17px;
-  fill: currentColor;
-  stroke: none;
-}
-
-.account-text {
-  min-width: 0;
-  display: grid;
-  gap: 1px;
-}
-
-.account-name,
-.account-email,
-.account-action {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.account-name {
-  color: #eff4ef;
-  font: 600 12px/16px ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-
-.account-email {
-  color: rgb(255 255 255 / 44%);
-  font: 400 11px/15px ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-
-/* The only action colour in the palette, so the signed-out chip reads as the
-   button it is without changing the geometry of the signed-in one. */
-.account-action {
-  color: #d9f36a;
-  font: 600 11px/15px ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-
-.account.is-guest:hover .account-avatar.is-empty,
-.account.is-guest:focus-visible .account-avatar.is-empty {
-  border-color: #d9f36a;
-  color: #d9f36a;
-}
-
-.account.is-guest:focus-visible {
-  outline: none;
-}
-
-.account-more {
-  flex: 0 0 auto;
-  display: grid;
-  margin-left: auto;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  padding: 3px;
-  place-items: center;
-  color: rgb(255 255 255 / 40%);
-  cursor: pointer;
-}
-
-.account-more:hover,
-.account-more:focus-visible,
-.account.is-open .account-more {
-  color: #d9f36a;
-  outline: none;
-}
-
-.account-menu {
-  position: absolute;
-  bottom: calc(100% - 4px);
-  left: 6px;
-  right: 6px;
-  z-index: 5;
-  display: none;
-  border: 1px solid rgb(255 255 255 / 10%);
-  border-radius: 10px;
-  background: #22372d;
-  padding: 6px;
-  box-shadow: 0 10px 26px rgb(0 0 0 / 34%);
-}
-
-.account.is-open .account-menu {
-  display: block;
-}
-
-/* The chip truncates the address; this is where it is readable in full. */
-.account-menu-email {
-  overflow-wrap: anywhere;
-  margin: 0;
-  border-bottom: 1px solid rgb(255 255 255 / 8%);
-  padding: 5px 8px 8px;
-  color: rgb(255 255 255 / 46%);
-  font: 400 10px/14px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
-
-.account-menu-item {
-  width: 100%;
-  display: block;
-  margin-top: 4px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  padding: 7px 8px;
-  color: rgb(255 255 255 / 78%);
-  font: 600 12px/16px ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  text-align: left;
-  cursor: pointer;
-}
-
-.account-menu-item:hover,
-.account-menu-item:focus-visible {
-  background: rgb(255 255 255 / 8%);
-  color: white;
-  outline: none;
-}
-
-@media (max-width: 850px) {
-  .shell {
-    grid-template-columns: 1fr;
-  }
-
-  .sidebar {
-    position: static;
-    width: auto;
-    min-height: 0;
-    height: auto;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    padding: 11px 15px;
-    box-shadow: none;
-  }
-
-  .sidebar .brand {
-    min-height: 0;
-    gap: 0 7px;
-    padding: 0;
-  }
-
-  .sidebar .brand-mark {
-    width: 26px;
-    height: 26px;
-  }
-
-  .sidebar .brand-word {
-    font-size: 19px;
-  }
-
-  .sidebar .brand-sub {
-    margin-top: 3px;
-    margin-right: -.08em;
-    font-size: 9px;
-    letter-spacing: .08em;
-  }
-
-  .side-nav {
-    max-width: calc(100vw - 145px);
-    display: flex;
-    overflow-x: auto;
-    margin: 0 0 0 auto;
-    scrollbar-width: none;
-  }
-
-  .side-nav::-webkit-scrollbar {
-    display: none;
-  }
-
-  .side-nav p {
-    display: none;
-  }
-
-  .side-nav a,
-  .side-nav a.active {
-    flex: 0 0 auto;
-    order: initial;
-  }
-
-  /* The sidebar is a horizontal bar here, so the chip collapses to the avatar.
-     The ⋯ goes with the text, which is why nav-count.js also opens the menu on
-     an avatar click — otherwise there would be no way to sign out on a phone.
-     The margin resets the column-foot auto margin, which is meaningless in a
-     row. */
-  .account {
-    flex: 0 0 auto;
-    margin: 0 0 0 10px;
-    border-top: 0;
-    padding: 0;
-  }
-
-  .account-text,
-  .account-more {
-    display: none;
-  }
-
-  .account-avatar {
-    cursor: pointer;
-  }
-
-  .account-menu {
-    top: calc(100% + 8px);
-    right: 0;
-    bottom: auto;
-    left: auto;
-    width: 210px;
-  }
-}
+@media (max-width: 400px) { .app-topbar .wordmark-name { font-size: 22px; } .app-topbar .wordmark-descriptor { font-size: 17px; } }
+@media (prefers-reduced-motion: reduce) { .app-shell .side-nav a { transition: none; } }

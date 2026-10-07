@@ -104,7 +104,9 @@
         // private POST; a signed-in tracker reads the posting from PostgreSQL.
         const tracker = await applicationStore();
         tracker?.rememberJob(job);
-        return request(ROUTES.addToApplications(id), { method: "POST" }, true);
+        const now = new Date();
+        const submitted_at = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+        return request(ROUTES.addToApplications(id), { method: "POST", body: JSON.stringify({ submitted_at }) }, true);
       },
       // Skip or Mislabeled. Like an add, the guest store snapshots the posting
       // first so its Hidden list can still show it after it leaves the feed.

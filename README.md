@@ -1,10 +1,12 @@
-# frontend
+# OneShot web app
 
-The browser client for OneShot. Plain HTML, CSS, and vanilla JS — no build step,
-no framework, no bundler. Every file here is shipped to the browser as-is.
+The browser client and its API live in this repository. The client uses plain
+HTML, CSS, and vanilla JS, served as-is. The Python API lives in `api/`.
 
 All data comes from the OneShot API over `/api/*`.
-Nothing here talks to Postgres, and nothing here is rendered on a server.
+The API reads jobs published by xjobscore and stores accounts, applications,
+feedback, and resumes in Postgres. Harvesting and enrichment live in the separate
+`xjobscore` repository; this is the only request-facing API.
 
 ## Running it
 
@@ -13,19 +15,138 @@ flow is unchanged:
 
 ```bash
 cd oneshot-ui
-python -m oneshot_ui     # http://127.0.0.1:8766
+uv run oneshot-ui     # http://127.0.0.1:8766
 ```
+
+`uv run` installs the locked dependencies from `pyproject.toml` / `uv.lock`
+on first use. The API reads database settings from `.env` locally and from
+project settings on Vercel:
+
+```dotenv
+DATABASE_URL="your-neon-connection-string"
+JOBS_DATABASE_URL=postgresql:///xjobscore_frontend
+```
+
+`DATABASE_URL` is the central store for accounts, application tracking, feedback,
+and resumes. Optional `JOBS_DATABASE_URL` points job, logo, and coverage reads at
+the small local frontend database. When it is unset, all reads use `DATABASE_URL`,
+which preserves the hosted app's existing Neon configuration. The xjobscore
+publisher initializes and refreshes the local database and Neon independently
+using the same stable posting IDs. Job filtering uses stored Gold labels rather
+than classifying every title again during each request.
 
 The API finds this directory by walking up from its own package to the repo
 root. Override with
 `ONESHOT_STATIC_DIR`, or point it at a path that does not exist to run
 the API on its own with no client attached.
 
+## Mockups
+
+All standalone design mockups and their supporting files live in [`mockup/`](mockup/README.md).
+With the API server running, open them under `/static/mockup/`, followed by
+the mockup folder and HTML filename. The catalog includes every variant.
+
 ## Tests
 
 ```bash
-cd frontend && node --test
+node --test
+uv run python -m unittest discover -s tests -v
 ```
+
+## Discover search
+
+Discover search matches role titles, company names, recognized skills and ATS
+provider names (for example, Greenhouse, Lever or Workday). ATS matching is
+case-insensitive and includes active sources of deduplicated jobs; each job
+still appears once. Existing job-type and focus filters continue to apply.
+
+## Applications tracker
+
+`/application/` keeps the readable board typography with a white canvas and muted
+entry backgrounds, compact padding, 6px gaps, and 4px rounded corners. Add to Applied creates a
+Submitted record. Replies, including automated
+assessment invitations, move the existing record to Replied, Assessment,
+Interview or Offer. Closures are explicit and reversible; age never closes a
+record automatically. Existing guest and signed-in resume links remain available.
+
+Before deploying the updated API and client, apply the migration to the target
+database (the web process does not run DDL):
+
+```sh
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/20261006_application_tracker.sql
+```
+
+The migration can be rerun safely. It preserves IDs, history, resume references
+and known submission dates, moves Considering to Submitted, and leaves unknown
+submission dates unset. Guest records migrate locally when their workspace loads.
+
+Validation: `node --test app.test.js application/app.test.js visitor-data.test.js
+opportunities/app.test.js source-coverage/app.test.js`. Database checks run with
+`ONESHOT_TEST_DATABASE_URL` set to a local database via
+`python -m unittest discover -s tests -v`; their schema and data are rolled back.
+`tests/application_tracker_browser.py` uses Playwright/Chromium to check the
+current tracker workflows in isolated browser storage with its own fixtures;
+it does not depend on the design mockups.
+
+## Feed overview
+
+`/source-coverage/` uses the approved job-type dropdown and classification footer.
+The page starts at the left content inset; its footer stays at the bottom of the
+viewport or below longer provider lists, with at least 64px of separation.
+The six visible ATS are ranked by their active student jobs eligible for
+Discover after location filtering and deduplication, before personal filters.
+The remaining providers stay under “Other,” collapsed by default. It opens into
+six borderless provider rows per page, with health counts, thin bars and healthy
+percentages. Selecting a provider shows its board squares; pagination closes
+expanded details and retains keyboard focus.
+
+Daily appeared/closed counts are deduplicated and use Pacific calendar days.
+Closures use the earliest recorded ATS, dead-link or closed-page signal on a
+closed posting; board disappearance alone does not count as closure. The footer
+uses the same active-posting total as the header, plus active US-or-unspecified-location
+student roles after deduplication, before personal filters. Both active totals
+come from one aggregate, so their scope and refresh time agree. Aggregates are read-only, shared
+across accounts and cached for five minutes, with a reset at Pacific midnight.
+Unavailable metrics stay unknown; the existing board snapshot remains usable.
+
+Run `python -m unittest discover -s tests -p test_feed_activity.py -v` and
+`node --test source-coverage/app.test.js`. The SQL test uses the local database
+configured by `ONESHOT_TEST_DATABASE_URL`, temporary tables and a rollback.
+With Playwright available, `node tests/feed_other_browser.cjs` checks folding,
+pagination, health summaries and refresh behavior with isolated fixtures.
+`node tests/feed_overview_browser.cjs` checks the running page;
+`ONESHOT_TEST_ORIGIN` overrides the default localhost port 8766.
+
+## Resume workspace
+
+`/resume/` uses the approved workspace mockup: compact editable Profile sections,
+an inline resume picker, full-width contact summaries, and availability below
+the document toolbar. New resume appears at the bottom of the resume dropdown,
+or above the explanatory text when there is no current resume. Document controls
+stay on one row and align with the content at narrow and ultrawide widths.
+The standalone [mockup](mockup/resume-workspace-mockup/index.html) remains available for design reference.
+
+Guest data stays in the existing browser workspace; signed-in edits use the
+account-scoped API. Preview and export use the real Typst renderer with Main
+or the bundled Barlow fonts. Design choice and GPA visibility live in the
+existing selection JSON; selected coursework and resume-specific bullet text
+are honored in the generated PDF. Existing education remains visible without
+rewriting saved selections.
+
+Older databases need the vocabulary column already expected by the resume API.
+Apply this repeatable migration before deployment (it was applied locally):
+
+```sh
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/20261006_resume_vocabulary.sql
+```
+
+Resume validation: `python -m unittest discover -s tests -p test_resume_workspace.py -v`.
+Set `ONESHOT_TEST_DATABASE_URL` to a local database to include the rolled-back
+account persistence test. With `@playwright/test` and Chromium installed,
+`node tests/resume_workspace_browser.cjs` checks guest and signed-in transport,
+editing scopes, menu actions, responsive alignment, handoff, and actual PDFs.
+The browser check uses `.venv/bin/python` for rendering; set `ONESHOT_PYTHON`
+to use another interpreter.
 
 ## Sample data
 
@@ -54,16 +175,15 @@ The 401 → `/login/` handlers cover a signed-in session expiring between the
 shared identity probe and a private request. Anonymous private requests are
 routed locally and never receive that 401.
 
-`nav-count.js` builds the account chip in the sidebar footer on all four shells:
-avatar, name, email, and a `⋯` menu holding the full address and Sign out. Signed
-out it renders the same box as a "Guest / Browser-local · Sign in" link, so nothing
-shifts when you sign in. Google's `picture_url` layers over initials drawn
-underneath, so a blocked or missing photo degrades instead of leaving a grey disc.
+`nav-count.js` builds the Profile control in the sidebar footer on all four shells:
+an avatar with a Profile label opens a menu with the name, full email address,
+and Sign out. Signed out, the same control uses a person icon and links to sign-in,
+so nothing shifts when you sign in. Google's `picture_url` layers over initials.
 
-The chip is also what holds the foot of the sidebar down, via `margin-top: auto`
-in `navigation.css`. That used to be the sample switch's job — the chip merely
-sat beneath it — and moved here when the switch left the sidebar, so the sidebar
-is now navigation and identity, nothing else.
+The sidebar's `data-account-slot` stays at the bottom via `margin-top: auto`
+in `navigation.css`, with the desktop account menu opening upward. On narrow
+screens, Profile stays alongside the other navigation items and its menu stays
+inside the viewport.
 
 It is built in JS, not markup, because the four sidebars are hand-copied and not
 byte-identical — one code path beats four edits. The identity probe must **not**
@@ -83,9 +203,11 @@ Set the Vercel project root to this directory, leave the build and output
 settings empty, and provide `DATABASE_URL` as a server-side environment
 variable. Use Neon's pooled connection string for the deployed function.
 
+Any Google account with a verified email address can sign in.
+
 For sign-in, also configure the `ONESHOT_GOOGLE_CLIENT_ID`,
 `ONESHOT_GOOGLE_CLIENT_SECRET`,
-`ONESHOT_ALLOWED_EMAILS`, `ONESHOT_SESSION_SECRET`,
+`ONESHOT_SESSION_SECRET`,
 `ONESHOT_PUBLIC_URL`, and `ONESHOT_COOKIE_SECURE=1`
 variables described in the repository's `.env.example`.
 
