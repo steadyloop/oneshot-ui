@@ -7,7 +7,7 @@
 body { font: 14px/1.45 var(--sans); }
 :focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
 .workspace { width: 100%; max-width: none; padding: 0; }
-.workspace-content { max-width: 1024px; padding: 0 32px 24px; }
+.workspace-content { max-width: 1320px; padding: 0 32px 24px; }
 .page-tabs-row { min-height: 49px; align-items: center; margin: 0; padding: 0 32px; border-color: var(--line); gap: 12px; }
 .page-tabs { align-self: stretch; gap: 28px; }
 .page-tab { display: flex; align-items: center; gap: 7px; padding: 0; font-size: 13px; font-weight: 400; }
@@ -196,7 +196,7 @@ body:has(.resume-empty) > .app-topbar { flex-shrink: 0; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
 /* Approved workspace layout, compact contacts, and document selection controls. */
-:root { --muted: #59645c; --faint: #68736b; --workspace-max-width: 1024px; }
+:root { --muted: #59645c; --faint: #68736b; --workspace-max-width: 1320px; }
 .workspace-content { max-width: var(--workspace-max-width); }
 .page-tabs-row { padding-right: max(32px, calc(100% - var(--workspace-max-width) + 32px)); }
 .page-actions { display: flex; align-items: center; gap: 16px; margin-left: auto; }

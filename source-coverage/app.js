@@ -172,8 +172,23 @@
   }
   const cellColor = board => board.state === "ok" ? palette.ramp(board.jobs) : palette[board.state] || palette.idle;
 
+  const SUMMARY_STATES = ["ok", "degraded", "stale", "failing", "paused", "never", "unknown"];
+  const CORE_STATES = SUMMARY_STATES.slice(0, 4);
+  const healthCounts = group => ({ ...group.problems,
+    ok: group.boards.length - Object.values(group.problems).reduce((sum, value) => sum + value, 0) });
+
   function providerListMarkup() {
-    return `<div class="wall"><div id="provider-list" class="provider-list">${bands.map(providerMarkup).join("")}</div></div>`;
+    // Share widths across providers, sized to the actual counts and labels.
+    // Four core states stay together without the padding of equal-width slots.
+    const widths = CORE_STATES.map(state => STATE_LABEL[state].length + 2);
+    for (const group of bands) {
+      const counts = healthCounts(group);
+      SUMMARY_STATES.forEach((state, index) => {
+        if (state !== "never" && (index < 4 || counts[state])) widths[index % 4] = Math.max(widths[index % 4],
+          number(counts[state]).length + 1 + STATE_LABEL[state].length);
+      });
+    }
+    return `<div class="wall" style="--health-columns:${widths.map(width => `${width}ch`).join(" ")}"><div id="provider-list" class="provider-list">${bands.map(providerMarkup).join("")}</div></div>`;
   }
 
   const PROVIDER_NAMES = {
@@ -193,19 +208,22 @@
     const count = group.boards.length;
     const label = PROVIDER_NAMES[group.id] || group.label;
     const states = ["ok", "degraded", "failing", "stale", "paused", "never", "unknown"];
-    const healthy = count - Object.values(group.problems).reduce((sum, value) => sum + value, 0);
-    const counts = { ...group.problems, ok: healthy };
-    const healthyPercent = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(healthy / count * 100);
-    // Always include the three core states, even when a count is zero.
-    const summaryStates = ["ok", "degraded", "stale", "failing", "paused", "never", "unknown"];
-    const description = summaryStates.filter(state => ["ok", "degraded", "stale"].includes(state) || counts[state])
+    const counts = healthCounts(group);
+    // Keep all four core states visible, including measured zero counts.
+    const description = SUMMARY_STATES.filter(state => CORE_STATES.includes(state) || counts[state])
       .map(state => `${number(counts[state])} ${STATE_LABEL[state]}`).join(", ");
+    // Fixed slots keep each state's count aligned across providers; omit
+    // optional zero states without moving the remaining counts between columns.
+    const summary = SUMMARY_STATES.map((state, index) =>
+      state !== "never" && (CORE_STATES.includes(state) || counts[state])
+        ? `<span class="health-status" data-state="${state}" style="--status-column:${index % 4 + 1};--status-row:${Math.floor(index / 4) + 1}"><span class="health-count">${number(counts[state])}</span><span class="health-label">${STATE_LABEL[state]}</span></span>`
+        : "").join("");
     const meta = `<span class="provider-board-count">${number(count)} ${plural(count, "board", "boards")}</span> <span class="provider-count-separator" aria-hidden="true">|</span> <span class="provider-job-count">${compact(group.jobs)} ${plural(group.jobs, "job", "jobs")}</span>`;
     const segments = states.filter(state => counts[state]).map(state => `<span class="health-${state}" style="flex-grow:${counts[state]}"></span>`).join("");
     const open = expandedProvider === group.id;
     const detailId = `provider-detail-${encodeURIComponent(group.id)}`;
     const tipId = `provider-health-${encodeURIComponent(group.id)}`;
-    return `<div class="provider-entry${open ? " is-open" : ""}"><button type="button" class="provider-row" data-provider="${esc(group.id)}" aria-expanded="${open}" aria-controls="${esc(detailId)}" aria-describedby="${esc(tipId)}"><span class="provider-identity"><svg class="provider-chevron" aria-hidden="true" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg><span class="provider-name">${esc(label)}</span></span><span class="provider-health"><span class="health-track" role="img" aria-label="${esc(description)}">${segments}</span><span class="health-summary"><span class="health-percent">${healthyPercent}% healthy</span><span class="health-tooltip" id="${esc(tipId)}" role="tooltip">${esc(description)}</span></span></span><span class="provider-counts">${meta}</span></button><div id="${esc(detailId)}" class="provider-detail"${open ? "" : " hidden"}>${open ? `<div class="band mini" data-band="${esc(group.id)}"><canvas role="img" aria-label="${esc(label)}: ${esc(description)}"></canvas></div>` : ""}</div></div>`;
+    return `<div class="provider-entry${open ? " is-open" : ""}"><button type="button" class="provider-row" data-provider="${esc(group.id)}" aria-expanded="${open}" aria-controls="${esc(detailId)}" aria-describedby="${esc(tipId)}"><span class="provider-identity"><svg class="provider-chevron" aria-hidden="true" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg><span class="provider-name">${esc(label)}</span></span><span class="provider-health"><span class="health-track" role="img" aria-label="${esc(description)}">${segments}</span><span class="health-summary"><span class="health-status-grid">${summary}</span><span class="health-tooltip" id="${esc(tipId)}" role="tooltip">${esc(description)}</span></span></span><span class="provider-counts">${meta}</span></button><div id="${esc(detailId)}" class="provider-detail"${open ? "" : " hidden"}>${open ? `<div class="band mini" data-band="${esc(group.id)}"><canvas role="img" aria-label="${esc(label)}: ${esc(description)}"></canvas></div>` : ""}</div></div>`;
   }
 
   function renderWall() {
