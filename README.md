@@ -46,6 +46,19 @@ All standalone design mockups and their supporting files live in [`mockup/`](moc
 With the API server running, open them under `/static/mockup/`, followed by
 the mockup folder and HTML filename. The catalog includes every variant.
 
+## Phones
+
+Phones get their own screens, built from `mockup/mobile-overhaul/` and kept in
+[`phone/`](phone/). `phone/boot.js` runs in each page's `<head>` and decides
+before any page script loads: at 760px wide or less, or on a touch phone turned
+sideways, it switches the desktop stylesheets off, loads `phone/phone.css`, the
+shared frame (`phone/shell.js`) and that page's module (`discover.js`,
+`applied.js`, `resume.js` or `feeds.js`), and the desktop script stops before
+drawing anything. Desktop is unchanged; crossing the breakpoint reloads the
+page. The phone modules use the same API, guest workspace and rules as desktop,
+which each desktop script shares as `OneShotDiscoverKit`, `OneShotAppliedKit`
+or `OneShotFeedsKit`.
+
 ## Tests
 
 ```bash

@@ -453,10 +453,12 @@
       + `<div class="detail-body"><section><h3>About the role</h3>${summaryMarkup(job)}</section>${detailFactsMarkup(job, { common, expanded: Boolean(ui.common) })}</div></div>`;
   }
 
-  if (typeof module !== "undefined" && module.exports) {
-    module.exports = { FILTERS, DEGREE_FILTERS, SKILL_CATEGORIES, SKILL_BUNDLES, SKIP_REASONS, jobTypes, degreeFields, tabCount, seasonFilter, sortOrder, safeHref, sourceLabel, linkChoices, placeList, placeSummary, commonTerms, relativeTime, postedPresentation, recencyBucket, detailSkillsMarkup, skillDetails, orderedSkillDetails, skillBundles, listTags, workplaceLabel, freshness, deadlineLabel, cardMetaMarkup, detailPostedMarkup, summaryMarkup, reportRows, reportMarkup, hiddenReason, openMarkup, detailFactsMarkup, detailPaneMarkup, initials, logoSrc, logoMarkup };
-  }
-  if (!root.document) return;
+  const exported = { FILTERS, DEGREE_FILTERS, SKILL_CATEGORIES, SKILL_BUNDLES, SKIP_REASONS, jobTypes, degreeFields, tabCount, seasonFilter, sortOrder, safeHref, sourceLabel, linkChoices, placeList, placeSummary, commonTerms, relativeTime, postedPresentation, recencyBucket, detailSkillsMarkup, skillDetails, orderedSkillDetails, skillBundles, listTags, workplaceLabel, freshness, deadlineLabel, cardMetaMarkup, detailPostedMarkup, summaryMarkup, reportRows, reportMarkup, hiddenReason, openMarkup, detailFactsMarkup, detailPaneMarkup, initials, logoSrc, logoMarkup };
+  if (typeof module !== "undefined" && module.exports) module.exports = exported;
+  // The phone screens (phone/discover.js) reuse these rules. On a phone this
+  // page's own view never starts; phone/boot.js decides before it loads.
+  root.OneShotDiscoverKit = exported;
+  if (!root.document || root.OneShotPhone?.active) return;
 
   const $ = selector => root.document.querySelector(selector);
   const $$ = selector => [...root.document.querySelectorAll(selector)];

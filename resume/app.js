@@ -1,6 +1,9 @@
 /* OneShot resumes: one master profile, many tailored documents. */
 (() => {
   "use strict";
+  // On a phone, phone/resume.js draws this page instead; phone/boot.js decides
+  // before this script loads.
+  if (window.OneShotPhone?.active) return;
 
   const state = {
     profile: null,
