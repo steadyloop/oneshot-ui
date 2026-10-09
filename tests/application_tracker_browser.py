@@ -195,23 +195,27 @@ async def main():
         assert await counts(page) == [0, 1000, 0]
         await page.locator('#search').fill('Company 0')
         assert '—' in await page.locator('tbody').inner_text() and 'NaN' not in await page.locator('tbody').inner_text()
-        # A single canonical record exercises the mobile selector and drawer.
+        # A single canonical record exercises the phone screens (phone/applied.js).
         await page.evaluate('''key => localStorage.setItem(key, JSON.stringify({ applications: [{ id: 'mobile-1', external: true, company: 'Mobile Co', title: 'Long engineering title '.repeat(20), stage: 'interview', last_open_stage: 'interview', task_state: 'action', next_action: 'Prepare for interview', next_due_at: '2026-10-14', events: [] }], jobs: [], nextApplicationId: 2 }))''', KEY)
         await page.set_viewport_size({'width': 390, 'height': 844}); await page.emulate_media(reduced_motion='reduce')
-        await page.goto(origin + '/application/'); await idle(page)
-        await page.locator('[data-mobile-stage=interview]').click()
-        assert await page.locator('.column:visible').count() == 1
+        await page.goto(origin + '/application/')
+        phone = page.locator('#phone')
+        async def phone_counts():
+            return [int(await phone.locator(f'[data-view={key}] small').inner_text()) for key in ('progress', 'submitted', 'closed')]
+        await expect(phone.locator('.stage-card')).to_have_count(1)
         assert await page.evaluate('document.documentElement.scrollWidth <= innerWidth')
-        await page.locator('.card-open').click(); await idle(page)
-        box = await page.locator('#drawer').bounding_box(); assert box['width'] == 390 and box['height'] == 844
+        await phone.locator('.stage-card').click()
+        await expect(phone.locator('#push.open')).to_be_visible()
+        box = await phone.locator('#push').bounding_box(); assert box['width'] == 390 and box['height'] == 844
         await page.screenshot(path=str(ARTIFACTS/'mobile-drawer.png'))
-        await page.locator('#drawer [data-action=close-application]').click()
-        await page.locator('#close-form [name=closedReason]').select_option('no_reply')
-        await page.locator('#close-form button[type=submit]').click(); await idle(page)
-        assert await counts(page) == [0, 0, 1]
-        assert await page.locator('.column').count() == 4
-        assert await page.locator('#panel .empty-state').count() == 0
-        await undo(page); assert await counts(page) == [1, 0, 0]
+        await phone.locator('[data-act=close-app]').click()
+        await phone.locator('[data-close-reason=no_reply]').click()
+        await phone.locator('[data-act=commit-close]').click()
+        await expect(phone.locator('#toast')).to_contain_text('closed as no reply')
+        assert await phone_counts() == [0, 0, 1]
+        await phone.locator('#toast button').click()
+        await expect(phone.locator('#toast')).to_contain_text('Change undone.')
+        assert await phone_counts() == [1, 0, 0]
         assert not errors, errors
         await context.close()
         # Signed-in transport failures preserve edits and counts; success uses canonical API data.

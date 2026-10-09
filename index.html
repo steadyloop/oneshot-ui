@@ -7,13 +7,15 @@
   <title>Opportunities · OneShot</title>
   <link rel="stylesheet" href="/static/opportunities/styles.css?v=white-layout-20261006-mobile">
   <link rel="stylesheet" href="/static/navigation.css?v=sidebar-profile-20261006">
+  <!-- Phones get their own screens (phone/); desktop is unchanged. -->
+  <script src="/static/phone/boot.js?v=phone-20261008"></script>
   <!-- No sample-data toggle on this page, but api-client.js and nav-count.js
        both read window.OneShotVisitorData (the guest workspace) as they
        initialise, so the module that defines it still has to load first. -->
   <script defer src="/static/sample-data.js?v=tracker-20261006"></script>
   <script defer src="/static/api-client.js?v=tracker-20261006"></script>
   <script defer src="/static/nav-count.js?v=company-editor-20261007"></script>
-  <script defer src="/static/opportunities/app.js?v=white-layout-20261006-mobile"></script>
+  <script defer src="/static/opportunities/app.js?v=phone-20261008"></script>
 </head>
 <body class="opportunities-app">
   <a class="skip-link" href="#view">Skip to opportunities</a>

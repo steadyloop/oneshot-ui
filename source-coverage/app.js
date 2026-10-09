@@ -132,7 +132,10 @@
 
   const exported = { relativeTime, withTimeout, stateKey, fleetTotals, todayLine, shortDate, tickerCard, problemText, buildBands, STATE_LABEL };
   if (typeof module !== "undefined" && module.exports) module.exports = exported;
-  if (!root.document) return;
+  // The phone screens (phone/feeds.js) reuse these rules. On a phone this
+  // page's own view never starts; phone/boot.js decides before it loads.
+  root.OneShotFeedsKit = exported;
+  if (!root.document || root.OneShotPhone?.active) return;
 
   const $ = selector => document.querySelector(selector);
   const content = $("#coverage-content");

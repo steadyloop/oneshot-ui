@@ -453,7 +453,10 @@
     }
 
     if (typeof module !== 'undefined' && module.exports) module.exports = { fromAPI, toAPI, age, dueDays, validDay, viewFor, taskGroup, STAGES, state, visibleApplications };
-    if (typeof document === 'undefined') return;
+    // The phone screens (phone/applied.js) reuse the record mapping. On a phone
+    // this page's own view never starts; phone/boot.js decides before it loads.
+    globalThis.OneShotAppliedKit = { fromAPI, toAPI, validDay, dueDays, age, viewFor, LABELS, REASONS, COLUMNS, STAGES };
+    if (typeof document === 'undefined' || globalThis.OneShotPhone?.active) return;
 
     document.addEventListener('click', async event => {
       if (state.busy) return;
