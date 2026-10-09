@@ -12,7 +12,7 @@ import logging
 from datetime import date, datetime, time, timezone
 from typing import Any, Iterable
 from urllib.parse import urlsplit
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import asyncpg
 
@@ -394,7 +394,10 @@ class PostgresRepository:
             "summary": summary.strip() if isinstance(summary, str) and summary.strip() else None,
             "locations": locations,
             "location": _location_label(locations),
-            "apply_url": row.get("apply_url") or row.get("source_url"),
+            # Posting page first: the stored apply_url (Lever /apply, Ashby
+            # /application, ...) skips the description, and every posting
+            # page carries its own Apply button.
+            "apply_url": row.get("source_url") or row.get("apply_url"),
             "posted_at": _iso(row.get("posted_at")),
             # Most feeds publish no posting date, so the client falls back to
             # this to say "Added 2d ago" rather than "Posted date unavailable".
@@ -437,6 +440,79 @@ class PostgresRepository:
         return await pool.fetchval(
             "SELECT bytes FROM company_logo WHERE company_id = $1", company_id
         )
+
+    # Pending edits are shown in the editor while Discover continues to use the
+    # published row. xjobscore applies this queue before publishing its next
+    # snapshot, preserving its stable identity checks even after a domain edit.
+    _COMPANY_EDIT_SELECT = """
+        SELECT c.id,
+            CASE WHEN e.changes ? 'name' THEN e.changes->>'name' ELSE c.name END AS name,
+            CASE WHEN e.changes ? 'domain' THEN e.changes->>'domain' ELSE c.domain END AS domain,
+            CASE WHEN e.changes ? 'description' THEN e.changes->>'description' ELSE c.description END AS description,
+            CASE WHEN e.changes ? 'tags' THEN e.changes->'tags' ELSE c.tags END AS tags,
+            (e.company_id IS NOT NULL) AS sync_pending, e.sync_error
+        FROM company c LEFT JOIN company_edit e ON e.company_id = c.id
+    """
+
+    @staticmethod
+    def _company(row: asyncpg.Record) -> dict[str, Any]:
+        return {
+            "id": row["id"],
+            "name": row["name"],
+            "domain": row["domain"],
+            "description": row["description"],
+            "tags": _json_object(row["tags"]),
+            "sync_pending": row["sync_pending"],
+            "sync_error": row["sync_error"],
+        }
+
+    async def list_companies(self, *, q: str = "", limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        # Company maintenance follows the same database as Discover, including
+        # configurations that separate jobs from accounts and resumes.
+        pool = self._jobs_ready()
+        q = q.strip()
+        match = "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        where = "($1 = '' OR name ILIKE $2 OR domain ILIKE $2 OR id::text = $1)"
+        effective = f"({self._COMPANY_EDIT_SELECT}) AS effective"
+        total, rows = await asyncio.gather(
+            pool.fetchval(f"SELECT count(*) FROM {effective} WHERE {where}", q, match),
+            pool.fetch(
+                f"SELECT * FROM {effective} WHERE {where} "
+                "ORDER BY lower(name), id LIMIT $3 OFFSET $4",
+                q, match, limit, offset,
+            ),
+        )
+        return {"companies": [self._company(row) for row in rows], "total": int(total)}
+
+    async def update_company(self, company_id: int, changes: dict[str, Any]) -> dict[str, Any] | None:
+        fields = ("name", "domain", "description", "tags")
+        if not changes or set(changes) - set(fields):
+            raise ValueError("Only name, domain, description and tags can be updated")
+        async with self._jobs_ready().acquire() as connection, connection.transaction():
+            if "domain" in changes and changes["domain"]:
+                conflict = await connection.fetchval(
+                    f"SELECT EXISTS (SELECT 1 FROM ({self._COMPANY_EDIT_SELECT}) effective "
+                    "WHERE id <> $1 AND lower(domain) = lower($2))",
+                    company_id, changes["domain"],
+                )
+                if conflict:
+                    raise asyncpg.UniqueViolationError("Domain already assigned")
+            queued = await connection.fetchval(
+                """
+                INSERT INTO company_edit(company_id, changes, edited_by, revision)
+                SELECT id, $2::jsonb, $3, $4 FROM company WHERE id = $1
+                ON CONFLICT (company_id) DO UPDATE
+                SET changes = company_edit.changes || EXCLUDED.changes,
+                    edited_by = EXCLUDED.edited_by, revision = EXCLUDED.revision,
+                    updated_at = clock_timestamp(), sync_error = NULL
+                RETURNING company_id
+                """,
+                company_id, json.dumps(changes), self.account_id, uuid4(),
+            )
+            if queued is None:
+                return None
+            row = await connection.fetchrow(self._COMPANY_EDIT_SELECT + " WHERE c.id = $1", company_id)
+            return self._company(row)
 
     async def list_jobs(
         self,
@@ -740,8 +816,8 @@ class PostgresRepository:
                     jsonb_build_object(
                         'source', sibling.source,
                         'url', COALESCE(
-                            NULLIF(BTRIM(sibling.apply_url), ''),
-                            NULLIF(BTRIM(sibling.source_url), '')
+                            NULLIF(BTRIM(sibling.source_url), ''),
+                            NULLIF(BTRIM(sibling.apply_url), '')
                         ),
                         'posted_at', sibling.posted_at,
                         'first_seen_at', sibling.first_seen_at
@@ -1017,7 +1093,7 @@ class PostgresRepository:
                 job["company_name"],
                 job["title"],
                 _location_label(job["locations"]),
-                job["apply_url"] or job["source_url"],
+                job["source_url"] or job["apply_url"],
                 _timestamp(submitted_at) if submitted_at else datetime.combine(date.today(), time.min, timezone.utc),
             )
             await connection.execute(

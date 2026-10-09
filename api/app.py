@@ -20,6 +20,7 @@ from .api_models import (
 from .auth import AuthStore, current_account, session_account
 from .auth_api import router as auth_router
 from .config import Settings, load_settings
+from .company_admin import router as company_admin_router
 from .repository import (
     DEFAULT_JOB_TYPES,
     LOCAL_ACCOUNT_ID,
@@ -353,6 +354,7 @@ def create_app(
         return Response(status_code=204)
 
     application.include_router(auth_router)
+    application.include_router(company_admin_router)
     # Rendering is public: a signed-out resume lives in the browser and is sent
     # in the request. Included first so its fixed /render/* paths are matched
     # before the gated router's parameterized ones.

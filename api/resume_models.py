@@ -14,7 +14,7 @@ Audience = VariantKey
 Variant = VariantKey
 ALL_AUDIENCES = "all"
 EntryKind = Literal["education", "experience", "research", "project", "leadership"]
-SkillCategory = Literal["language", "framework", "tool", "coursework", "math"]
+SkillCategory = Literal["language", "framework", "data", "tool", "coursework", "math"]
 
 
 class ProfileLink(BaseModel):
@@ -135,6 +135,7 @@ class Selection(BaseModel):
     skills: list[int] = Field(default_factory=list)
     # Stored with the existing JSON selection, so no database migration is needed.
     template: Literal["main", "barlow"] | None = None
+    density: Literal["standard", "compact"] | None = None
 
 
 class ResumeCreate(BaseModel):

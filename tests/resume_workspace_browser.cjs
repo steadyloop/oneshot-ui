@@ -24,7 +24,8 @@ Object.assign(seed.resume, {
         { id: 22, text: 'Reduced dashboard load time.', audience: 'engineering' }] },
   ],
   skills: [{ id: 50, category: 'coursework', name: 'Algorithms', audience: 'all' },
-    { id: 60, category: 'language', name: 'Python', audience: 'all' }],
+    { id: 60, category: 'language', name: 'Python', audience: 'all' },
+    { id: 61, category: 'data', name: 'DuckDB', audience: 'all' }],
   variants: [{ key: 'engineering', label: 'Software engineering' }],
   targetJobs: [{ id: 80, company: 'Test Co', title: 'Intern', url: 'https://example.com/job' }],
   resumes: [90, 91, 92].map((id, index) => ({ id, name: ['Software engineering', 'Frontend engineering', 'Research'][index],
@@ -129,6 +130,7 @@ async function main() {
 
     await page.evaluate(([key, seed]) => localStorage.setItem(key, JSON.stringify(seed)), [key, seed]);
     await page.goto(origin + '/resume/'); await expect(page.locator('.profile-contact-name')).toHaveText('Alex Morgan');
+    await expect(page.locator('.skill-row').filter({ hasText: 'DuckDB' })).toContainText('Data');
     await page.evaluate(() => document.fonts.ready);
     await page.screenshot({ path: path.join(artifacts, 'profile.png') });
     await saveField(page, 'Name', 'Alex Updated');
@@ -206,11 +208,14 @@ async function main() {
     await expect(page.locator('.pdf-frame')).toBeVisible();
     await page.locator('[data-resume-template]').selectOption('barlow');
     await expect(page.locator('[data-resume-template]')).toHaveValue('barlow');
+    await page.getByLabel('Spacing', { exact: true }).selectOption('compact');
+    await expect(page.locator('[data-resume-density]')).toHaveValue('compact');
     await expect(page.locator('.pdf-frame')).toBeVisible();
     await page.reload(); await page.locator('[data-action=show-pdf]').click();
     // Reload selects the first resume; the second resume's design remains stored.
     const stored = await page.evaluate(key => JSON.parse(localStorage.getItem(key)).resume, key);
     assert.equal(stored.resumes.find(r => r.id === 91).selection.template, 'barlow');
+    assert.equal(stored.resumes.find(r => r.id === 91).selection.density, 'compact');
     const download = page.waitForEvent('download'); await page.locator('[data-action=export-pdf]').click();
     const file = await download; await file.saveAs(path.join(artifacts, 'guest-export.pdf'));
     assert.ok((await readFile(path.join(artifacts, 'guest-export.pdf'))).subarray(0, 5).equals(Buffer.from('%PDF-')));
@@ -249,7 +254,13 @@ async function main() {
     await accountPage.locator('#resumes-tab').click(); await saveField(accountPage, 'Availability', 'Account availability');
     await accountPage.locator('[data-action=show-pdf]').click(); await expect(accountPage.locator('.pdf-frame')).toBeVisible();
     await accountPage.locator('[data-resume-template]').selectOption('barlow'); await expect(accountPage.locator('.pdf-frame')).toBeVisible();
+    await accountPage.getByLabel('Spacing', { exact: true }).selectOption('compact');
+    await expect(accountPage.locator('.pdf-frame')).toBeVisible();
     assert.equal(accountState.resume.resumes[0].selection.template, 'barlow');
+    assert.equal(accountState.resume.resumes[0].selection.density, 'compact');
+    await accountPage.setViewportSize({ width: 320, height: 700 });
+    assert.ok(await accountPage.locator('.preview-tools').evaluate(el => el.scrollWidth <= el.clientWidth), 'Preview controls fit on mobile');
+    await accountPage.setViewportSize({ width: 1440, height: 1000 });
     assert.ok(requests.some(r => r.path === '/api/resume/resumes/90/pdf' && r.method === 'GET'));
     assert.ok(requests.some(r => r.path === '/api/resume/render/pdf' && r.method === 'POST'));
     accountState.resume.resumes.push(...Array.from({ length: 24 }, (_, i) => ({ ...copy(seed.resume.resumes[0]), id: 500 + i, name: `Additional resume ${i + 1}` })));

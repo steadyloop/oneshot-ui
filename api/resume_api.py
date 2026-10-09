@@ -1,10 +1,9 @@
 """FastAPI router for the PostgreSQL-backed resume workspace.
 
 Endpoints are `async def` because the store is asyncpg. The one thing that must
-not follow them onto the event loop is Typst: `compile_pdf` shells out to a
-binary for up to 30 seconds, so it is pushed to a worker thread at the call site
-below. Awaiting it inline would stall every other request in the process, not
-just this page.
+not follow them onto the event loop is Typst: its native compiler runs in a
+worker thread. Running it inline would stall every other request in the
+process, not just this page.
 """
 
 from contextlib import asynccontextmanager
@@ -62,9 +61,8 @@ router = APIRouter(
 # hand back the artifact: no account, no session, nothing written down. They are
 # the only resume routes outside the gated router above.
 #
-# Rendering is the one public thing that costs real work: `compile_pdf` shells
-# out to Typst for up to 30 seconds. The timeout bounds a single request; this
-# cap bounds what one request can ask Typst to chew on.
+# Rendering costs real work in the native Typst compiler. This cap bounds
+# what one public request can ask it to process.
 MAX_RENDER_BYTES = 256 * 1024
 
 render_router = APIRouter(prefix="/api/resume/render", tags=["resume"])
@@ -344,8 +342,7 @@ async def _render_inputs(request: Request, resume_id: int) -> tuple[Any, Any, An
 
 
 async def _compile(source: str) -> tuple[bytes | None, int, str]:
-    # Typst is a subprocess with a 30s timeout. On the event loop that would
-    # stall the whole process; in a worker thread it stalls only this request.
+    # The native compiler is synchronous; keep it off the event loop.
     return await anyio.to_thread.run_sync(compile_pdf, source)
 
 

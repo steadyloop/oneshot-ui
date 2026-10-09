@@ -106,6 +106,23 @@
     // The chip truncates the address; the menu is where it is readable in full.
     menu.append(el("p", "account-menu-name", account.name || "Signed in"));
     menu.append(el("p", "account-menu-email", account.email || ""));
+    if (account.can_edit_companies === true) {
+      const companies = el("button", "account-menu-item", "Manage companies");
+      companies.type = "button";
+      companies.addEventListener("click", async () => {
+        companies.disabled = true;
+        try {
+          const editor = await import("/static/company-editor.js?v=company-editor-20261007");
+          close();
+          await editor.openCompanyEditor();
+        } catch (_) {
+          companies.textContent = "Could not open editor — try again";
+        } finally {
+          companies.disabled = false;
+        }
+      });
+      menu.append(companies);
+    }
     const out = el("button", "account-menu-item", "Sign out");
     out.type = "button";
     out.addEventListener("click", async () => {

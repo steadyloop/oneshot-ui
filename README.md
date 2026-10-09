@@ -151,6 +151,14 @@ existing selection JSON; selected coursework and resume-specific bullet text
 are honored in the generated PDF. Existing education remains visible without
 rewriting saved selections.
 
+Barlow follows the reference PDF design: a centered name and contact block,
+light section rules, a right-aligned education detail, visible project domains,
+and aligned Languages, Frameworks, Data, and Tools rows. Its Standard and Compact
+spacing options retain 10.5pt body text; the choice is stored in
+`selection.density`. Skills and coursework print in `selection.skills` order,
+independently of the bank's alphabetical browsing order. `data` is a supported
+skill category in the existing JSON bank; these changes need no schema migration.
+
 Older databases need the vocabulary column already expected by the resume API.
 Apply this repeatable migration before deployment (it was applied locally):
 
@@ -209,6 +217,43 @@ redirect on 401: that is the normal browser-local guest state.
 
 `login/` deliberately loads none of the shared scripts, so nothing on it can 401
 and bounce it back to itself.
+
+## Company editor
+
+Sign in with `msg.shkim@gmail.com`, open Profile, and choose **Manage companies**.
+The shared dialog searches and pages through companies and edits name, domain,
+description, and tags. `/api/auth/me` exposes the capability, and both company
+administration endpoints independently check the stored Google-verified email.
+Guests and other accounts cannot read or write the editor's data.
+
+Edits are saved to a durable `company_edit` queue in the jobs serving database.
+The editor shows pending values immediately. Before its next publication,
+xjobscore applies the patch to the canonical company, retaining its serving ID
+when its domain or name changes. Successful publication acknowledges only the
+revision it applied. Outages preserve pending edits; conflicts remain visible
+in the editor for correction. Discover reflects edits after publication.
+
+Before running the updated web app and xjobscore publisher, apply the repeatable
+migrations from this repository. The web process never runs DDL:
+
+```sh
+# Local xjobscore pipeline database:
+psql postgresql:///xjobscore -v ON_ERROR_STOP=1 -f migrations/20261007_company_editor_source.sql
+# Each OneShot serving database (local jobs DB and hosted DATABASE_URL):
+psql postgresql:///xjobscore_frontend -v ON_ERROR_STOP=1 -f migrations/20261007_company_editor.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/20261007_company_editor.sql
+```
+
+Restart the xjobscore publisher after updating its code. Its normal publication
+interval governs when pending edits reach xjobscore and Discover; running a
+publication manually processes them sooner. A publisher dry run leaves the
+queue and canonical companies unchanged.
+
+Validation: `python -m unittest discover -s tests -p test_company_admin.py -v`
+(with `ONESHOT_TEST_DATABASE_URL` for an isolated PostgreSQL queue check), and
+`node tests/company_editor_browser.cjs` (with `PLAYWRIGHT_MODULE` if necessary).
+The xjobscore repository includes isolated publication and retry tests in
+`xjobscore/tests/test_company_edits_postgres.py`.
 
 ## Vercel deployment
 

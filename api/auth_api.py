@@ -17,6 +17,7 @@ from .auth import (
     SESSION_STATE_KEY,
     OAuthError,
     authorization_url,
+    can_edit_companies,
     exchange_code,
     fetch_userinfo,
     require_account,
@@ -120,4 +121,4 @@ async def me(request: Request) -> dict[str, Any]:
         # The account was deleted while the cookie was still valid.
         request.session.clear()
         raise HTTPException(status_code=401, detail="Not signed in")
-    return profile
+    return {**profile, "can_edit_companies": can_edit_companies(profile)}

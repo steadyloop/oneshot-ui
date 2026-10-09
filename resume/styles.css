@@ -204,6 +204,7 @@ h1 { margin: 0; font-size: 32px; line-height: 1.1; letter-spacing: -.045em; }
 .autosave { display: inline-flex; align-items: center; gap: 4px; color: var(--faint); font-size: 11px; }
 .autosave svg { width: 11px; height: 11px; color: var(--green); }
 .document-actions { display: flex; align-items: center; gap: 8px; }
+.preview-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; color: var(--muted); font-size: 13px; }
 .design-select { min-height: 40px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper-soft); padding: 0 10px; color: var(--ink-soft); font-size: 13px; font-weight: 730; }
 .mode-switch { display: flex; border: 1px solid var(--line); border-radius: 9px; background: var(--paper-soft); padding: 3px; }
 .mode-switch button { min-height: 34px; display: inline-flex; align-items: center; gap: 5px; border-radius: 6px; background: transparent; padding: 6px 11px; color: var(--muted); font-size: 13px; font-weight: 730; }

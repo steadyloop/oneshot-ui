@@ -39,6 +39,7 @@
   const SKILL_GROUPS = [
     { key: "language", title: "Languages", categories: ["language"] },
     { key: "framework", title: "Frameworks & Libraries", categories: ["framework"] },
+    { key: "data", title: "Data", categories: ["data"] },
     { key: "tool", title: "Tools & Systems", categories: ["tool", "math"] },
   ];
 
@@ -340,7 +341,7 @@
 
   function skillForm(coursework) {
     return `<form class="inline-skill-form" data-form="skill" data-coursework="${coursework}">
-      ${coursework ? "" : `<select name="category" aria-label="Skill category"><option value="language">Languages</option><option value="framework">Frameworks & Libraries</option><option value="tool">Tools & Systems</option></select>`}
+      ${coursework ? "" : `<select name="category" aria-label="Skill category"><option value="language">Languages</option><option value="framework">Frameworks & Libraries</option><option value="data">Data</option><option value="tool">Tools & Systems</option></select>`}
       <input name="name" required placeholder="${coursework ? "Course name" : "Skill"}" autofocus>
       <div class="inline-add-actions"><button type="submit">Add</button><button class="cancel" type="button" data-action="cancel-add">Cancel</button></div></form>`;
   }
@@ -399,7 +400,7 @@
       </header>
       <div class="resume-availability resume-field"><span class="field-label">Availability</span>${editableValue("Availability", resume.availability_line, "resume", "availability_line", "Add availability")}</div>
       ${target ? `<div class="target-line"><span>Target</span><strong>${esc(target.company)} · ${esc(target.title)}</strong>${target.url ? `<a href="${href(target.url)}" target="_blank" rel="noreferrer">View role ${icon("external")}</a>` : ""}</div>` : ""}
-      ${state.mode === "content" ? `<div class="resume-content section-list">${content.join("")}</div>` : `<div class="resume-preview"><div class="preview-tools"><label for="resume-design">Design</label><select id="resume-design" class="design-select" data-resume-template>${[["main", "Main"], ["barlow", "Barlow"]].map(([value, label]) => `<option value="${value}" ${templateFor(resume) === value ? "selected" : ""}>${label}</option>`).join("")}</select></div><div class="pdf-stage"><p class="pdf-loading">Building preview…</p><iframe class="pdf-frame" title="Resume PDF preview" hidden></iframe></div></div>`}
+      ${state.mode === "content" ? `<div class="resume-content section-list">${content.join("")}</div>` : `<div class="resume-preview"><div class="preview-tools"><label for="resume-design">Design</label><select id="resume-design" class="design-select" data-resume-template>${[["main", "Main"], ["barlow", "Barlow"]].map(([value, label]) => `<option value="${value}" ${templateFor(resume) === value ? "selected" : ""}>${label}</option>`).join("")}</select>${templateFor(resume) === "barlow" ? `<label for="resume-density">Spacing</label><select id="resume-density" class="design-select" data-resume-density>${[["standard", "Standard"], ["compact", "Compact"]].map(([value, label]) => `<option value="${value}" ${(resume.selection?.density || "standard") === value ? "selected" : ""}>${label}</option>`).join("")}</select>` : ""}</div><div class="pdf-stage"><p class="pdf-loading">Building preview…</p><iframe class="pdf-frame" title="Resume PDF preview" hidden></iframe></div></div>`}
     </article>`;
     queueMicrotask(() => {
       growAll();
@@ -797,14 +798,15 @@
   });
 
   view.addEventListener("change", async event => {
-    if (!event.target.matches("[data-resume-template]")) return;
+    if (!event.target.matches("[data-resume-template], [data-resume-density]")) return;
+    const density = event.target.matches("[data-resume-density]");
     try {
       const resume = currentResume();
       const selection = cloneSelection(resume);
-      selection.template = event.target.value;
+      selection[density ? "density" : "template"] = event.target.value;
       await patchResume(resume, { selection });
       renderResumes();
-      view.querySelector("[data-resume-template]")?.focus({ preventScroll: true });
+      view.querySelector(density ? "[data-resume-density]" : "[data-resume-template]")?.focus({ preventScroll: true });
     } catch (error) { say(error.message); }
   });
 

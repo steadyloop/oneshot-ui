@@ -1,7 +1,7 @@
 """Typst rendering, page-count enforcement, and lint for generated resumes.
 
 Both workspace designs use a single column and selectable text. Main retains
-the serif format; Barlow uses bundled sans-serif fonts and a left-aligned header.
+the serif format; Barlow reproduces the centered, ruled reference design.
 """
 
 from __future__ import annotations
@@ -21,6 +21,7 @@ SECTION_TITLES = {
 SKILL_GROUP_TITLES = {
     "language": "Languages",
     "framework": "Frameworks & Libraries",
+    "data": "Data",
     "tool": "Tools",
     "math": "Math & Methods",
 }
@@ -79,6 +80,11 @@ def build_typst_source(
     chosen_entries = list(selection.get("entries", []))
     chosen_skill_ids = set(selection.get("skills", []))
     template = selection.get("template") or resume.get("template") or "main"
+    # A document's selection is ordered. The bank API sorts its response for
+    # browsing, which must not alphabetize coursework or skills on the PDF.
+    skill_by_id = {skill["id"]: skill for skill in skills}
+    skills = [skill_by_id[item_id] for item_id in dict.fromkeys(selection.get("skills", []))
+              if item_id in skill_by_id]
 
     # Education is always shown in the workspace; older selections only stored
     # its GPA visibility when the user changed it. Include these existing banks
@@ -94,6 +100,8 @@ def build_typst_source(
     bullet_by_id = {
         bullet["id"]: bullet for entry in entries for bullet in entry.get("bullets", [])
     }
+    if template == "barlow":
+        return _build_barlow_source(profile, resume, chosen_entries, entry_by_id, bullet_by_id, skills)
 
     sections: dict[str, list[str]] = {kind: [] for kind in SECTION_ORDER}
     for picked in chosen_entries:
@@ -117,7 +125,7 @@ def build_typst_source(
             block.append(f"- {typst_escape(text)}")
         sections[entry["kind"]].append("\n".join(block))
 
-    parts = [_preamble(template), _header_block(profile, resume.get("availability_line", ""), template)]
+    parts = [_preamble(), _header_block(profile, resume.get("availability_line", ""))]
     for kind in SECTION_ORDER:
         blocks = sections[kind]
         if not blocks:
@@ -131,8 +139,8 @@ def build_typst_source(
     return "\n\n".join(parts) + "\n"
 
 
-def _preamble(template: str = "main") -> str:
-    source = """\
+def _preamble() -> str:
+    return """\
 #set page(paper: "us-letter", margin: (x: 0.55in, y: 0.5in))
 #set text(font: "New Computer Modern", size: 10pt)
 #set par(leading: 0.5em, justify: false)
@@ -144,10 +152,9 @@ def _preamble(template: str = "main") -> str:
   #line(length: 100%, stroke: 0.6pt)
 ]
 #show link: set text(fill: rgb("#1a3d6d"))"""
-    return source.replace('font: "New Computer Modern"', 'font: "Barlow"') if template == "barlow" else source
 
 
-def _header_block(profile: dict[str, Any], availability: str = "", template: str = "main") -> str:
+def _header_block(profile: dict[str, Any], availability: str = "") -> str:
     name = typst_escape(profile.get("full_name") or "Your Name")
     contact_bits = [
         typst_escape(value)
@@ -160,11 +167,10 @@ def _header_block(profile: dict[str, Any], availability: str = "", template: str
             contact_bits.append(f'#link("{typst_string(url)}")[{typst_escape(label)}]')
     contact = " #h(4pt)|#h(4pt) ".join(contact_bits)
     return (
-        f"#align({'left' if template == 'barlow' else 'center'})[\n"
+        '#align(center)[\n'
         f"  #text(size: 19pt, weight: \"bold\")[{name}]\n"
         f"  #v(-2pt)\n  {contact}\n"
         + (f"  #v(3pt)\n  _{typst_escape(availability)}_\n" if availability else "")
-        + ("  #v(5pt)\n  #line(length: 100%, stroke: 0.8pt)\n" if template == "barlow" else "")
         + "]"
     )
 
@@ -225,6 +231,142 @@ def _skills_block(skills: list[dict[str, Any]], chosen_skill_ids: set[int]) -> s
     if lines:
         lines[-1] = lines[-1].removesuffix(" \\")
     return "\n".join(lines)
+
+
+def _build_barlow_source(
+    profile: dict[str, Any],
+    resume: dict[str, Any],
+    chosen_entries: list[dict[str, Any]],
+    entry_by_id: dict[int, dict[str, Any]],
+    bullet_by_id: dict[int, dict[str, Any]],
+    skills: list[dict[str, Any]],
+) -> str:
+    """Reference Barlow design, in points on US Letter.
+
+    Standard and compact retain 10.5pt type; compact changes vertical rhythm,
+    not the content. Explicit spacing avoids inheriting Typst's prose defaults.
+    All user text goes through the same escaping as the Main design.
+    """
+    compact = (resume.get("selection") or {}).get("density") == "compact"
+    leading = 1.2625 if compact else 1.675
+    top = 27.5 if compact else 29.9125
+    name_size = 24 if compact else 24.9875
+    ink = "#000000" if compact else "#222222"
+    muted = "#000000" if compact else "#555555"
+    parts = [f'''#set page(paper: "us-letter", margin: (left: 39.6pt, right: 39.6pt, top: {top}pt, bottom: 28.8pt))
+#set text(font: "Barlow", size: 10.5pt, fill: rgb("{ink}"), top-edge: 1em, bottom-edge: "descender", overhang: false, hyphenate: false)
+#set par(leading: {leading}pt, spacing: 0pt, justify: false)
+#set block(spacing: 0pt)
+#show link: set text(fill: rgb("{muted}"))''']
+
+    def gap(points):
+        return f"#v({points}pt, weak: false)"
+
+    def block(content, sticky=False):
+        return f"#block(width: 100%, sticky: {str(sticky).lower()})[{content}]"
+
+    name = typst_escape(profile.get("full_name") or "Your Name")
+    tracking = 0 if compact else 0.245
+    parts.append(block(f'#align(center)[#text(size: {name_size}pt, weight: "bold", tracking: {tracking}pt)[{name}]]'))
+    contacts = [typst_escape(profile[key]) for key in ("email", "phone", "location") if profile.get(key)]
+    for link in profile.get("links", []):
+        if link.get("url"):
+            label = typst_escape(link.get("label") or link["url"])
+            contacts.append(f'#link("{typst_string(link["url"])}")[{label}]')
+    if contacts:
+        separator = ' #h(1.9pt)·#h(1.9pt) '
+        contact_tracking = 0 if compact else 0.0357
+        parts.extend([gap(4.325 if compact else 2.84), block(f'#align(center)[#text(fill: rgb("{muted}"), tracking: {contact_tracking}pt)[' + separator.join(contacts) + ']]')])
+    if resume.get("availability_line"):
+        parts.extend([gap(3.2625 if compact else 3.6), block('#align(center)[_' + typst_escape(resume['availability_line']) + '_]')])
+    parts.append(gap(9.2625 if compact else 9.6375))
+
+    sections = {kind: [] for kind in SECTION_ORDER}
+    for picked in chosen_entries:
+        original = entry_by_id.get(picked.get("entry_id"))
+        if original is None:
+            continue
+        entry = dict(original)
+        for field in ("org", "role", "location", "start_date", "end_date", "detail"):
+            if picked.get(field) is not None:
+                entry[field] = picked[field]
+        if picked.get("show_detail") is False:
+            entry["detail"] = ""
+        bullets = [picked_bullet.get("text_override") or bullet_by_id[picked_bullet["bullet_id"]]["text"]
+                   for picked_bullet in picked.get("bullets", []) if picked_bullet.get("bullet_id") in bullet_by_id]
+        sections[entry["kind"]].append((entry, bullets))
+
+    def heading(title, kind):
+        after = 6.7625 if compact else (8.4125 if kind in ("education", "skills") else 6.1625)
+        return block(f'#text(weight: "bold", tracking: 0.8375pt)[{title.upper()}]\n'
+                     + gap(2) + '\n#line(length: 100%, stroke: 0.4pt + rgb("#dddddd"))\n'
+                     + gap(after - 2), sticky=True)
+
+    for kind in SECTION_ORDER:
+        if not sections[kind]:
+            continue
+        parts.append(heading(SECTION_TITLES[kind], kind))
+        for index, (entry, bullets) in enumerate(sections[kind]):
+            if index:
+                parts.append(gap(5.2625 if compact else 9.175))
+            parts.append(_barlow_entry_header(entry, compact))
+            if kind == "education":
+                extras = []
+                if resume.get("education_note"):
+                    extras.append(typst_escape(resume["education_note"]))
+                courses = [typst_escape(skill["name"]) for skill in skills if skill["category"] == "coursework"]
+                if courses:
+                    extras.append('*Relevant Coursework:* ' + ', '.join(courses))
+                if extras:
+                    parts.extend([gap(6.2625 if compact else 6.175), block(' \\\n'.join(extras))])
+            if bullets:
+                parts.append(gap(3.2625 if compact else 3.925))
+                indent = 5 if compact else 3.4125
+                body_indent = 5.7555 if compact else 6.843
+                spacing = leading if compact else leading + 0.75
+                items = ',\n'.join('[' + typst_escape(text) + ']' for text in bullets)
+                listing = f'#list(marker: [•], indent: {indent}pt, body-indent: {body_indent}pt, tight: false, spacing: {spacing}pt,\n{items}\n)'
+                parts.append(block('#pad(right: 0pt)[' + listing + ']') if compact else block('#pad(right: 6pt)[' + listing + ']'))
+        parts.append(gap(6.2625 if compact else 9.425))
+
+    labels = {"language": "Languages", "framework": "Frameworks", "data": "Data", "tool": "Tools", "math": "Math & Methods"}
+    rows = []
+    for category, title in labels.items():
+        names = [typst_escape(skill["name"]) for skill in skills if skill["category"] == category]
+        if names:
+            rows.extend(['[*' + title + '*]', '[' + ', '.join(names) + ']'])
+    if rows:
+        parts.append(heading("Skills", "skills"))
+        width = 76 if compact else 74.2625
+        row_gap = 2.2625 if compact else 3.175
+        parts.append(f'#grid(columns: ({width}pt, 1fr), column-gutter: 0pt, row-gutter: {row_gap}pt,\n' + ',\n'.join(rows) + '\n)')
+    return '\n'.join(parts) + '\n'
+
+
+def _barlow_entry_header(entry: dict[str, Any], compact: bool) -> str:
+    org = '*' + typst_escape(entry.get("org", "")) + '*'
+    if entry.get("url"):
+        label = re.sub(r"^https?://", "", entry["url"]).rstrip("/")
+        org += f' · #link("{typst_string(entry["url"])}")[{typst_escape(label)}]'
+    if entry.get("location"):
+        location = typst_escape(entry['location'])
+        org += ' · ' + ('*' + location + '*' if compact else location)
+    dates = typst_escape(' – '.join(filter(None, (entry.get('start_date'), entry.get('end_date')))))
+    role, detail = typst_escape(entry.get('role', '')), typst_escape(entry.get('detail', ''))
+    row_gap = 1.2625 if compact else (3.925 if entry['kind'] == 'education' else 2.425)
+    if entry['kind'] == 'education':
+        label, separator, value = detail.partition(':')
+        if separator:
+            detail = '*' + label + ':*' + value
+        bottom = f'[_{role}_], [#align(right)[{detail}]]'
+    else:
+        subtitle = ' · '.join(filter(None, (role, detail)))
+        muted = "#000000" if compact else "#555555"
+        return (f'#block(width: 100%, sticky: true)[#grid(columns: (1fr, auto), column-gutter: 6pt,\n'
+                f'[{org}], [#align(right)[{dates}]],\n)\n#v({row_gap}pt, weak: false)\n'
+                f'#block(width: 100%)[#text(fill: rgb("{muted}"))[_{subtitle}_]]]')
+    return (f'#block(sticky: true)[#grid(columns: (1fr, auto), column-gutter: 6pt, row-gutter: {row_gap}pt,\n'
+            f'[{org}], [#align(right)[{dates}]],\n{bottom},\n)]')
 
 
 def compile_pdf(source: str) -> tuple[bytes | None, int, str]:

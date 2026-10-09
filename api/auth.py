@@ -27,6 +27,7 @@ USERINFO_ENDPOINT = "https://openidconnect.googleapis.com/v1/userinfo"
 
 SESSION_ACCOUNT_KEY = "account_id"
 SESSION_STATE_KEY = "oauth_state"
+COMPANY_EDITOR_EMAIL = "msg.shkim@gmail.com"
 
 _TIMEOUT = httpx.Timeout(10.0)
 
@@ -191,6 +192,22 @@ def require_account(request: Request) -> UUID:
     account_id = current_account(request)
     if account_id is None:
         raise HTTPException(status_code=401, detail="Not signed in")
+    return account_id
+
+
+def can_edit_companies(profile: dict[str, Any] | None) -> bool:
+    """Only the account's stored, Google-verified address grants access."""
+    return bool(profile and str(profile.get("email") or "").strip().lower() == COMPANY_EDITOR_EMAIL)
+
+
+async def require_company_editor(request: Request) -> UUID:
+    account_id = require_account(request)
+    profile = await request.app.state.auth_store.account_profile(account_id)
+    if profile is None:
+        request.session.clear()
+        raise HTTPException(status_code=401, detail="Not signed in")
+    if not can_edit_companies(profile):
+        raise HTTPException(status_code=403, detail="Company editing is restricted to the administrator")
     return account_id
 
 

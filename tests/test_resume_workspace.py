@@ -15,7 +15,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from api.auth import session_account
 from api.resume_api import render_router, router
-from api.resume_models import ResumeUpdate
+from api.resume_models import ResumeUpdate, SkillCreate
 from api.resume_render import build_typst_source, compile_pdf
 from api.resume_store import PostgresResumeStore
 
@@ -91,6 +91,62 @@ class WorkspaceRenderTests(unittest.TestCase):
         resume["selection"]["template"] = "main"
         self.assertIn('font: "New Computer Modern"', self.source(resume))
 
+    def test_document_skill_order_survives_bank_sorting_in_both_designs(self):
+        skills = [
+            {"id": 1, "category": "language", "name": "Go"},
+            {"id": 2, "category": "language", "name": "Python"},
+            {"id": 3, "category": "coursework", "name": "Algorithms"},
+            {"id": 4, "category": "coursework", "name": "Probability"},
+            {"id": 5, "category": "data", "name": "PostgreSQL"},
+        ]
+        for template in ("main", "barlow"):
+            resume = deepcopy(RESUME)
+            resume["selection"].update(template=template, skills=[2, 1, 4, 3, 5, 2, 999])
+            source = build_typst_source(PROFILE, resume, ENTRIES, skills)
+            self.assertIn("Python, Go", source)
+            self.assertIn("Probability, Algorithms", source)
+            self.assertEqual(source.count("Python"), 1)
+            self.assertIn("Data", source)
+            self.assertIn("PostgreSQL", source)
+
+    def test_barlow_densities_preserve_overrides_links_and_content(self):
+        entries = deepcopy(ENTRIES)
+        entries[1].update(url='https://example.com/project', detail='Python, SQL')
+        for density in ("standard", "compact"):
+            with self.subTest(density=density):
+                resume = deepcopy(RESUME)
+                resume["selection"].update(template="barlow", density=density)
+                resume["selection"]["entries"].append({"entry_id": 1, "show_detail": False})
+                command = ResumeUpdate(selection=resume["selection"])
+                resume["selection"] = command.selection.model_dump(exclude_none=True)
+                source = build_typst_source(PROFILE, resume, entries, SKILLS)
+                self.assertIn("example.com/project", source)
+                self.assertNotIn(")[link]", source)
+                self.assertIn("#align(center)", source)
+                self.assertIn("*Relevant Coursework:* Algorithms", source)
+                self.assertIn("Tailored accomplishment", source)
+                self.assertNotIn("GPA 3.85", source)
+                self.assertNotIn("Excluded accomplishment", source)
+                pdf, pages, error = compile_pdf(source)
+                self.assertEqual(error, "")
+                self.assertTrue(pdf.startswith(b"%PDF-"))
+                self.assertEqual(pages, 1)
+
+    def test_data_category_and_spacing_validation(self):
+        self.assertEqual(SkillCreate(category="data", name="DuckDB").category, "data")
+        with self.assertRaises(ValidationError):
+            ResumeUpdate(selection={"density": "arbitrary"})
+
+    def test_barlow_escapes_user_text_and_urls(self):
+        profile = {**PROFILE, "full_name": "A #test [name]", "links": [{"url": 'https://example.com/\")[oops]', "label": "[site]"}]}
+        resume = deepcopy(RESUME)
+        resume["selection"]["template"] = "barlow"
+        source = build_typst_source(profile, resume, ENTRIES, SKILLS)
+        pdf, pages, error = compile_pdf(source)
+        self.assertEqual(error, "")
+        self.assertTrue(pdf.startswith(b"%PDF-"))
+        self.assertEqual(pages, 1)
+
     def test_unknown_design_is_rejected_and_untrusted_render_input_uses_main(self):
         with self.assertRaises(ValidationError):
             ResumeUpdate(selection={"template": "arbitrary"})
@@ -165,7 +221,8 @@ class AccountPersistenceTests(unittest.IsolatedAsyncioTestCase):
                 response = await client.post("/api/resume/resumes", json={"name": "Account resume", "selection": {"entries": [], "skills": []}})
                 self.assertEqual(response.status_code, 201)
                 resume_id = response.json()["id"]
-                selection = {"template": "barlow", "entries": [{"entry_id": education["id"], "show_detail": False, "bullets": []}], "skills": []}
+                skill = await store.create_skill({"category": "data", "name": "DuckDB"})
+                selection = {"template": "barlow", "density": "compact", "entries": [{"entry_id": education["id"], "show_detail": False, "bullets": []}], "skills": [skill["id"]]}
                 response = await client.patch(f"/api/resume/resumes/{resume_id}", json={"selection": selection, "availability_line": "Available Summer 2028"})
                 self.assertEqual(response.status_code, 200)
                 saved = (await client.get(f"/api/resume/resumes/{resume_id}")).json()
@@ -173,6 +230,7 @@ class AccountPersistenceTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(saved["availability_line"], "Available Summer 2028")
                 source = (await client.get(f"/api/resume/resumes/{resume_id}/source")).text
                 self.assertIn('font: "Barlow"', source)
+                self.assertIn('DuckDB', source)
                 self.assertNotIn("GPA 3.85", source)
                 response = await client.get(f"/api/resume/resumes/{resume_id}/pdf")
                 self.assertEqual(response.status_code, 200)
