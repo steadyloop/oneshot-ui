@@ -7,7 +7,7 @@ import html
 import json
 import re
 from collections import Counter, defaultdict
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 from zoneinfo import ZoneInfo
@@ -134,6 +134,22 @@ def gpa_requirements(description):
     return {"gpa_min": max(required) if required else None, "gpa_preferred": max(preferred) if preferred else None}
 
 
+def posting_end_date(description):
+    text = plain(description)
+    match = re.search(r"Job Posting End Date\s*:\s*(\d{1,2}/\d{1,2}/\d{4}|[A-Za-z]+-\d{1,2}-\d{4})", text, re.I)
+    if not match:
+        return None
+    for pattern in ("%m/%d/%Y", "%B-%d-%Y", "%b-%d-%Y"):
+        try:
+            deadline = datetime.strptime(match[1], pattern).date()
+            if re.search(r"day BEFORE the listed job posting end date", text, re.I):
+                deadline -= timedelta(days=1)
+            return deadline.isoformat()
+        except ValueError:
+            continue
+    return None
+
+
 def priority(row, description):
     score = {1: 140, 2: 95, 3: 45}[row["fit"]]
     score += {"Backend": 22, "Infrastructure": 20, "Data engineering": 19, "Full stack": 15, "General SWE": 13, "Embedded": 10, "ML engineering": 8, "Security": 6}.get(row["category"], 0)
@@ -167,6 +183,7 @@ def main():
     rendered = read("recommendations-rendered-evidence.json", {})
     dates = read("recommendations-date-evidence.json")
     gpa_overrides = read("recommendations-gpa-overrides.json", {})
+    company_evidence = read("recommendations-company-evidence.json", {})
     by_url = defaultdict(list)
     for source in read("recommendations-linked-source-evidence.json"):
         for url in {source["source_url"], source["apply_url"]} - {None, ""}:
@@ -202,7 +219,7 @@ def main():
             reason = f"Employer first-publication date is {source_day.isoformat()}, outside September 22–October 11; a newer aggregator listing does not make this a new opening."
         if link.get("state") == "closed":
             view, reason = "excluded", "The employer posting is unavailable or reports that applications are closed; skip this listing."
-        deadline = decision.get("deadline") or link.get("deadline") or job["attributes"].get("deadline_at")
+        deadline = posting_end_date(description) or decision.get("deadline") or link.get("deadline") or job["attributes"].get("deadline_at")
         deadline_day = None
         if deadline:
             try:
@@ -226,9 +243,18 @@ def main():
             title_term = re.search(r"(Summer|Spring|Winter|Fall|Autumn)\s*(202[67])", job["title"], re.I)
             if title_term:
                 term = title_term[0]
+        company = company_evidence.get(str(job["id"]), {}).get("name") or job["company"]
+        company = COMPANY_NAMES.get(company, company)
+        if "/harvest_midstream" in job["source"]:
+            company = "Harvest Midstream"
+        if re.search(r"\.fa\.|^fa-", company):
+            company = "Employer unconfirmed (Oracle source)"
+            if view in {"ready", "conditional"}:
+                view = "unverified"
+                conditions.append("Confirm the employer's identity on its career page; OneShot supplied only an opaque Oracle source name.")
         row = {
             "id": job["id"], "aliases": sorted(({*job.get("aliases", []), *matches.keys()} - {job["id"]})),
-            "company": COMPANY_NAMES.get(job["company"], job["company"]), "title": job["title"].strip(),
+            "company": company, "title": job["title"].strip(),
             "location": job["location_text"] or "Location unspecified", "locations": job["locations"],
             "term": term, "job_type": job["job_type"], "fit": decision["fit"], "category": decision["category"],
             "view": view, "reason": reason, "conditions": list(dict.fromkeys(conditions)),
@@ -258,6 +284,7 @@ def main():
                 chosen["view"], chosen["reason"] = "excluded", earliest["reason"]
         if any(r["link_state"] == "closed" for r in group):
             chosen["view"], chosen["reason"] = "excluded", "The employer posting is unavailable or reports that applications are closed; skip this listing."
+            chosen["link_state"] = "closed"
         rows.append(chosen)
     rows.sort(key=lambda r: ({"ready": 0, "conditional": 1, "unverified": 2, "excluded": 3}[r["view"]], -r["_priority"], r["company"].casefold(), r["title"], r["id"]))
     rank = 0

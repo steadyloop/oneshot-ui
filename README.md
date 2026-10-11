@@ -41,6 +41,7 @@ nonexistent directory to run only the JSON API.
 | `/resume/` | `web/resume/` |
 | `/source-coverage/` | `web/feeds/` |
 | `/login/` | `web/login/` |
+| `/static/recommendations/index.html` | `web/recommendations/` |
 
 Assets are served under `/static/`, relative to `web/`.
 [`web/shared/boot.js`](web/shared/boot.js) chooses each page's `desktop.js` or
@@ -53,6 +54,17 @@ Phones use [`web/phone/shell.js`](web/phone/shell.js) and
 Design references remain in the local, Git-ignored `mockup/` directory. They
 are outside the served `web/` directory. The optional design-comparison scripts
 open these local files directly and skip when the reference is absent.
+
+The application queue is a resume-based snapshot reviewed October 11, 2026,
+covering employer openings from September 22 through October 11. It includes
+ranked recommendations, eligibility conditions, GPA and term filters, and CSV
+export. Add to Applied and Undo use the existing account tracker or guest
+browser storage. Filter selections are preserved in the URL. The committed
+`web/recommendations/data.json` runs without the ignored research artifacts in
+`build/`; those artifacts are needed only to rebuild the review with
+`scripts/build_recommendations.py`. Verify the tracker interactions with
+`node tests/browser/recommendations.cjs` against a running app; all account
+writes in that check are intercepted.
 
 ## Database schema
 
