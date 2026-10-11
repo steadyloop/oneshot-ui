@@ -11,25 +11,26 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
-from .api_models import (
+from .tracker.models import (
     ApplicationUpdate,
     ApplicationSubmit,
     ExternalApplicationCreate,
     JobFeedbackCommand,
 )
 from .auth import AuthStore, current_account, session_account
-from .auth_api import router as auth_router
+from .auth import router as auth_router
 from .config import Settings, load_settings
-from .company_admin import router as company_admin_router
-from .repository import (
+from .db import Db
+from .companies import router as company_admin_router
+from .tracker.store import (
     DEFAULT_JOB_TYPES,
     LOCAL_ACCOUNT_ID,
     PostgresRepository,
     VALID_DEGREE_FIELDS,
     VALID_JOB_TYPES,
 )
-from .resume_api import render_router, router as resume_router
-from .resume_store import PostgresResumeStore
+from .resume.routes import render_router, router as resume_router
+from .resume.store import PostgresResumeStore
 
 
 def _logo_media_type(payload: bytes) -> str:
@@ -104,6 +105,7 @@ def create_app(
             auth = None
 
         application.state.repository = store
+        application.state.db = Db(store._ready(), store._jobs_ready())
         application.state.auth_store = auth
         application.state.resume_store = resumes
         try:
@@ -362,42 +364,38 @@ def create_app(
     # The resume router carries its own required-account dependency.
     application.include_router(resume_router)
 
-    # The browser client is a separate deployable (repo-root/frontend). When it
-    # sits alongside the API we serve it too, so local development stays
-    # same-origin; when it does not, this process is a pure JSON API.
-    static_dir = Path(resolved.static_dir)
-    if static_dir.is_dir():
-        @application.get("/")
-        async def index() -> FileResponse:
-            return FileResponse(static_dir / "index.html")
-
-        @application.get("/discover/")
-        async def discover() -> FileResponse:
-            return FileResponse(static_dir / "discover" / "index.html")
-
-        @application.get("/resume/")
-        async def resume_page() -> FileResponse:
-            return FileResponse(static_dir / "resume" / "index.html")
-
-        @application.get("/login/")
-        async def login_page() -> FileResponse:
-            return FileResponse(static_dir / "login" / "index.html")
-
-        @application.get("/application/")
-        async def application_page() -> FileResponse:
-            return FileResponse(static_dir / "application" / "index.html")
-
-        @application.get("/source-coverage/")
-        async def source_coverage_page() -> FileResponse:
-            return FileResponse(static_dir / "source-coverage" / "index.html")
-
-        # Every page shell above is also reachable under /static/<dir>/index.html,
-        # because the mount serves the same directory. The clean URLs are the
-        # canonical ones the nav links to; a page shell must therefore reference
-        # its assets by absolute /static/ path, since a relative "../app.css"
-        # resolves differently under /application/ than under /static/application/.
-        application.mount("/static", StaticFiles(directory=static_dir), name="static")
+    # Serve the browser client (web/) when it is present; without it this is a pure JSON API.
+    web = Path(resolved.static_dir)
+    if web.is_dir():
+        for url, folder in PAGES.items():
+            application.add_api_route(url, _page(web / folder / "index.html"), include_in_schema=False)
+        application.mount("/static", _Revalidated(directory=web), name="static")
     return application
+
+
+class _Revalidated(StaticFiles):
+    """Assets carry no version tags, so browsers revalidate them on each load."""
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
+# Page URL -> folder in web/. Assets are referenced by absolute /static/ paths.
+PAGES = {
+    "/": "discover",
+    "/application/": "applied",
+    "/resume/": "resume",
+    "/source-coverage/": "feeds",
+    "/login/": "login",
+}
+
+
+def _page(file: Path):
+    async def serve() -> FileResponse:
+        return FileResponse(file, headers={"Cache-Control": "no-cache"})
+    return serve
 
 
 app = create_app()

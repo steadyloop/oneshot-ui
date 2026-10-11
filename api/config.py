@@ -1,28 +1,38 @@
-"""Runtime configuration for the PostgreSQL-backed localhost application."""
+"""Settings from the environment, plus a repo-root .env for local development."""
 
-from dataclasses import dataclass, field
-from pathlib import Path
 import os
+from dataclasses import dataclass
+from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[1]
 
 
-def _default_static_dir() -> str:
-    return str(_repo_root())
+@dataclass(frozen=True)
+class Settings:
+    dsn: str
+    jobs_dsn: str = ""
+    host: str = "127.0.0.1"
+    port: int = 8766
+    static_dir: str = str(ROOT / "web")
+    # Empty Google credentials are allowed; /api/auth/login then reports them missing.
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    session_secret: str = ""
+    # Builds the OAuth redirect_uri, which must match the one registered with Google.
+    public_url: str = "http://127.0.0.1:8766"
+    cookie_secure: bool = False
+
+
+def _unquote(value: str) -> str:
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        return value[1:-1]
+    return value
 
 
 def _load_dotenv(path: Path) -> None:
-    """Load a simple KEY=VALUE file without adding a dotenv dependency.
-
-    Supports two things a hand-written ``.env`` reliably contains: a leading
-    ``export`` and quoted values (mandatory for a secret holding ``#`` or spaces).
-
-    ``setdefault`` means a real environment variable always wins, so a
-    deployment that injects its own config is never overridden by a stray file.
-    """
+    """KEY=VALUE lines with optional `export` and quotes. Real environment variables win."""
     if not path.is_file():
         return
     for line in path.read_text().splitlines():
@@ -31,83 +41,37 @@ def _load_dotenv(path: Path) -> None:
             continue
         key, _, value = line.partition("=")
         key = key.strip().removeprefix("export ").strip()
-        value = value.strip()
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
-            value = value[1:-1]
         if key:
-            os.environ.setdefault(key, value)
+            os.environ.setdefault(key, _unquote(value))
 
 
 def load_dotenv_files() -> None:
-    """Pick up the repo-root ``.env`` for local development.
-
-    Production passes real environment variables and ships no ``.env``, so this
-    is a no-op there. Called from ``load_settings()`` rather than at import time
-    so that constructing ``Settings`` directly — which every test does — never
-    depends on whatever happens to be on this developer's disk.
-    """
-    for candidate in (Path.cwd() / ".env", _repo_root() / ".env"):
+    for candidate in (Path.cwd() / ".env", ROOT / ".env"):
         _load_dotenv(candidate)
 
 
-def _flag(raw: str, *, default: bool) -> bool:
-    if not raw:
-        return default
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
-
-
 def _database_url(raw: str) -> str:
-    """Adapt a libpq-style URL for asyncpg without weakening TLS."""
-    value = raw.strip()
-    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
-        value = value[1:-1]
+    """Drop channel_binding, which asyncpg rejects; TLS settings are kept."""
+    value = _unquote(raw)
     if not value:
         return ""
-
     parsed = urlsplit(value)
-    query = urlencode([
-        (key, item)
-        for key, item in parse_qsl(parsed.query, keep_blank_values=True)
-        if key != "channel_binding"
-    ])
-    return urlunsplit(parsed._replace(query=query))
-
-
-@dataclass(frozen=True, slots=True)
-class Settings:
-    dsn: str
-    jobs_dsn: str = ""
-    host: str = "127.0.0.1"
-    port: int = 8766
-    static_dir: str = field(default_factory=_default_static_dir)
-
-    # Google sign-in. Empty values are allowed so tests can build an app without
-    # credentials; /api/auth/login reports the misconfiguration instead.
-    google_client_id: str = ""
-    google_client_secret: str = ""
-    session_secret: str = ""
-    # Origin this server is reached at, used to build the OAuth redirect_uri. It
-    # must match a URI registered in the Google console byte for byte.
-    public_url: str = "http://127.0.0.1:8766"
-    cookie_secure: bool = False
+    query = parse_qsl(parsed.query, keep_blank_values=True)
+    return urlunsplit(parsed._replace(query=urlencode([item for item in query if item[0] != "channel_binding"])))
 
 
 def load_settings() -> Settings:
     load_dotenv_files()
+    env = os.environ.get
     return Settings(
-        dsn=_database_url(os.environ.get("DATABASE_URL", "")),
-        jobs_dsn=_database_url(os.environ.get("JOBS_DATABASE_URL", "")),
-        host=os.environ.get("ONESHOT_HOST", "127.0.0.1"),
-        port=int(os.environ.get("ONESHOT_PORT", "8766")),
-        static_dir=os.environ.get("ONESHOT_STATIC_DIR") or _default_static_dir(),
-        google_client_id=os.environ.get("ONESHOT_GOOGLE_CLIENT_ID", ""),
-        google_client_secret=os.environ.get("ONESHOT_GOOGLE_CLIENT_SECRET", ""),
-        session_secret=os.environ.get("ONESHOT_SESSION_SECRET", ""),
-        public_url=(
-            os.environ.get("ONESHOT_PUBLIC_URL", "").rstrip("/")
-            or "http://127.0.0.1:8766"
-        ),
-        cookie_secure=_flag(
-            os.environ.get("ONESHOT_COOKIE_SECURE", ""), default=False
-        ),
+        dsn=_database_url(env("DATABASE_URL", "")),
+        jobs_dsn=_database_url(env("JOBS_DATABASE_URL", "")),
+        host=env("ONESHOT_HOST", Settings.host),
+        port=int(env("ONESHOT_PORT", Settings.port)),
+        static_dir=env("ONESHOT_STATIC_DIR") or Settings.static_dir,
+        google_client_id=env("ONESHOT_GOOGLE_CLIENT_ID", ""),
+        google_client_secret=env("ONESHOT_GOOGLE_CLIENT_SECRET", ""),
+        session_secret=env("ONESHOT_SESSION_SECRET", ""),
+        public_url=env("ONESHOT_PUBLIC_URL", "").rstrip("/") or Settings.public_url,
+        cookie_secure=env("ONESHOT_COOKIE_SECURE", "").strip().lower() in {"1", "true", "yes", "on"},
     )

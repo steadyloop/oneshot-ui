@@ -1,20 +1,5 @@
-"""Vercel entrypoint for the web application.
+"""Vercel entrypoint: the FastAPI app, which also serves web/."""
 
-The harvesting pipeline remains a separate process.  Importing this module only
-constructs the request-facing FastAPI application, which reads and writes the
-shared Neon database when an HTTP request requires it.
-"""
-
-from pathlib import Path
-import os
-
-
-FRONTEND_ROOT = Path(__file__).resolve().parent
-
-# The deploy root itself contains the browser client.
-os.environ.setdefault("ONESHOT_STATIC_DIR", str(FRONTEND_ROOT))
-
-from api.app import app  # noqa: E402
-
+from api.app import app
 
 __all__ = ["app"]

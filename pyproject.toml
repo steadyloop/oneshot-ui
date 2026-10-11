@@ -23,8 +23,8 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["api", "api.taxonomy"]
+packages = ["api", "api.jobs", "api.tracker", "api.resume", "api.taxonomy"]
 
 [tool.setuptools.package-data]
-api = ["fonts/barlow/*.ttf", "fonts/barlow/*.txt"]
+"api.resume" = ["fonts/barlow/*.ttf", "fonts/barlow/*.txt"]
 "api.taxonomy" = ["registry/job-posting/*.yaml"]
