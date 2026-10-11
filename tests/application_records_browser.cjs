@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const { chromium, expect } = require(process.env.PLAYWRIGHT_MODULE || '@playwright/test');
 // All requests are intercepted; no real account or application data is touched.
 // Optional TRACKER_BASELINE_ROOT compares In progress against saved application assets.
 const ROOT = path.resolve(__dirname, '..');
@@ -10,7 +10,7 @@ const OUT = process.env.TRACKER_ARTIFACTS || '/private/tmp/oneshot-tracker-brows
 const ORIGIN = 'http://oneshot-preflight.test';
 const KEY = 'oneshot.visitor-data.state.v1';
 const NOW = '2026-10-07T19:00:00Z';
-const files = ['application/index.html', 'application/styles.css', 'application/app.js', 'navigation.css', 'nav-count.js', 'api-client.js', 'sample-data.js'];
+const files = ['web/applied/index.html', 'web/applied/desktop.css', 'web/applied/desktop.js', 'web/applied/core.js', 'web/shared/shell.css', 'web/shared/account.js', 'web/shared/api.js', 'web/shared/guest.js'];
 fs.mkdirSync(OUT, { recursive: true });
 const hash = file => crypto.createHash('sha256').update(fs.readFileSync(path.join(ROOT, file))).digest('hex');
 const manifest = Object.fromEntries(files.map(file => [file, hash(file)]));
@@ -32,8 +32,8 @@ async function routeFiles(context, apiRoute, baselineRoot) {
     const url = new URL(route.request().url());
     if (url.origin !== ORIGIN) throw new Error(`Unexpected external request: ${url.href}`);
     if (url.pathname.startsWith('/api/')) return apiRoute(route, url);
-    const relative = url.pathname === '/application/' ? 'application/index.html' : url.pathname.replace(/^\/static\//, '');
-    const assetRoot = baselineRoot && relative.startsWith('application/') ? baselineRoot : ROOT;
+    const relative = url.pathname === '/application/' ? 'web/applied/index.html' : url.pathname.replace(/^\/static\//, 'web/');
+    const assetRoot = baselineRoot && relative.startsWith('web/applied/') ? baselineRoot : ROOT;
     const file = path.resolve(assetRoot, relative);
     if (!file.startsWith(assetRoot + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) return route.fulfill({ status: 404, body: '' });
     return route.fulfill({ path: file });
@@ -66,7 +66,7 @@ async function compareInProgress(browser, page) {
   const original = await before.newPage();
   await original.clock.install({ time: new Date(NOW) });
   await original.goto(`${ORIGIN}/application/`); await idle(original);
-  for (const [name, viewport] of [['desktop', { width: 1600, height: 1000 }], ['wide', { width: 2560, height: 1000 }], ['mobile', { width: 390, height: 844 }]]) {
+  for (const [name, viewport] of [['desktop', { width: 1600, height: 1000 }], ['wide', { width: 2560, height: 1000 }], ['narrow', { width: 768, height: 844 }]]) {
     for (const p of [original, page]) {
       await p.setViewportSize(viewport); await p.evaluate(() => document.fonts.ready);
       await p.mouse.move(0, 0);
@@ -111,14 +111,14 @@ async function responsiveRecords(page) {
     await page.locator(`#tab-${view}`).click();
     await page.locator('#search').fill('');
     assert.equal(await page.locator('tbody tr').count(), view === 'sent' ? 50 : 18);
-    for (const width of [320, 390, 600, 760, 768, 900, 1024, 1600, 2560]) {
+    for (const width of [768, 900, 1024, 1600, 2560]) {
       await page.setViewportSize({ width, height: 900 });
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width, `${view} must not overflow at ${width}px`);
       assert(await page.locator('.table-scroll').evaluate(el => el.scrollWidth <= el.clientWidth + 1), `${view} table must fit at ${width}px`);
-      assert.equal(Math.round((await page.locator('tbody tr').first().boundingBox()).height), width <= 760 ? 56 : 40);
-      if ([390, 1600].includes(width)) await capture(page, `${view}-${width}`);
+      assert.equal(Math.round((await page.locator('tbody tr').first().boundingBox()).height), 40);
+      if ([768, 1600].includes(width)) await capture(page, `${view}-${width}`);
     }
-    await page.setViewportSize({ width: 390, height: 844 });
+    await page.setViewportSize({ width: 768, height: 844 });
     // Whole-row access, full date/location in the drawer, and the existing primary action.
     await page.locator('tbody tr').first().locator('.waiting-cell').click(); await idle(page);
     assert(await page.locator('#drawer').isVisible());
@@ -132,7 +132,7 @@ async function responsiveRecords(page) {
       await page.locator('#select-page').check();
       assert.equal((await page.locator('thead').boundingBox()).y, top);
       assert(await page.locator('[data-action="bulk-close"]').isVisible());
-      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 390);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 768);
       await page.locator('[data-action="clear-selection"]').click();
       await page.locator('#search').fill('Company 000');
       assert.equal(await page.locator('.table-date').textContent(), '—');
@@ -147,7 +147,7 @@ async function responsiveRecords(page) {
   }
 }
 (async () => {
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE });
   const notes = [];
   try {
     const context = await browser.newContext({ viewport: { width: 1600, height: 1000 }, timezoneId: 'America/Los_Angeles', reducedMotion: 'reduce' });
@@ -232,21 +232,20 @@ async function responsiveRecords(page) {
     await page.locator('#tab-pipeline').click();
     assert.equal(await page.locator('.column').count(), 4);
     assert(await page.locator('.agenda').isVisible());
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.locator('[data-mobile-stage="interview"]').click();
-    assert.equal(await page.locator('.column:visible').count(), 1);
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 390);
-    await capture(page, 'in-progress-mobile');
+    await page.setViewportSize({ width: 768, height: 844 });
+    assert.equal(await page.locator('.column:visible').count(), 4);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 768);
+    await capture(page, 'in-progress-narrow');
     await page.locator('.card-open:visible').first().focus(); await page.keyboard.press('Enter'); await idle(page);
-    await capture(page, 'in-progress-mobile-drawer');
+    await capture(page, 'in-progress-narrow-drawer');
     await page.keyboard.press('Escape');
     await page.waitForFunction(() => document.activeElement.classList.contains('card-open'));
     assert.deepEqual(unexpectedGuest, []);
     assert.deepEqual(errors, []);
     notes.push('Guest: 300 records, pagination, cross-page selection, search, recency/outcome filters, bulk closure/Undo, unknown dates, notes, responses, restore-to-previous-stage, and keyboard drawer focus passed.');
     await responsiveRecords(page);
-    notes.push('Records: 40px desktop / 56px mobile rows, white backgrounds, keyboard actions, sticky headings, stable bulk toolbar, long-title truncation and no horizontal overflow from 320px to 2560px passed.');
-    if (process.env.TRACKER_BASELINE_ROOT) notes.push('In progress and its drawer are pixel-identical to the supplied baseline at desktop, wide and mobile sizes.');
+    notes.push('Records: 40px desktop rows, white backgrounds, keyboard actions, sticky headings, stable bulk toolbar, long-title truncation and no horizontal overflow from 768px to 2560px passed.');
+    if (process.env.TRACKER_BASELINE_ROOT) notes.push('In progress and its drawer are pixel-identical to the supplied baseline at desktop, wide and narrow sizes.');
     await context.close();
 
     const signed = await browser.newContext({ viewport: { width: 1440, height: 1000 }, timezoneId: 'America/Los_Angeles', reducedMotion: 'reduce' });
@@ -293,6 +292,36 @@ async function responsiveRecords(page) {
     notes.push('Mocked signed-in API: partial bulk failure retains failed selection, limits concurrent writes to six, Undo restores successes, discovered fields stay read-only, and failed saves retain edits.');
     await signed.close();
     for (const file of files) assert.equal(hash(file), manifest[file], `Browser verification must not modify ${file}`);
+    for (const width of [320, 390, 760]) {
+      const phone = await browser.newContext({ viewport: { width, height: 844 }, hasTouch: true, isMobile: true, timezoneId: 'America/Los_Angeles' });
+      await routeFiles(phone, (route, url) => route.fulfill({ status: url.pathname === '/api/auth/me' ? 401 : 200, json: { jobs: [], total: 0 } }));
+      await phone.addInitScript(({ key, applications }) => localStorage.setItem(key, JSON.stringify({ applications, jobs: [], nextApplicationId: 1, feedback: [] })), { key: KEY, applications: fixture });
+      const p = await phone.newPage(), phoneErrors = [];
+      p.on('pageerror', e => phoneErrors.push(e.message));
+      await p.clock.install({ time: new Date(NOW) });
+      await p.goto(`${ORIGIN}/application/`);
+      await expect(p.locator('#phone [data-view="sent"] small')).toHaveText('300');
+      await p.locator('#phone [data-view="sent"]').click();
+      await expect(p.locator('.app-row')).toHaveCount(50);
+      assert.equal(await p.evaluate(() => document.documentElement.scrollWidth), width);
+      await p.locator('[data-page="1"]').click();
+      await expect(p.locator('.pager')).toContainText('51–100 of 300');
+      await p.locator('[data-page="-1"]').click();
+      if (width === 390) {
+        await p.locator('[data-act="select-start"]').click();
+        await p.locator('[data-act="select-page"]').click();
+        await expect(p.locator('.select-tools')).toContainText('50 selected');
+        await p.locator('[data-act="bulk-close"]').click();
+        await expect(p.locator('[data-view="sent"] small')).toHaveText('250');
+        await expect(p.locator('[data-view="closed"] small')).toHaveText('68');
+        await p.locator('#toast button').click();
+        await expect(p.locator('[data-view="sent"] small')).toHaveText('300');
+        await expect(p.locator('[data-view="closed"] small')).toHaveText('18');
+      }
+      assert.deepEqual(phoneErrors, []);
+      await phone.close();
+    }
+    notes.push('Dedicated phone screens: pagination and no overflow at 320/390/760px; bulk closure and Undo preserve counts.');
     fs.writeFileSync(path.join(OUT, 'manifest.json'), JSON.stringify({ manifest, fixedTime: NOW, notes }, null, 2));
     console.log(JSON.stringify({ passed: notes, baselines: OUT, sourceFilesChangedByTest: false }, null, 2));
   } finally { await browser.close(); }

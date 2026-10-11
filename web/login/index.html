@@ -9,9 +9,8 @@
   <link rel="stylesheet" href="/static/login/styles.css">
 </head>
 <!--
-  Deliberately standalone: no sidebar, and none of api-client.js / nav-count.js /
-  sample-data.js. Nothing here may call a gated endpoint — a 401 anywhere on this
-  page would redirect it straight back to itself.
+  Deliberately standalone: no sidebar or shared API/account modules. Nothing
+  here calls a gated endpoint, so an expired session cannot create a redirect loop.
 -->
 <body>
   <main class="signin">

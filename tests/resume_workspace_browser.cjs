@@ -4,8 +4,8 @@ const { createServer } = require('node:http');
 const { readFile, mkdir } = require('node:fs/promises');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
-const { chromium, expect } = require('@playwright/test');
-const { createVisitorState, handle } = require('../sample-data.js');
+const { chromium, expect } = require(process.env.PLAYWRIGHT_MODULE || '@playwright/test');
+const { createVisitorState, handle } = require('../web/shared/guest.js');
 
 const root = path.resolve(__dirname, '..');
 const artifacts = process.env.ONESHOT_BROWSER_ARTIFACTS || '/private/tmp/oneshot-resume-browser';
@@ -39,7 +39,7 @@ const requests = [];
 function pdf(payload) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.env.ONESHOT_PYTHON || path.join(root, '.venv/bin/python'), ['-c',
-      'import json,sys; from api.resume_render import build_typst_source,compile_pdf; p=json.load(sys.stdin); pdf,_,error=compile_pdf(build_typst_source(p["profile"],p["resume"],p["entries"],p["skills"])); assert pdf,error; sys.stdout.buffer.write(pdf)'], { cwd: root });
+      'import json,sys; from api.resume.render import build_typst_source,compile_pdf; p=json.load(sys.stdin); pdf,_,error=compile_pdf(build_typst_source(p["profile"],p["resume"],p["entries"],p["skills"])); assert pdf,error; sys.stdout.buffer.write(pdf)'], { cwd: root });
     const output = [], errors = [];
     child.stdout.on('data', chunk => output.push(chunk)); child.stderr.on('data', chunk => errors.push(chunk));
     child.on('error', reject); child.on('close', code => code ? reject(Error(Buffer.concat(errors).toString())) : resolve(Buffer.concat(output)));
@@ -68,7 +68,7 @@ const server = createServer(async (req, res) => {
       res.end(JSON.stringify({ jobs: [], total: 0 })); return;
     }
     const relative = url.pathname.replace(/^\/static/, '') + (url.pathname.endsWith('/') ? 'index.html' : '');
-    const file = path.join(root, relative);
+    const file = path.join(root, 'web', relative);
     if (!file.startsWith(root + path.sep)) { res.writeHead(403); res.end(); return; }
     const content = await readFile(file);
     res.writeHead(200, { 'Content-Type': ({ '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.woff2': 'font/woff2' })[path.extname(file)] || 'application/octet-stream' });
@@ -88,7 +88,7 @@ async function main() {
   await mkdir(artifacts, { recursive: true });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const origin = `http://127.0.0.1:${server.address().port}`;
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE });
   const errors = [];
   try {
     const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, timezoneId: 'America/Los_Angeles' });
@@ -103,7 +103,7 @@ async function main() {
     await expect(page.locator('.resume-empty h2, .resume-empty > svg')).toHaveCount(0);
     await expect(page.locator('.resume-empty > p')).toHaveText('Create resume with customized profile');
     assert.equal(await page.locator('.resume-empty button').evaluate(button => getComputedStyle(button).backgroundColor), 'rgb(30, 92, 66)');
-    for (const width of [390, 1440, 2560]) {
+    for (const width of [1024, 1440, 2560]) {
       await page.setViewportSize({ width, height: 1000 });
       const centered = await page.locator('.resume-empty').evaluate(section => {
         const text = section.querySelector('p').getBoundingClientRect(), button = section.querySelector('button').getBoundingClientRect();
@@ -174,7 +174,7 @@ async function main() {
     await entry.locator('a').evaluate(link => link.addEventListener('click', e => e.preventDefault()));
     await entry.locator('a').click(); await expect(entry).toHaveAttribute('aria-pressed', 'true');
 
-    for (const width of [320, 360, 390, 600, 760, 900, 1024, 1440, 2560, 5940]) {
+    for (const width of [768, 900, 1024, 1440, 2560, 5940]) {
       await page.setViewportSize({ width, height: 1000 }); await page.evaluate(() => scrollTo(0, 0));
       const bounds = await page.evaluate(() => {
         const rect = s => { const r = document.querySelector(s).getBoundingClientRect(); return { x: r.x, y: r.y, right: r.right, bottom: r.bottom }; };
@@ -258,14 +258,14 @@ async function main() {
     await expect(accountPage.locator('.pdf-frame')).toBeVisible();
     assert.equal(accountState.resume.resumes[0].selection.template, 'barlow');
     assert.equal(accountState.resume.resumes[0].selection.density, 'compact');
-    await accountPage.setViewportSize({ width: 320, height: 700 });
-    assert.ok(await accountPage.locator('.preview-tools').evaluate(el => el.scrollWidth <= el.clientWidth), 'Preview controls fit on mobile');
+    await accountPage.setViewportSize({ width: 768, height: 700 });
+    assert.ok(await accountPage.locator('.preview-tools').evaluate(el => el.scrollWidth <= el.clientWidth), 'Preview controls fit on narrow desktop');
     await accountPage.setViewportSize({ width: 1440, height: 1000 });
     assert.ok(requests.some(r => r.path === '/api/resume/resumes/90/pdf' && r.method === 'GET'));
     assert.ok(requests.some(r => r.path === '/api/resume/render/pdf' && r.method === 'POST'));
     accountState.resume.resumes.push(...Array.from({ length: 24 }, (_, i) => ({ ...copy(seed.resume.resumes[0]), id: 500 + i, name: `Additional resume ${i + 1}` })));
     await accountPage.reload();
-    await accountPage.setViewportSize({ width: 320, height: 700 });
+    await accountPage.setViewportSize({ width: 768, height: 700 });
     await accountPage.locator('.resume-picker-trigger').click();
     const footerInBounds = async () => accountPage.locator('.resume-list-create').evaluate(button => {
       const b = button.getBoundingClientRect(), p = button.parentElement.getBoundingClientRect();
@@ -277,7 +277,29 @@ async function main() {
     await accountPage.locator('.resume-list-create').click();
     await expect(accountPage.locator('#resume-dialog')).toBeVisible();
     assert.deepEqual(errors, []);
-    console.log('PASS: guest and signed-in editing, isolated storage, selection scopes, menu actions, responsive layout, handoff, and real PDF preview/export.');
+    const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await phone.addInitScript(([key, seed]) => localStorage.setItem(key, JSON.stringify(seed)), [key, seed]);
+    const p = await phone.newPage();
+    p.on('pageerror', e => errors.push(String(e)));
+    await p.goto(origin + '/resume/');
+    await p.locator('#phone [data-view="resumes"]').click();
+    await expect(p.locator('.resume-row')).toHaveCount(3);
+    await p.locator('.resume-row').first().click();
+    await expect(p.locator('#push.open')).toBeVisible();
+    await p.locator('.doc-tabs [data-mode="preview"]').click();
+    await expect(p.locator('#pdf-slot .pdf-frame, #pdf-slot a[target="_blank"]')).toBeVisible();
+    for (const width of [320, 390, 760]) {
+      await p.setViewportSize({ width, height: 844 });
+      assert.equal(await p.evaluate(() => document.documentElement.scrollWidth), width);
+    }
+    const phoneDownload = p.waitForEvent('download');
+    await p.locator('[data-act="download"]').click();
+    const exported = await phoneDownload;
+    await exported.saveAs(path.join(artifacts, 'phone-export.pdf'));
+    assert.ok((await readFile(path.join(artifacts, 'phone-export.pdf'))).subarray(0, 5).equals(Buffer.from('%PDF-')));
+    await phone.close();
+    assert.deepEqual(errors, []);
+    console.log('PASS: guest and signed-in editing, isolated storage, selection scopes, menu actions, desktop/phone layouts, handoff, and real PDF preview/export.');
     console.log(`Screenshots and PDF: ${artifacts}`);
   } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); }
 }
