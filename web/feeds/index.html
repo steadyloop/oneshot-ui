@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="The OneShot feed overview workspace.">
+  <title>Feed Overview · OneShot</title>
+  <link rel="stylesheet" href="/static/feeds/desktop.css">
+  <link rel="stylesheet" href="/static/shared/shell.css">
+  <script src="/static/shared/boot.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#workspace">Skip to feed overview</a>
+  <svg class="icon-sprite" aria-hidden="true">
+    <symbol id="icon-sources" viewBox="0 0 24 24"><circle cx="6" cy="12" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="m8 11 8-4M8 13l8 4"/></symbol>
+    <symbol id="icon-alert" viewBox="0 0 24 24"><path d="M12 4 3.5 19h17L12 4Z"/><path d="M12 9v4M12 16h.01"/></symbol>
+  </svg>
+
+  <header class="app-topbar">
+    <a class="brand-cell" href="/" aria-label="OneShot Applications home">
+      <span class="wordmark"><span class="wordmark-name">OneShot</span><span class="wordmark-descriptor">Applications</span></span>
+    </a>
+    <div class="topbar-space"></div>
+  </header>
+  <div class="shell app-shell">
+    <aside class="sidebar" aria-label="Primary navigation">
+      <nav class="side-nav" aria-label="Primary">
+        <a href="/"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Discover</span><b data-opportunity-count hidden aria-hidden="true">—</b></a>
+        <a href="/application/"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="m9 14 2 2 4-4"/></svg><span>Applied</span></a>
+        <a href="/resume/"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/></svg><span>Resume</span></a>
+        <a class="active" href="/source-coverage/" aria-current="page" title="Feed Overview"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1" fill="currentColor"/></svg><span>Feeds</span></a>
+      </nav>
+      <div class="account-slot" data-account-slot aria-label="Account"></div>
+    </aside>
+
+    <main id="workspace" class="workspace" tabindex="-1" aria-label="Feeds">
+
+      <section class="source-section" aria-labelledby="fleet-stats">
+        <header class="section-header">
+          <h2 id="fleet-stats" class="fleet-stats">Loading fleet…</h2>
+          <div class="section-title">
+            <div id="ticker" class="ticker" hidden>
+              <button type="button" class="ticker-toggle" aria-expanded="false" aria-controls="ticker-card"><span id="today-line" class="today-line" aria-live="polite"></span><svg class="chev" aria-hidden="true" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+              <div id="ticker-card" class="ticker-card" hidden></div>
+            </div>
+            <span id="stale-note" class="stale-note" hidden aria-live="polite"><i aria-hidden="true"></i>Refresh failed — showing last known data</span>
+          </div>
+          <span id="clock" class="clock" aria-label="Current date and time">—</span>
+        </header>
+        <div id="coverage-content">
+          <div class="state loading-state"><span class="spinner"></span><p>Loading feed overview…</p></div>
+        </div>
+      </section>
+      <footer class="classification-footer" aria-label="Job classification and contact">
+        <p class="classification-summary" hidden aria-live="polite" aria-atomic="true">OneShot currently classifies <span class="classification-metric"><strong class="classification-count classification-total">—</strong> active job postings</span> to identify <span class="classification-metric"><strong class="classification-count classification-students">—</strong> student roles</span> for <span class="classification-discover"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Discover</span>.</p>
+        <p class="classification-contact">Need a filter tailored to your search? <a class="classification-email" href="mailto:chkim@tuta.io?subject=OneShot%20filter%20request">Contact me</a></p>
+      </footer>
+    </main>
+  </div>
+  <div class="board-tip" id="board-tip" role="tooltip"></div>
+</body>
+</html>

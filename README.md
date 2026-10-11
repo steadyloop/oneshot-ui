@@ -30,7 +30,11 @@ JOBS_DATABASE_URL=postgresql:///xjobscore_frontend
 `DATABASE_URL` is the central store for accounts, application tracking, feedback,
 and resumes. Optional `JOBS_DATABASE_URL` points job, logo, and coverage reads at
 the small local frontend database. When it is unset, all reads use `DATABASE_URL`,
-which preserves the hosted app's existing Neon configuration. The xjobscore
+which preserves the hosted app's existing Neon configuration. For split databases, apply
+[`20261009_application_split_database.sql`](migrations/20261009_application_split_database.sql) and
+[`20261009_feedback_split_database.sql`](migrations/20261009_feedback_split_database.sql)
+to the accounts database. They remove application and feedback foreign keys to local postings;
+the API validates posting existence in the jobs database before saving personal records. The xjobscore
 publisher initializes and refreshes the local database and Neon independently
 using the same stable posting IDs. Job filtering uses stored Gold labels rather
 than classifying every title again during each request.
@@ -63,7 +67,7 @@ or `OneShotFeedsKit`.
 
 ```bash
 node --test
-uv run python -m unittest discover -s tests -v
+uv run python -m unittest discover -s tests/api -v
 ```
 
 ## Discover search
@@ -102,7 +106,7 @@ submission dates unset. Guest records migrate locally when their workspace loads
 Validation: `node --test app.test.js application/app.test.js visitor-data.test.js
 opportunities/app.test.js source-coverage/app.test.js`. Database checks run with
 `ONESHOT_TEST_DATABASE_URL` set to a local database via
-`python -m unittest discover -s tests -v`; their schema and data are rolled back.
+`python -m unittest discover -s tests/api -v`; their schema and data are rolled back.
 `tests/application_tracker_browser.py` uses Playwright/Chromium to check the
 current tracker workflows in isolated browser storage with its own fixtures;
 it does not depend on the design mockups.
@@ -139,7 +143,7 @@ aggregates are read-only, shared across accounts and cached for five minutes,
 with a reset at Pacific midnight.
 Unavailable metrics stay unknown; the existing board snapshot remains usable.
 
-Run `python -m unittest discover -s tests -p test_feed_activity.py -v` and
+Run `python -m unittest discover -s tests/api -p test_feed_activity.py -v` and
 `node --test source-coverage/app.test.js`. The SQL test uses the local database
 configured by `ONESHOT_TEST_DATABASE_URL`, temporary tables and a rollback.
 With Playwright available, `node tests/feed_other_browser.cjs` checks the compact
@@ -179,7 +183,7 @@ Apply this repeatable migration before deployment (it was applied locally):
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/20261006_resume_vocabulary.sql
 ```
 
-Resume validation: `python -m unittest discover -s tests -p test_resume_workspace.py -v`.
+Resume validation: `python -m unittest discover -s tests/api -p test_resume_workspace.py -v`.
 Set `ONESHOT_TEST_DATABASE_URL` to a local database to include the rolled-back
 account persistence test. With `@playwright/test` and Chromium installed,
 `node tests/resume_workspace_browser.cjs` checks guest and signed-in transport,
@@ -262,7 +266,7 @@ interval governs when pending edits reach xjobscore and Discover; running a
 publication manually processes them sooner. A publisher dry run leaves the
 queue and canonical companies unchanged.
 
-Validation: `python -m unittest discover -s tests -p test_company_admin.py -v`
+Validation: `python -m unittest discover -s tests/api -p test_company_admin.py -v`
 (with `ONESHOT_TEST_DATABASE_URL` for an isolated PostgreSQL queue check), and
 `node tests/company_editor_browser.cjs` (with `PLAYWRIGHT_MODULE` if necessary).
 The xjobscore repository includes isolated publication and retry tests in
