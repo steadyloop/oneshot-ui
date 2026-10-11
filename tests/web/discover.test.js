@@ -436,7 +436,7 @@ test("company initials handle short, multiword and missing names", () => {
   assert.equal(initials({}), "?");
 });
 
-test("the card mark prefers the harvested logo and falls back to initials", () => {
+test("the card mark prefers the harvested logo and falls back to a company icon", () => {
   const withLogo = logoMarkup({ company: "Blue Origin", logo: "/api/companies/42/logo" });
   assert.match(withLogo, /<img class="job-logo-mark" src="\/api\/companies\/42\/logo"/);
   // Decorative: the company name is already the line above it, so a screen
@@ -445,16 +445,19 @@ test("the card mark prefers the harvested logo and falls back to initials", () =
   assert.match(withLogo, /loading="lazy"/);
   assert.doesNotMatch(withLogo, /BO/);
 
-  // No logo harvested is the common case, not an error state.
-  assert.equal(logoMarkup({ company: "Blue Origin", logo: null }), "BO");
-  assert.equal(logoMarkup({ company: "Valon" }), "VA");
+  // Missing logos share one decorative company icon, including missing names.
+  const fallback = logoMarkup({ company: "Blue Origin", logo: null });
+  assert.match(fallback, /<svg class="company-logo-fallback"[^>]*aria-hidden="true"/);
+  assert.doesNotMatch(fallback, /<img|BO/);
+  assert.equal(logoMarkup({ company: "Valon" }), fallback);
+  assert.equal(logoMarkup({}), fallback);
 
   // A src the server did not issue never reaches the DOM, so a poisoned
   // payload cannot turn every card into a beacon to someone else's host.
   assert.equal(logoSrc("https://evil.example/pixel.png"), "");
   assert.equal(logoSrc("//evil.example/pixel.png"), "");
   assert.equal(logoSrc("/api/companies/7/logo"), "/api/companies/7/logo");
-  assert.equal(logoMarkup({ company: "Valon", logo: "https://evil.example/x.png" }), "VA");
+  assert.equal(logoMarkup({ company: "Valon", logo: "https://evil.example/x.png" }), fallback);
 });
 
 test("the company logo is contained in the original row tile rather than cropped", () => {

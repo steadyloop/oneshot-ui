@@ -118,6 +118,7 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-lineca
 .opportunity:focus-visible { outline-offset: -2px; }
 .job-logo { width: 32px; height: 32px; display: grid; place-items: center; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: #F1F3F0; color: #5D655F; font: 600 11.5px/1 var(--sans); letter-spacing: .02em; }
 .job-logo-mark { width: 100%; height: 100%; padding: 2px; object-fit: contain; }
+.job-logo .company-logo-fallback { width: 18px; height: 18px; stroke-width: 1.65; }
 .opportunity-main { min-width: 0; }
 .opportunity-main h3 { display: -webkit-box; overflow: hidden; margin: 0; color: var(--ink); font-size: 14px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .job-subline { display: flex; align-items: baseline; min-width: 0; margin-top: 2px; color: var(--muted); font-size: 13px; white-space: nowrap; }
@@ -164,6 +165,7 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-lineca
 .detail-company-row { display: flex; align-items: center; gap: 10px; min-height: 28px; }
 .detail-logo { flex: none; width: 24px; height: 24px; display: grid; place-items: center; overflow: hidden; border: 1px solid transparent; border-radius: 6px; background: var(--ground); color: var(--faint); font: 600 9.5px/1 var(--sans); letter-spacing: .02em; }
 .detail-logo .job-logo-mark { padding: 1px; border-radius: 5px; }
+.detail-logo .company-logo-fallback { width: 14px; height: 14px; stroke-width: 1.65; }
 .detail-company { flex: 1; min-width: 0; overflow: hidden; color: var(--ink-2); font-size: 15px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .detail-flag { position: relative; flex: none; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px; border: 0; border-radius: 7px; background: none; color: var(--muted); font-size: 13px; font-weight: 500; }
 .detail-flag:hover, .detail-flag[aria-expanded="true"] { background: var(--ground); color: var(--ink); }

@@ -149,11 +149,10 @@ export function initials(job) {
 // Same-origin path only. The mark is server-issued, so a value that does not
 // look like the logo route is dropped rather than rendered as a remote src.
 export const logoSrc = value => /^\/api\/companies\/\d+\/logo$/.test(String(value || "")) ? String(value) : "";
-// The logo or the initials, never both: a transparent PNG layered over the
-// letters it replaces reads as a smudge.
+// Render only the harvested logo or the neutral company icon, never both.
 export function logoMarkup(job, imageClass = "job-logo-mark") {
   const src = logoSrc(job?.logo);
-  if (!src) return esc(initials(job));
+  if (!src) return '<svg class="company-logo-fallback" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 21v-4h6v4M9 7h1M14 7h1M9 11h1M14 11h1M3 21h18"/></svg>';
   return `<img${imageClass ? ` class="${imageClass}"` : ""} src="${esc(src)}" alt="" loading="lazy" decoding="async">`;
 }
 
