@@ -5,7 +5,7 @@ import { api } from "../shared/api.js";
 import { guest } from "../shared/guest.js";
 import { $, $$, esc } from "../shared/util.js";
 import {
-  DEGREE_FILTERS, FILTERS, SKIP_REASONS, SORTS, defaultDegreeFields, appliedNoticeMarkup, cardMetaMarkup, commonTerms, dayGroups, detailPaneMarkup,
+  DEGREE_FILTERS, FILTERS, SKIP_REASONS, SORTS, defaultDegreeFields, appliedNoticeMarkup, skipMenuMarkup, skipNoticeMarkup, cardMetaMarkup, commonTerms, dayGroups, detailPaneMarkup,
   dueLabel, feedbackBody, fetchHidden, fetchHiddenTotal, fetchJobs, hiddenReason, icon, listTags, logoMarkup, needsRefill,
   putBack, reportCorrections, reportMarkup, rowAge, sameId, tabCount, takeOut,
 } from "./core.js";
@@ -17,44 +17,19 @@ const state = {
   jobs: null, total: 0, typeCounts: {}, loadingMore: false, selected: null,
   filters: ["internships"], degreeFilters: [], sort: "fresh", query: "",
   // Triage: which list shows, the Hidden list once fetched, what the pane has
-  // open, the skip awaiting a reason, and the one action Undo reverses.
-  view: "feed", hidden: null, hiddenTotal: 0, stale: false, ui: freshUi(), prompt: null, undo: null,
-  appliedNotice: null, sheet: false, fieldOpen: false,
+  // open, the open skip-reason menu, and the one action Undo reverses.
+  view: "feed", hidden: null, hiddenTotal: 0, stale: false, ui: freshUi(), undo: null,
+  skipMenu: null, skipNotice: null, appliedNotice: null, sheet: false, fieldOpen: false, sortOpen: false,
 };
 let searchTimer = 0;
 
 /* ───────────── Painting ───────────── */
-// Measure at the original size each time, so a title can grow back when
-// more space becomes available. Character counts cannot predict wrapping.
-function sizeDetailTitle() {
-  const title = view.querySelector(".detail-head h2");
-  if (!title || !title.clientWidth) return;
-  title.classList.remove("is-multiline");
-  const lineHeight = parseFloat(getComputedStyle(title).lineHeight);
-  title.classList.toggle("is-multiline", title.getBoundingClientRect().height > lineHeight * 1.5);
+// The job-type tabs scroll when the tools need the room; a fade says so.
+function fadeFilters() {
+  const bar = view.querySelector(".discover-filterbar");
+  bar?.classList.toggle("fade", bar.scrollWidth > bar.clientWidth + 2);
 }
-
-let titleWidth = 0;
-const titleObserver = new ResizeObserver(entries => {
-  const width = entries[0].contentRect.width;
-  // Ignore height changes caused by reducing the title itself.
-  if (Math.abs(width - titleWidth) < 0.5) return;
-  titleWidth = width;
-  sizeDetailTitle();
-});
-
-function syncDetailTitle() {
-  titleObserver.disconnect();
-  sizeDetailTitle();
-  const title = view.querySelector(".detail-head h2");
-  if (title) {
-    titleWidth = title.getBoundingClientRect().width;
-    titleObserver.observe(title);
-  }
-}
-
-document.fonts.ready.then(sizeDetailTitle);
-document.fonts.addEventListener("loadingdone", sizeDetailTitle);
+addEventListener("resize", fadeFilters);
 
 function paint(html) {
   const filtersLeft = view.querySelector(".discover-filterbar")?.scrollLeft || 0;
@@ -64,9 +39,9 @@ function paint(html) {
   const detailTop = detail?.scrollTop || 0;
   const previousId = detail?.dataset.selected;
   view.innerHTML = html;
-  syncDetailTitle();
   const nextFilters = view.querySelector(".discover-filterbar");
   if (nextFilters) nextFilters.scrollLeft = filtersLeft;
+  fadeFilters();
   const nextList = view.querySelector(".opportunity-list");
   const nextDetail = view.querySelector(".detail");
   if (nextList) nextList.scrollTop = listTop;
@@ -74,11 +49,12 @@ function paint(html) {
 }
 
 /* ───────────── Flash ───────────── */
-let notice = null;  // what the flash shows: { prompt, undo, pending, skipAnchor }
+let notice = null;  // what the flash shows: { undo, pending }
 let flashTimer = 0;
 let flashRemaining = 0;
 let flashDeadline = null;
 let appliedTimer = 0;
+let skipTimer = 0;
 
 const el = (tag, text, className) => {
   const node = document.createElement(tag);
@@ -107,8 +83,31 @@ function firstOpenClick() {
   return true;
 }
 
+// The inline notices: one at a time, and either one ends the other.
+function clearSkipNotice() {
+  clearTimeout(skipTimer);
+  state.skipNotice = null;
+}
+
+// "Skipped · Location · Undo" sits after Skip in the pane, where the click was.
+function showSkipNotice(job, label) {
+  clearTimeout(appliedTimer);
+  state.appliedNotice = null;
+  clearTimeout(flashTimer);
+  notice = null;
+  hideFlash();
+  clearSkipNotice();
+  state.skipNotice = { job, label };
+  render();
+  skipTimer = setTimeout(() => {
+    state.skipNotice = null;
+    render();
+  }, 12000);
+}
+
 // "Added to Applied · Undo" sits beside the button it confirms, not in the flash.
 function showAppliedNotice() {
+  clearSkipNotice();
   clearTimeout(appliedTimer);
   clearTimeout(flashTimer);
   notice = null;
@@ -122,16 +121,17 @@ function showAppliedNotice() {
   }, 8000);
 }
 
-function announce(message, { undo = false, reasons = false, hint = false, skipAnchor = null } = {}) {
+function announce(message, { undo = false, hint = false } = {}) {
   clearTimeout(appliedTimer);
-  if (state.appliedNotice) {
+  if (state.appliedNotice || state.skipNotice) {
     state.appliedNotice = null;
+    clearSkipNotice();
     render();
   }
   flash.replaceChildren();
   const copy = el("span", message, "flash-copy");
-  notice = { prompt: reasons ? state.prompt : null, undo: undo ? state.undo : null, pending: false, skipAnchor };
-  const job = notice.prompt || notice.undo?.job;
+  notice = { undo: undo ? state.undo : null, pending: false };
+  const job = notice.undo?.job;
   if (job) {
     copy.title = `${job.company} · ${job.title}`;
     copy.setAttribute("aria-label", `${message}. ${job.company}, ${job.title}`);
@@ -142,60 +142,18 @@ function announce(message, { undo = false, reasons = false, hint = false, skipAn
     copy.append(small);
   }
   flash.append(copy);
-  if (reasons) {
-    const trigger = el("button", "", "flash-reason");
-    trigger.type = "button";
-    trigger.dataset.action = "skip-reason";
-    trigger.setAttribute("aria-expanded", "false");
-    trigger.setAttribute("aria-controls", "flash-reasons");
-    trigger.innerHTML = `Reason${icon("icon-chevron")}`;
-    const group = el("div", "", "flash-why");
-    group.id = "flash-reasons";
-    group.hidden = true;
-    group.setAttribute("role", "group");
-    group.setAttribute("aria-label", "Skip reason (optional)");
-    SKIP_REASONS.forEach((reason, index) => {
-      const button = el("button");
-      button.type = "button";
-      button.dataset.why = reason.key;
-      const key = el("kbd", String(index + 1));
-      key.setAttribute("aria-hidden", "true");
-      button.append(el("span", reason.label), key);
-      group.append(button);
-    });
-    flash.append(trigger, group);
-  }
   if (undo) {
     const button = el("button", "Undo", "flash-undo");
     button.type = "button";
     button.dataset.action = "undo";
     flash.append(button);
   }
-  flash.classList.toggle("has-action", undo || reasons);
-  flash.classList.toggle("near-skip", Boolean(skipAnchor));
+  flash.classList.toggle("has-action", undo);
   flash.classList.add("show");
-  positionSkipNotice();
   flash.inert = false;
-  flashRemaining = undo || reasons ? 12000 : 3200;
+  flashRemaining = undo ? 12000 : 3200;
   flashDeadline = null;
   resumeFlash();
-}
-
-// A skip's notice sits by the Skip button, or where it was if the pane changed.
-function positionSkipNotice() {
-  const fallback = notice?.skipAnchor;
-  if (!fallback || !flash.classList.contains("show")) return;
-  const anchor = state.view === "feed" ? $(".detail [data-action='skip']")?.getBoundingClientRect() : null;
-  const bounds = anchor || fallback;
-  const width = flash.offsetWidth, height = flash.offsetHeight;
-  const left = Math.max(12, Math.min(bounds.right - width, innerWidth - width - 12));
-  const below = bounds.bottom + 8;
-  const top = Math.max(12, Math.min(below + height <= innerHeight - 12 ? below : bounds.top - height - 8, innerHeight - height - 12));
-  flash.style.setProperty("--flash-left", `${left}px`);
-  flash.style.setProperty("--flash-top", `${top}px`);
-  const menu = $(".flash-why");
-  const menuHeight = menu && !menu.hidden ? menu.offsetHeight : 144;
-  flash.classList.toggle("reasons-above", top + height + menuHeight + 8 > innerHeight - 12);
 }
 
 function pauseFlash() {
@@ -206,7 +164,7 @@ function pauseFlash() {
 
 function resumeFlash() {
   if (!flash.classList.contains("show") || flash.matches(":hover") || flash.contains(document.activeElement)
-    || $(".flash-why:not([hidden])") || notice?.pending) return;
+    || notice?.pending) return;
   if (flashDeadline != null) return;
   clearTimeout(flashTimer);
   flashDeadline = Date.now() + flashRemaining;
@@ -214,24 +172,8 @@ function resumeFlash() {
   flashTimer = setTimeout(() => {
     if (notice !== shown) return;
     hideFlash();
-    if (state.prompt === shown?.prompt) state.prompt = null;
     flashDeadline = null;
   }, flashRemaining);
-}
-
-function toggleSkipReason(open = $(".flash-why")?.hidden, { focus = true } = {}) {
-  const menu = $(".flash-why"), trigger = $(".flash-reason");
-  if (!menu || !trigger || menu.hidden === !open) return;
-  menu.hidden = !open;
-  trigger.setAttribute("aria-expanded", String(Boolean(open)));
-  positionSkipNotice();
-  if (open) {
-    pauseFlash();
-    if (focus) menu.querySelector("button")?.focus();
-  } else {
-    if (focus) trigger.focus();
-    resumeFlash();
-  }
 }
 
 flash.inert = true;
@@ -239,8 +181,6 @@ flash.addEventListener("pointerenter", pauseFlash);
 flash.addEventListener("pointerleave", resumeFlash);
 flash.addEventListener("focusin", pauseFlash);
 flash.addEventListener("focusout", () => setTimeout(resumeFlash, 0));
-addEventListener("resize", positionSkipNotice);
-document.addEventListener("scroll", positionSkipNotice, { capture: true, passive: true });
 
 /* ───────────── Markup ───────────── */
 const errorState = (title, error) =>
@@ -258,29 +198,40 @@ function loadedCommonTerms() {
 }
 
 function controlsMarkup() {
+  const hiddenOn = state.view === "hidden";
   const tabs = FILTERS.map(filter => {
-    const active = state.filters.includes(filter.key);
+    const active = !hiddenOn && state.filters.includes(filter.key);
     const count = tabCount(state.typeCounts, filter).toLocaleString();
-    return `<button class="filter ${active ? "active" : ""}" type="button" role="tab" data-filter="${filter.key}" aria-selected="${active}" tabindex="${active ? "0" : "-1"}">`
+    return `<button class="filter ${active ? "active" : ""}" type="button" role="tab" data-filter="${filter.key}" aria-selected="${active}" tabindex="${active || (hiddenOn && filter.key === state.filters[0]) ? "0" : "-1"}">`
       + `<span>${filter.label}</span><span class="filter-count" aria-label="${count} opportunities">${count}</span></button>`;
   }).join("");
   const names = DEGREE_FILTERS.filter(filter => state.degreeFilters.includes(filter.key)).map(filter => filter.label);
   const fieldLabel = names.length === 1 ? names[0] : names.length ? `${names.length} fields` : "All fields";
   const fields = DEGREE_FILTERS.map(filter => {
     const active = state.degreeFilters.includes(filter.key);
-    return `<button class="degree-filter ${active ? "active" : ""}" type="button" data-degree-filter="${filter.key}" aria-pressed="${active}">${filter.label}</button>`;
+    return `<button class="opt degree-filter" type="button" role="checkbox" data-degree-filter="${filter.key}" aria-checked="${active}"><span class="box">${icon("icon-check")}</span>${filter.label}</button>`;
   }).join("");
   const fieldMenu = state.fieldOpen
-    ? `<div id="field-options" class="field-options" role="group" aria-label="Fields">${fields}<button class="field-clear" type="button" data-action="clear-fields">Show all fields</button></div>`
+    ? `<div id="field-options" class="pop field-options" role="group" aria-label="Fields">${fields}<hr><button class="foot-link field-clear" type="button" data-action="clear-fields">Show all fields</button></div>`
     : "";
-  const sorts = SORTS.map(([key, label]) => `<option value="${key}"${state.sort === key ? " selected" : ""}>${label}</option>`).join("");
-  const hiddenOn = state.view === "hidden";
+  const sortLabel = SORTS.find(([key]) => key === state.sort)?.[1] || SORTS[0][1];
+  const sorts = SORTS.map(([key, label]) => `<button class="opt radio sort-option" type="button" role="menuitemradio" data-sort="${key}" aria-checked="${state.sort === key}"><span class="box"></span>${label}</button>`).join("");
+  const sortMenu = state.sortOpen ? `<div id="sort-options" class="pop sort-options" role="menu" aria-label="Order or season">${sorts}</div>` : "";
   return `<div class="discover-controls-pane"><div class="discover-filterbar" role="tablist" aria-label="Job types">${tabs}</div><div class="list-tools">`
     + `<div class="focus-menu"><button type="button" class="field-trigger" data-action="toggle-fields" aria-expanded="${state.fieldOpen}" aria-controls="field-options">`
     + `${esc(fieldLabel)}${icon("icon-chevron")}</button>${fieldMenu}</div>`
-    + `<label class="discover-sort"><select data-sort aria-label="Opportunity order or season">${sorts}</select></label>`
+    + `<div class="sort-menu"><button type="button" class="sort-trigger" data-action="toggle-sort" aria-haspopup="menu" aria-expanded="${state.sortOpen}" aria-controls="sort-options" aria-label="Opportunity order or season: ${esc(sortLabel)}">`
+    + `${icon("icon-sort").replace("<svg", '<svg class="sort-icon"')}${esc(sortLabel)}${icon("icon-chevron")}</button>${sortMenu}</div>`
     + `<button class="hidden-toggle" type="button" data-action="toggle-hidden" aria-pressed="${hiddenOn}">${icon("icon-eye-off")}Hidden`
     + `<span class="hidden-count">${state.hiddenTotal.toLocaleString()}</span></button></div></div>`;
+}
+
+// The row's Skip opens the same reason menu as the pane's, anchored under it.
+function rowSkipMarkup(job) {
+  const open = state.skipMenu?.where === "row" && sameId(state.skipMenu.id, job.id);
+  return `<span class="skip-wrap"><button class="card-skip" type="button" data-action="skip" data-where="row" data-id="${esc(job.id)}" aria-label="Skip ${esc(job.title)}"`
+    + ` aria-haspopup="menu" aria-expanded="${open}"${open ? "" : ' data-tip="Skip" data-key="F"'}>${icon("icon-eye-off")}</button>`
+    + `${open ? skipMenuMarkup(job.id, "row") : ""}</span>`;
 }
 
 function opportunity(job) {
@@ -291,10 +242,10 @@ function opportunity(job) {
   const action = entry
     ? `<button class="card-restore" type="button" data-action="restore" data-id="${esc(job.id)}">Restore</button>`
     : `<div class="row-actions"><button class="card-add" type="button" data-action="add-to-applications" data-id="${esc(job.id)}" aria-label="Add ${esc(job.title)} to Applications">`
-      + `${icon("icon-plus")}</button><button class="card-skip" type="button" data-action="skip" data-id="${esc(job.id)}" aria-label="Skip ${esc(job.title)}" data-tip="Skip" data-key="F">`
-      + `${icon("icon-x")}</button></div>`;
+      + `${icon("icon-plus")}</button>${rowSkipMarkup(job)}</div>`;
   const due = dueLabel(job);
-  return `<article class="opportunity ${selected ? "selected" : ""}" data-job="${esc(job.id)}" tabindex="0" role="button" aria-selected="${selected}">`
+  const menu = state.skipMenu?.where === "row" && sameId(state.skipMenu.id, job.id);
+  return `<article class="opportunity ${selected ? "selected" : ""}${menu ? " menu-open" : ""}" data-job="${esc(job.id)}" tabindex="0" role="button" aria-selected="${selected}">`
     + `<div class="job-logo">${logoMarkup(job)}</div><div class="opportunity-main"><h3>${esc(job.title)}</h3>`
     + `<div class="job-subline"><span class="job-company">${esc(job.company)}</span>${cardMetaMarkup(job)}</div>${tags ? `<div class="tags">${tags}</div>` : ""}${reason}</div>`
     + `<div class="row-meta"><span>${esc(rowAge(job))}</span>${due ? `<span class="row-deadline">${esc(due)}</span>` : ""}</div>${action}</article>`;
@@ -323,13 +274,16 @@ function detail(job) {
       hidden: state.view === "hidden" ? hiddenEntry(job.id) : null,
       common: loadedCommonTerms(),
       appliedNotice: state.appliedNotice,
+      skipMenu: state.skipMenu?.where === "pane" && sameId(state.skipMenu.id, job.id) ? state.skipMenu : null,
+      skipNotice: state.skipNotice,
     });
     return `<aside class="detail" data-selected="${esc(job.id)}" aria-label="Selected opportunity">${pane}</aside>`;
   }
   if (state.view === "hidden") {
     return '<aside class="detail"><div class="section-kicker">Hidden</div><h2>Nothing selected</h2><p>Pick a hidden posting to see why it left the feed.</p></aside>';
   }
-  const feedback = state.appliedNotice ? `<div class="empty-detail-feedback">${appliedNoticeMarkup(state.appliedNotice)}</div>` : "";
+  const feedback = state.appliedNotice || state.skipNotice
+    ? `<div class="empty-detail-feedback">${appliedNoticeMarkup(state.appliedNotice)}${skipNoticeMarkup(state.skipNotice)}</div>` : "";
   return `<aside class="detail"><div class="section-kicker">Selection</div><h2>Choose a job</h2><p>Select a role to review its details and add it to Applications.</p>${feedback}</aside>`;
 }
 
@@ -340,9 +294,12 @@ function render() {
   const caret = active === search ? search.selectionStart : null;
   const focusSelector = active?.matches("[data-filter]") ? `[data-filter="${CSS.escape(active.dataset.filter)}"]`
     : active?.matches("[data-degree-filter]") ? `[data-degree-filter="${CSS.escape(active.dataset.degreeFilter)}"]`
-    : active?.matches(".field-trigger") ? ".field-trigger" : active?.matches("[data-sort]") ? "[data-sort]"
+    : active?.matches(".field-trigger") ? ".field-trigger" : active?.matches(".sort-trigger") ? ".sort-trigger"
+    : active?.matches("[data-sort]") ? `[data-sort="${CSS.escape(active.dataset.sort)}"]`
     : active?.matches("[data-job]") ? `[data-job="${CSS.escape(active.dataset.job)}"]`
-    : active?.matches(".applied-notice [data-action='undo']") ? ".applied-notice [data-action='undo']" : null;
+    : active?.matches(".applied-notice [data-action='undo']") ? ".applied-notice [data-action='undo']"
+    : active?.matches(".skip-notice [data-action='undo']") ? ".skip-notice [data-action='undo']"
+    : active?.matches(".skip-menu [data-why]") ? `.skip-menu [data-why="${CSS.escape(active.dataset.why)}"]` : null;
   const list = state.view === "hidden" ? hiddenListMarkup() : feedMarkup(state.jobs || []);
   paint(`<section class="discover-page"><h1 class="sr-only">Opportunities</h1>${controlsMarkup()}<div class="discover-grid">`
     + `<div class="opportunity-list" role="tabpanel" aria-label="${state.view === "hidden" ? "Hidden postings" : "Opportunity results"}">${list}</div>`
@@ -355,13 +312,23 @@ function render() {
     ($(focusSelector) || (active?.closest(".applied-notice") ? $(".detail-actions .primary") : null))?.focus({ preventScroll: true });
   }
   syncReport();
-  positionSkipNotice();
+  placeSkipMenu();
+}
+
+// A row's menu opens upward when the list would clip it.
+function placeSkipMenu() {
+  const menu = $(".skip-menu.at-row");
+  const list = $(".opportunity-list");
+  if (!menu || !list) return;
+  menu.classList.remove("above");
+  if (menu.getBoundingClientRect().bottom > list.getBoundingClientRect().bottom - 8) menu.classList.add("above");
 }
 
 function select(id, { focus = false } = {}) {
   if (!sameId(id, state.selected)) {
     state.selected = id;
     state.ui = freshUi();
+    state.skipMenu = null;
   }
   render();
   if (focus) {
@@ -427,7 +394,13 @@ async function showView(next) {
   state.view = next;
   state.selected = null;
   state.ui = freshUi();
-  state.prompt = null;
+  state.skipMenu = null;
+  // Leaving the feed takes the skip's Undo along as a message.
+  const pending = state.skipNotice;
+  if (pending) {
+    clearSkipNotice();
+    announce(pending.label, { undo: true });
+  }
   if (next === "hidden") {
     render();
     return loadHidden();
@@ -449,7 +422,6 @@ async function leaveFeed(job, write) {
     state.selected = successor?.id ?? null;
     state.ui = freshUi();
   }
-  state.prompt = null;
   render();
   let result;
   try {
@@ -484,7 +456,7 @@ async function addToApplications(id) {
   showAppliedNotice();
 }
 
-async function hideJob(job, body, message, { reasons = false, skipAnchor = null } = {}) {
+async function hideJob(job, body, message) {
   const write = () => api.jobs.setFeedback(job.id, body, job);
   // Keep the report draft and dialog intact until the server accepts it.
   const mislabeled = body.kind === "mislabeled";
@@ -493,44 +465,38 @@ async function hideJob(job, body, message, { reasons = false, skipAnchor = null 
   state.hiddenTotal += 1;
   state.hidden = null;
   state.undo = { kind: "hide", job, position };
-  state.prompt = reasons ? job : null;
+  if (body.kind === "skip") return showSkipNotice(job, message);
   render();
-  announce(message, { undo: true, reasons, skipAnchor });
+  announce(message, { undo: true });
 }
 
-function skip(id) {
-  const job = feedJob(id);
-  if (!job) return;
-  const bounds = $(".detail [data-action='skip']")?.getBoundingClientRect();
-  const skipAnchor = bounds ? { right: bounds.right, top: bounds.top, bottom: bounds.bottom } : null;
-  return hideJob(job, { kind: "skip" }, "Skipped", { reasons: true, skipAnchor });
+// Skip opens the reason menu; the posting leaves only once a reason is picked.
+function skip(id, where = "pane") {
+  if (!feedJob(id)) return;
+  if (where === "pane" && !$(".detail [data-action='skip']")) where = "row";
+  const same = state.skipMenu && sameId(state.skipMenu.id, id) && state.skipMenu.where === where;
+  state.skipMenu = same ? null : { id, where };
+  render();
+  if (state.skipMenu) $(".skip-menu [data-why]")?.focus({ preventScroll: true });
 }
 
-async function giveReason(key) {
-  const shown = notice;
-  const job = shown?.prompt;
-  const reason = SKIP_REASONS.find(item => item.key === key);
-  if (!job || !reason || shown.pending) return;
-  shown.pending = true;
-  pauseFlash();
-  flash.querySelectorAll("button").forEach(button => { button.disabled = true; });
-  $(".flash-reason-error")?.remove();
-  try {
-    await api.jobs.setFeedback(job.id, { kind: "skip", skip_reason: reason.key }, job);
-    state.hidden = null;
-    if (notice !== shown) return;
-    state.prompt = null;
-    announce(`Skipped · ${reason.label}`, { undo: true, skipAnchor: shown.skipAnchor });
-    $(".flash-undo")?.focus();
-  } catch (error) {
-    if (notice !== shown) return;
-    shown.pending = false;
-    flash.querySelectorAll("button").forEach(button => { button.disabled = false; });
-    const message = el("p", error.message || "Reason could not be saved. Try again.", "flash-reason-error");
-    message.setAttribute("role", "alert");
-    $(".flash-why")?.append(message);
-    toggleSkipReason(true);
+function closeSkipMenu({ focus = true } = {}) {
+  const open = state.skipMenu;
+  if (!open) return;
+  state.skipMenu = null;
+  render();
+  if (focus) {
+    const button = open.where === "row" ? $(`[data-job="${CSS.escape(String(open.id))}"] .card-skip`) : $(".detail [data-action='skip']");
+    button?.focus({ preventScroll: true });
   }
+}
+
+async function chooseSkip(id, key) {
+  const job = feedJob(id);
+  const reason = SKIP_REASONS.find(item => item.key === key);
+  state.skipMenu = null;
+  if (!job || !reason) return render();
+  await hideJob(job, { kind: "skip", skip_reason: reason.key }, `Skipped · ${reason.label}`);
 }
 
 async function restore(id) {
@@ -559,10 +525,10 @@ async function undo(last = state.undo) {
   if (!last) return;
   if (notice?.pending && last === notice.undo) return;
   if (state.undo === last) state.undo = null;
-  state.prompt = null;
-  if (state.appliedNotice) {
+  if (state.appliedNotice || state.skipNotice) {
     state.appliedNotice = null;
     clearTimeout(appliedTimer);
+    clearSkipNotice();
     render();
   }
   if (last.kind === "add") {
@@ -640,10 +606,9 @@ function toggleReport() {
   if (state.ui.report) return closeReport();
   if (state.view !== "feed" || !selectedJob()) return;
   reportOpener = document.activeElement;
-  toggleSkipReason(false, { focus: false });
+  state.skipMenu = null;
   pauseFlash();
   hideFlash();
-  state.prompt = null;
   notice = null;
   state.ui.links = state.ui.places = false;
   state.ui.report = { job: selectedJob(), rows: {}, submitting: false, error: null };
@@ -689,8 +654,8 @@ const SHORTCUTS = [
   ["A", "Add to Applications"],
   ["D", "Open the posting"],
   ["⇧ D", "Other links, when it is listed twice"],
-  ["F", "Skip"],
-  ["1 2 3 4", "Choose a reason while the reason menu is open"],
+  ["F", "Skip (opens the reasons)"],
+  ["1 2 3 4", "Pick a skip reason"],
   ["↓ S", "Next job"],
   ["↑ W", "Previous job"],
   ["R", "Mislabeled"],
@@ -735,10 +700,22 @@ const reload = () => {
 /* ───────────── Events ───────────── */
 document.addEventListener("click", event => {
   const target = event.target;
-  if (!target.closest(".flash-why, .flash-reason")) toggleSkipReason(false, { focus: false });
+  if (state.skipMenu && !target.closest(".skip-wrap")) closeSkipMenu({ focus: false });
   if (state.fieldOpen && !target.closest(".focus-menu")) {
     state.fieldOpen = false;
     render();
+  }
+  if (state.sortOpen && !target.closest(".sort-menu")) {
+    state.sortOpen = false;
+    render();
+  }
+  const sortChoice = target.closest("[data-sort]");
+  if (sortChoice) {
+    state.sortOpen = false;
+    $(".sort-trigger")?.focus({ preventScroll: true });
+    if (sortChoice.dataset.sort === state.sort) return render();
+    state.sort = sortChoice.dataset.sort;
+    return reload();
   }
   if ((state.ui.links && !target.closest(".link-menu, [data-action='toggle-links']"))
     || (state.ui.places && !target.closest(".place-menu, [data-action='toggle-places']"))) {
@@ -748,7 +725,7 @@ document.addEventListener("click", event => {
   }
   if (target.closest("[data-sheet-close]") || target.matches("[data-sheet-scrim]")) return toggleSheet(false);
   const why = target.closest("[data-why]");
-  if (why) return run(() => giveReason(why.dataset.why));
+  if (why) return run(() => chooseSkip(why.dataset.id, why.dataset.why));
   if (event.detail > 0 && target.closest(".open-link, .open-more") && firstOpenClick()) announce("", { hint: true });
   if (target.closest(".link-item")) {
     state.ui.links = false;
@@ -763,10 +740,9 @@ document.addEventListener("click", event => {
     retry: start,
     "load-more": () => (state.loadingMore ? undefined : loadJobs({ append: true })),
     "add-to-applications": () => addToApplications(id),
-    skip: () => skip(id),
+    skip: () => skip(id, control.dataset.where || "pane"),
     restore: () => restore(id),
     undo: () => undo(control.closest("#flash") ? notice?.undo : state.undo),
-    "skip-reason": () => toggleSkipReason(),
     report: toggleReport,
     "report-cancel": closeReport,
     "toggle-links": toggleLinks,
@@ -782,7 +758,14 @@ document.addEventListener("click", event => {
     "toggle-hidden": () => showView(state.view === "hidden" ? "feed" : "hidden"),
     "toggle-fields": () => {
       state.fieldOpen = !state.fieldOpen;
+      state.sortOpen = false;
       render();
+    },
+    "toggle-sort": () => {
+      state.sortOpen = !state.sortOpen;
+      state.fieldOpen = false;
+      render();
+      if (state.sortOpen) $(`.sort-option[aria-checked="true"]`)?.focus({ preventScroll: true });
     },
     "clear-fields": () => {
       state.degreeFilters = [];
@@ -835,9 +818,6 @@ document.addEventListener("change", event => {
     state.ui.report.rows[field] = { ...(state.ui.report.rows[field] || {}), to: target.value };
     return;
   }
-  if (!target.matches("[data-sort]")) return;
-  state.sort = target.value;
-  reload();
 });
 
 document.addEventListener("input", event => {
@@ -878,18 +858,26 @@ document.addEventListener("keydown", event => {
     }
     return;
   }
-  const reasonMenu = $(".flash-why:not([hidden])");
-  if (reasonMenu && event.key === "Escape") {
-    event.preventDefault();
-    return toggleSkipReason(false);
-  }
-  if (reasonMenu && !typing && ["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
-    event.preventDefault();
-    const choices = [...reasonMenu.querySelectorAll("button")];
-    const at = choices.indexOf(active);
-    const next = event.key === "Home" ? choices[0] : event.key === "End" ? choices.at(-1)
-      : choices[(at + (event.key === "ArrowDown" ? 1 : choices.length - 1)) % choices.length];
-    return next?.focus();
+  const skipMenu = state.skipMenu ? $(".skip-menu") : null;
+  if (skipMenu) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      return closeSkipMenu();
+    }
+    if (/^[1-4]$/.test(event.key) && !typing) {
+      event.preventDefault();
+      const { id } = state.skipMenu;
+      return run(() => chooseSkip(id, SKIP_REASONS[Number(event.key) - 1].key));
+    }
+    if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+      event.preventDefault();
+      const choices = [...skipMenu.querySelectorAll("[data-why]")];
+      const at = choices.indexOf(active);
+      const next = event.key === "Home" ? choices[0] : event.key === "End" ? choices.at(-1)
+        : choices[(at + (event.key === "ArrowDown" ? 1 : choices.length - 1)) % choices.length];
+      return next?.focus();
+    }
+    if (event.key === "Tab") closeSkipMenu({ focus: false });
   }
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
     event.preventDefault();
@@ -901,6 +889,19 @@ document.addEventListener("keydown", event => {
     event.target.value = "";
     event.target.blur();
     return loadJobs();
+  }
+  if (event.key === "Escape" && state.sortOpen) {
+    state.sortOpen = false;
+    render();
+    return $(".sort-trigger")?.focus();
+  }
+  if (state.sortOpen && ["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+    event.preventDefault();
+    const choices = $$(".sort-option");
+    const at = choices.indexOf(document.activeElement);
+    const next = event.key === "Home" ? choices[0] : event.key === "End" ? choices.at(-1)
+      : choices[(at + (event.key === "ArrowDown" ? 1 : choices.length - 1)) % choices.length];
+    return next?.focus();
   }
   if (event.key === "Escape" && state.fieldOpen) {
     state.fieldOpen = false;
@@ -932,10 +933,6 @@ document.addEventListener("keydown", event => {
     }
     return;
   }
-  if (state.prompt && reasonMenu && /^[1-4]$/.test(event.key)) {
-    event.preventDefault();
-    return run(() => giveReason(SKIP_REASONS[Number(event.key) - 1].key));
-  }
   const key = event.key.toLowerCase();
   if (key === "d" && event.shiftKey) {
     event.preventDefault();
@@ -943,7 +940,7 @@ document.addEventListener("keydown", event => {
   }
   if (event.shiftKey) return;
   // Leave arrows with open menus and their controls.
-  if (["arrowdown", "arrowup"].includes(key) && (state.fieldOpen || state.ui.links || state.ui.places || active?.closest(".account"))) return;
+  if (["arrowdown", "arrowup"].includes(key) && (state.fieldOpen || state.sortOpen || state.ui.links || state.ui.places || active?.closest(".account"))) return;
   const keys = {
     arrowdown: () => move(1),
     arrowup: () => move(-1),

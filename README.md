@@ -70,6 +70,21 @@ node --test
 uv run python -m unittest discover -s tests/api -v
 ```
 
+Desktop Discover must match its approved mockup (`mockup/desktop-overhaul`, kept
+out of git). With the app running, this compares every element's computed style
+at 1440 and 1024px, in each state the mockup shows, and lists any difference:
+
+```bash
+ONESHOT_URL=http://127.0.0.1:8766 uv run --with playwright python tests/browser/discover_matches_mockup.py
+```
+
+Desktop Feeds has the same check (default, row hover, an open provider and
+today's breakdown):
+
+```bash
+ONESHOT_URL=http://127.0.0.1:8766 uv run --with playwright python tests/browser/feeds_matches_mockup.py
+```
+
 ## Discover search
 
 Discover search matches role titles, company names, recognized skills and ATS

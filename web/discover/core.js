@@ -423,7 +423,14 @@ function skillChipMarkup(skill, className) {
 }
 const chips = (skills, className) => skills.map(skill => skillChipMarkup(skill, className)).join("");
 
-export const listTags = job => listBundles(job).map(bundle => chips(bundle.skills, `tag tag-${bundle.key}`)).join("");
+// A row shows at most six skills; the rest fold into "+N".
+export const LIST_TAG_LIMIT = 6;
+export function listTags(job) {
+  const tagged = listBundles(job).flatMap(bundle => bundle.skills.map(skill => [skill, `tag tag-${bundle.key}`]));
+  const shown = tagged.slice(0, LIST_TAG_LIMIT).map(([skill, className]) => skillChipMarkup(skill, className)).join("");
+  const more = tagged.length - LIST_TAG_LIMIT;
+  return shown + (more > 0 ? `<span class="tag tag-more" aria-label="${more} more skill${more === 1 ? "" : "s"}">+${more}</span>` : "");
+}
 
 export function cardMetaMarkup(job) {
   const workplace = workplaceLabel(job.remote);
@@ -506,7 +513,7 @@ export function reportMarkup(job, report) {
         + ` placeholder="Correct ${row.label.toLowerCase()} (optional)" maxlength="300" autocomplete="off"></div>`;
     }
     if (entry.on && row.field === "skills") fix = '<div class="report-fix"><p>Flagged for review.</p></div>';
-    return `<div class="report-row${entry.on ? " on" : ""}"><label class="report-check"><input type="checkbox" id="report-${row.field}" data-report="${row.field}"`
+    return `<div class="report-row${entry.on ? " on" : ""}"><label class="report-check"><input class="tick" type="checkbox" id="report-${row.field}" data-report="${row.field}"`
       + `${entry.on ? " checked" : ""}${busy}><span class="report-key">${row.label}</span><span class="report-value">${esc(row.value)}</span></label>${fix}</div>`;
   }).join("");
   const ready = Object.values(report.rows).some(entry => entry.on);
@@ -525,7 +532,22 @@ export function appliedNoticeMarkup(notice) {
     + `<button type="button" data-action="undo" aria-label="${esc(`Undo adding ${notice.job.company} to Applied`)}">Undo</button></span>`;
 }
 
-export function detailPaneMarkup(job, { ui = {}, hidden = null, common = new Map(), now = new Date(), appliedNotice = null } = {}) {
+// Skip asks why first: the menu's reasons are the skip itself, so a posting
+// never leaves the feed without one. `where` is "pane" or "row".
+export function skipMenuMarkup(id, where) {
+  const items = SKIP_REASONS.map((reason, index) => `<button class="opt" type="button" role="menuitem" data-why="${reason.key}" data-id="${esc(id)}">`
+    + `<span>${reason.label}</span><kbd aria-hidden="true">${index + 1}</kbd></button>`).join("");
+  return `<div class="pop skip-menu at-${where}" role="menu" aria-label="Skip reason"><p>Why skip it?</p>${items}</div>`;
+}
+
+// "Skipped · Location · Undo" sits after Skip in the pane's button row.
+export function skipNoticeMarkup(notice) {
+  if (!notice) return "";
+  return `<span class="skip-notice" role="status" aria-label="${esc(`${notice.label}: ${notice.job.company}`)}"><span>${esc(notice.label)}</span>`
+    + `<button type="button" data-action="undo" aria-label="${esc(`Undo skipping ${notice.job.company}`)}">Undo</button></span>`;
+}
+
+export function detailPaneMarkup(job, { ui = {}, hidden = null, common = new Map(), now = new Date(), appliedNotice = null, skipMenu = null, skipNotice = null } = {}) {
   const places = placeList(job);
   const workplace = workplaceLabel(job.remote);
   const term = job.attributes?.term;
@@ -539,22 +561,24 @@ export function detailPaneMarkup(job, { ui = {}, hidden = null, common = new Map
   const flag = hidden ? "" : `<button class="detail-flag" type="button" data-action="report" aria-expanded="${Boolean(ui.report)}" aria-label="Mislabeled"`
     + ` data-tip="Mislabeled" data-key="R" data-tip-below>${icon("icon-flag")}<span>Report</span></button>`;
   const actions = hidden
-    ? `<div class="hidden-banner${hidden.kind === "mislabeled" ? " flagged" : ""}"><p>${esc(hiddenReason(hidden))}</p>`
+    ? `<div class="hidden-banner${hidden.kind === "mislabeled" ? " flagged" : ""}">${icon("icon-eye-off")}<p>${esc(hiddenReason(hidden))}</p>`
       + `<button class="button" type="button" data-action="restore" data-id="${esc(job.id)}">${icon("icon-undo")}<span>Restore to feed</span></button></div>`
     : `<div class="detail-actions">${openMarkup(job, ui, now)}`
-      + `<button class="button primary" type="button" data-action="add-to-applications" data-id="${esc(job.id)}" data-tip="Add to Applications" data-key="A">${icon("icon-plus")}<span>Applied</span></button>`
-      + `${appliedNoticeMarkup(appliedNotice)}`
-      + `<button class="button skip" type="button" data-action="skip" data-id="${esc(job.id)}" data-tip="Skip" data-key="F">${icon("icon-eye-off")}<span>Skip</span></button></div>`;
+      + `<button class="button primary" type="button" data-action="add-to-applications" data-id="${esc(job.id)}" data-tip="Add to Applications" data-key="A">${icon("icon-plus")}<span>Add to Applied</span></button>`
+      + `${appliedNoticeMarkup(appliedNotice)}<span class="action-divider" aria-hidden="true"></span>`
+      + `<span class="skip-wrap"><button class="button skip" type="button" data-action="skip" data-id="${esc(job.id)}" aria-haspopup="menu" aria-expanded="${Boolean(skipMenu)}"`
+      + `${skipMenu ? "" : ' data-tip="Skip" data-key="F"'}>${icon("icon-eye-off")}<span>Skip</span>${icon("icon-chevron")}</button>`
+      + `${skipMenu ? skipMenuMarkup(job.id, "pane") : ""}</span>${skipNoticeMarkup(skipNotice)}</div>`;
   const summary = String(job?.summary || "").trim();
   const metadata = `<div class="detail-place">${icon("icon-pin")}<span>${esc(places[0])}</span>${more}${placeMenu}</div>`
     + (workplace ? `<span>${icon("icon-briefcase")}${esc(workplace)}</span>` : "")
     + (term ? `<span>${icon("icon-calendar")}${esc(term)}</span>` : "")
     + (deadline ? `<span>${esc(deadline)}</span>` : "");
-  return `<div class="detail-inner"><header class="detail-head"><div class="detail-logo">${logoMarkup(job)}</div><div class="detail-line">`
-    + `<div class="detail-company-row"><div class="detail-company" title="${esc(job.company)}">${esc(job.company)}</div>${flag}</div>`
+  return `<div class="detail-inner"><header class="detail-head"><div class="detail-line">`
+    + `<div class="detail-company-row"><div class="detail-logo">${logoMarkup(job)}</div><div class="detail-company" title="${esc(job.company)}">${esc(job.company)}</div>${flag}</div>`
     + `<h2>${esc(job.title)}</h2><div class="detail-metadata">${metadata}</div></div></header>`
     + actions
-    + `<div class="detail-body"><section><h3>About the role</h3>`
+    + `<hr class="detail-rule"><div class="detail-body"><section><h3>About the role</h3>`
     + (summary ? `<p class="role-summary">${esc(summary)}</p>` : '<p class="summary-missing">Summary unavailable. View the original posting for complete details.</p>')
     + `</section>${detailFactsMarkup(job, { common, expanded: Boolean(ui.common) })}</div></div>`;
 }

@@ -8,6 +8,8 @@ const fs = require("node:fs");
 const {
   FILTERS,
   DEGREE_FILTERS,
+  SORTS,
+  defaultDegreeFields,
   seasonFilter,
   sortOrder,
   SKILL_CATEGORIES,
@@ -31,13 +33,15 @@ const {
   reportMarkup,
   hiddenReason,
   SKIP_REASONS,
+  skipMenuMarkup,
+  skipNoticeMarkup,
   workplaceLabel,
   cardMetaMarkup,
   initials,
   logoSrc,
   logoMarkup,
   recencyBucket,
-} = require("../../web/discover/desktop.js");
+} = require("../../web/discover/core.js");
 
 test("job type tabs cover every student job type exactly once", () => {
   const counts = { intern: 42, coop: 7, student: 11, new_grad: 5, research: 3 };
@@ -66,22 +70,21 @@ test("labels the outer recency buckets by calendar day", () => {
 });
 
 test("offers oldest-first sorting while retaining date buckets", () => {
+  assert.deepEqual(SORTS.find(([key]) => key === "oldest"), ["oldest", "Oldest first"]);
+  // Every order keeps the day buckets: the feed groups by day whatever the sort.
   const design = fs.readFileSync(require.resolve("../../web/discover/desktop.js"), "utf8");
-  assert.match(design, /<option value="oldest"[^>]*>Oldest first<\/option>/);
-  assert.match(design, /\["fresh", "oldest"\]\.includes\(sortOrder\(state\.sort\)\)/);
+  assert.match(design, /const groups = dayGroups\(jobs\)/);
 });
 
 test("replaces alphabetical sorts with seasonal title/description filters", () => {
-  const design = fs.readFileSync(require.resolve("../../web/discover/desktop.js"), "utf8");
-  assert.match(design, /<option value="fall"[^>]*>Fall Only<\/option>/);
-  assert.match(design, /<option value="winter"[^>]*>Winter Only<\/option>/);
-  assert.doesNotMatch(design, />Company A–Z<|>Role title A–Z</);
+  assert.deepEqual(SORTS.map(([, label]) => label), ["Newest first", "Oldest first", "Fall Only", "Winter Only"]);
   assert.equal(seasonFilter("fall"), "fall");
   assert.equal(seasonFilter("winter"), "winter");
   assert.equal(seasonFilter("fresh"), "");
   assert.equal(sortOrder("fall"), "fresh");
   assert.equal(sortOrder("oldest"), "oldest");
-  assert.match(design, /season: seasonFilter\(state\.sort\)/);
+  const rules = fs.readFileSync(require.resolve("../../web/discover/core.js"), "utf8");
+  assert.match(rules, /season: seasonFilter\(sort\), sort: sortOrder\(sort\)/);
 });
 
 test("exposes the three bio-career focus filters", () => {
@@ -101,11 +104,14 @@ test("exposes the three bio-career focus filters", () => {
     "biotech",
     "clinical_affairs",
   ]);
+  // Defaults come from the account; unknown keys are dropped.
+  assert.deepEqual(defaultDegreeFields({ discover_default_fields: ["software", "finance", "bogus"] }), ["software", "finance"]);
+  assert.deepEqual(defaultDegreeFields(null), []);
   const design = fs.readFileSync(require.resolve("../../web/discover/desktop.js"), "utf8");
-  assert.match(design, /degreeFilters: \["software", "finance"\]/);
   assert.match(design, /aria-label="Fields"/);
   assert.match(design, /data-degree-filter/);
-  assert.match(design, /degree_field: degreeFields\(state\.degreeFilters\)/);
+  const rules = fs.readFileSync(require.resolve("../../web/discover/core.js"), "utf8");
+  assert.match(rules, /degree_field: degreeFields\(fields\)/);
 });
 
 test("renders canonical skill metadata and keeps legacy string compatibility", () => {
@@ -201,8 +207,11 @@ test("detail presents methods and concepts as one low-emphasis expertise flow", 
 
   const styles = fs.readFileSync(require.resolve("../../web/discover/desktop.css"), "utf8");
   assert.match(styles, /\.skill-list \{[^}]*display: flex[^}]*flex-wrap: wrap/);
-  assert.match(styles, /\.expertise-list \{[^}]*display: flex[^}]*flex-wrap: wrap[^}]*gap: 5px[^}]*color: #667168[^}]*font: 500 12px\/1\.4 var\(--sans\)/i);
-  assert.match(styles, /\.expertise-term \{[^}]*max-width: 100%[^}]*display: inline-flex[^}]*border-radius: 5px[^}]*background: #F1F3EF[^}]*padding: 2px 7px[^}]*white-space: normal/);
+  assert.match(styles, /\.expertise-list \{[^}]*display: flex[^}]*flex-wrap: wrap[^}]*gap: 4px 6px/);
+  // Outlined, so expertise reads quieter than the filled language and tool pills.
+  assert.match(styles, /\.expertise-term \{[^}]*display: inline-flex[^}]*height: 22px[^}]*padding: 0 8px[^}]*border: 1px solid var\(--line-strong\)[^}]*border-radius: 6px[^}]*font-size: 12\.5px/);
+  // Pills use the reading font, not the code font.
+  assert.match(styles, /\.tag, \.skill \{[^}]*height: 20px[^}]*font: 500 12px\/1 var\(--sans\)/);
   assert.doesNotMatch(styles, /\.expertise-term[^}]*::(?:before|after)/);
   assert.doesNotMatch(styles, /\.expertise-term\[data-skill-category="method"\]/);
   assert.doesNotMatch(styles, /\.expertise-term(?:\[[^\]]+\])? \{[^}]*linear-gradient/);
@@ -325,7 +334,7 @@ test("the posting link is one click, and a chevron appears only when it is liste
   assert.equal(openMarkup({ id: 3 }, {}, now), "");
 });
 
-test("the approved action order is Apply, Applied, then Skip, with Report in the header", () => {
+test("the approved action order is Apply, Add to Applied, then Skip, with Report in the header", () => {
   const job = {
     id: 7,
     company: "Lyft",
@@ -336,7 +345,8 @@ test("the approved action order is Apply, Applied, then Skip, with Report in the
     summary: "Build rider agents.",
   };
   const pane = detailPaneMarkup(job);
-  assert.match(pane, /<div class="detail-actions"><a class="button open-link"[^>]*>.*<span>Apply<\/span>.*<\/a><button class="button primary" type="button" data-action="add-to-applications" data-id="7"[^>]*>.*<span>Applied<\/span><\/button><button class="button skip" type="button" data-action="skip" data-id="7"/);
+  assert.match(pane, /<div class="detail-actions"><a class="button open-link"[^>]*>.*<span>Apply<\/span>.*<\/a><button class="button primary" type="button" data-action="add-to-applications" data-id="7"[^>]*>.*<span>Add to Applied<\/span><\/button><span class="action-divider" aria-hidden="true"><\/span><span class="skip-wrap"><button class="button skip" type="button" data-action="skip" data-id="7" aria-haspopup="menu" aria-expanded="false"/);
+  assert.doesNotMatch(pane, /skip-menu|skip-notice/);
   assert.match(pane, /class="detail-flag" type="button" data-action="report" aria-expanded="false" aria-label="Mislabeled"/);
   assert.match(pane, /<div class="detail-company" title="Lyft">Lyft<\/div>/);
   assert.match(pane, /class="detail-place">.*<span>San Francisco, CA<\/span><button class="place-more"[^>]*aria-label="Show all 2 locations">\+1<\/button>/);
@@ -355,7 +365,7 @@ test("the approved action order is Apply, Applied, then Skip, with Report in the
   assert.doesNotMatch(detailPaneMarkup(job, { ui: { report: { rows: {} } } }), /id="report-form"/);
 
   const hidden = detailPaneMarkup(job, { hidden: { kind: "skip", skip_reason: "level" } });
-  assert.match(hidden, /class="hidden-banner"><p>Skipped · Level<\/p><button class="button" type="button" data-action="restore" data-id="7"/);
+  assert.match(hidden, /class="hidden-banner"><svg aria-hidden="true"><use href="#icon-eye-off"\/><\/svg><p>Skipped · Level<\/p><button class="button" type="button" data-action="restore" data-id="7"/);
   assert.doesNotMatch(hidden, /detail-actions|detail-flag/);
 });
 
@@ -450,7 +460,7 @@ test("the card mark prefers the harvested logo and falls back to initials", () =
 test("the company logo is contained in the original row tile rather than cropped", () => {
   const styles = fs.readFileSync(require.resolve("../../web/discover/desktop.css"), "utf8");
   assert.match(styles, /\.job-logo-mark \{[^}]*object-fit: contain/);
-  assert.match(styles, /\.job-logo \{ width: 24px; height: 24px/);
+  assert.match(styles, /\.job-logo \{ width: 32px; height: 32px/);
   const design = fs.readFileSync(require.resolve("../../web/discover/desktop.js"), "utf8");
   assert.match(design, /<div class="job-logo">\$\{logoMarkup\(job\)\}<\/div>/);
 });
@@ -477,4 +487,42 @@ test("missing posting fields never turn into invented facts or invalid dates", (
   const markup = detailFactsMarkup({ source: "lever:acme", posted_at: "bad-date", attributes: {} });
   assert.match(markup, /<dt>Posted<\/dt><dd>On Lever<\/dd>/);
   assert.doesNotMatch(markup, /Invalid Date|First seen|Degree|Languages|Tools|Last checked/);
+});
+
+test("Skip asks why first: its menu lists the reasons, and each pick is the skip", () => {
+  const job = { id: 7, company: "Lyft", title: "Intern", source: "greenhouse:lyft", apply_url: "https://greenhouse.example/7", locations: [] };
+  const open = detailPaneMarkup(job, { skipMenu: { id: 7, where: "pane" } });
+  assert.match(open, /data-action="skip" data-id="7" aria-haspopup="menu" aria-expanded="true">/);
+  assert.match(open, /<div class="pop skip-menu at-pane" role="menu" aria-label="Skip reason"><p>Why skip it\?<\/p>/);
+  const picks = [...open.matchAll(/class="opt" type="button" role="menuitem" data-why="([a-z]+)" data-id="7"><span>([A-Za-z]+)<\/span><kbd aria-hidden="true">(\d)<\/kbd>/g)].map(match => match.slice(1));
+  assert.deepEqual(picks, [["level", "Level", "1"], ["location", "Location", "2"], ["field", "Field", "3"], ["company", "Company", "4"]]);
+  // The open menu has no hover hint competing with it.
+  assert.doesNotMatch(open, /data-action="skip"[^>]*data-tip/);
+  assert.match(skipMenuMarkup(9, "row"), /^<div class="pop skip-menu at-row"/);
+});
+
+test("a skip's Undo sits in the button row, right after Skip", () => {
+  const job = { id: 8, company: "Ramp", title: "Intern", source: "greenhouse:ramp", apply_url: "https://greenhouse.example/8", locations: [] };
+  const notice = { job: { company: "Lyft & Co" }, label: "Skipped · Location" };
+  const pane = detailPaneMarkup(job, { skipNotice: notice });
+  assert.match(pane, /<\/span><span class="skip-notice" role="status" aria-label="Skipped · Location: Lyft &amp; Co"><span>Skipped · Location<\/span><button type="button" data-action="undo" aria-label="Undo skipping Lyft &amp; Co">Undo<\/button><\/span><\/div>/);
+  assert.equal(skipNoticeMarkup(null), "");
+});
+
+test("a skip and its reason are one write, and the flash no longer offers reasons", () => {
+  const design = fs.readFileSync(require.resolve("../../web/discover/desktop.js"), "utf8");
+  assert.match(design, /hideJob\(job, \{ kind: "skip", skip_reason: reason\.key \}, `Skipped · \$\{reason\.label\}`\)/);
+  assert.doesNotMatch(design, /flash-why|flash-reason|giveReason|kind: "skip" \}/);
+  const styles = fs.readFileSync(require.resolve("../../web/discover/desktop.css"), "utf8");
+  assert.doesNotMatch(styles, /flash-why|flash-reason|near-skip/);
+});
+
+test("a list row shows at most six skills, then +N", () => {
+  const skill = (id, category) => ({ id, name: id, label: id, category });
+  const many = { skills: ["Go", "Rust", "C", "Java", "Kotlin", "Swift"].map(id => skill(id, "language")).concat([skill("React", "framework"), skill("Redis", "datastore")]) };
+  const tags = listTags(many);
+  assert.equal((tags.match(/class="tag tag-(?:languages|stack)"/g) || []).length, 6);
+  assert.match(tags, /<span class="tag tag-more" aria-label="2 more skills">\+2<\/span>$/);
+  const few = listTags({ skills: [skill("Go", "language"), skill("React", "framework")] });
+  assert.doesNotMatch(few, /tag-more/);
 });
