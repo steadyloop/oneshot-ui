@@ -22,6 +22,7 @@ const state = {
   skipMenu: null, skipNotice: null, appliedNotice: null, sheet: false, fieldOpen: false, sortOpen: false,
 };
 let searchTimer = 0;
+let loadSeq = 0, loadingFeed = false, autoLoadFailed = false;
 
 /* ───────────── Painting ───────────── */
 // The job-type tabs scroll when the tools need the room; a fade says so.
@@ -340,6 +341,13 @@ function select(id, { focus = false } = {}) {
 
 /* ───────────── Data ───────────── */
 async function loadJobs({ append = false } = {}) {
+  if (append && (state.loadingMore || loadingFeed)) return;
+  const seq = append ? loadSeq : ++loadSeq;
+  if (!append) {
+    loadingFeed = true;
+    state.loadingMore = false;
+    autoLoadFailed = false;
+  }
   if (append) {
     state.loadingMore = true;
     render();
@@ -347,10 +355,13 @@ async function loadJobs({ append = false } = {}) {
   try {
     const filters = { query: state.query, sort: state.sort, types: state.filters, fields: state.degreeFilters };
     const payload = await fetchJobs(filters, append ? (state.jobs || []).length : 0);
+    if (seq !== loadSeq) return;
     state.total = payload.total;
     state.typeCounts = payload.job_type_counts || {};
     state.jobs = append ? [...(state.jobs || []), ...payload.jobs] : payload.jobs;
     state.loadingMore = false;
+    loadingFeed = false;
+    autoLoadFailed = append && !payload.jobs.length;
     if (!append) state.stale = false;
     if (!append && state.view === "feed" && !state.jobs.some(job => sameId(job.id, state.selected))) {
       state.selected = state.jobs[0]?.id || null;
@@ -362,7 +373,10 @@ async function loadJobs({ append = false } = {}) {
       if (list) list.scrollTop = 0;
     }
   } catch (error) {
+    if (seq !== loadSeq) return;
     state.loadingMore = false;
+    loadingFeed = false;
+    autoLoadFailed = append;
     if (!append) return paint(errorState("Opportunities couldn’t load", error));
     render();
     announce(error.message || "Couldn’t load more opportunities.");
@@ -698,6 +712,15 @@ const reload = () => {
 };
 
 /* ───────────── Events ───────────── */
+// Capture on the stable view: the scrollable list is replaced on each render.
+view.addEventListener("scroll", event => {
+  const list = event.target;
+  if (!list.matches(".opportunity-list") || state.view !== "feed"
+    || loadingFeed || state.loadingMore || autoLoadFailed
+    || !state.jobs?.length || state.jobs.length >= state.total) return;
+  if (list.scrollTop + list.clientHeight > list.scrollHeight - 600) loadJobs({ append: true });
+}, { capture: true, passive: true });
+
 document.addEventListener("click", event => {
   const target = event.target;
   if (state.skipMenu && !target.closest(".skip-wrap")) closeSkipMenu({ focus: false });
