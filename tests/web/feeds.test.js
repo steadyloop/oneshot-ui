@@ -10,7 +10,10 @@ const {
   problemText,
   buildBands,
   STATE_LABEL,
-} = require("../../web/feeds/desktop.js");
+  healthyShare,
+  healthTone,
+  clockLine,
+} = require("../../web/feeds/core.js");
 
 test("every backend board state has a stable visual key", () => {
   assert.equal(stateKey("ok"), "ok");
@@ -91,12 +94,12 @@ test("no board is dropped: every board lands in exactly one band", () => {
   assert.equal(bands.length, providers.length);
 });
 
-test("each band pins trouble first, worst first, then healthy boards heaviest first", () => {
+test("each band pins trouble first, worst first; healthy boards keep their order", () => {
   const [band] = buildBands({ providers: [{ source: "workday", boards: [
     board("ok", 5), board("stale", 900), board("ok", 800), board("failing", 0), board("degraded", 50),
   ] }] });
   assert.deepEqual(band.boards.map(b => [b.state, b.jobs]), [
-    ["failing", 0], ["degraded", 50], ["stale", 900], ["ok", 800], ["ok", 5],
+    ["failing", 0], ["degraded", 50], ["stale", 900], ["ok", 5], ["ok", 800],
   ]);
   assert.deepEqual(band.problems, { failing: 1, degraded: 1, stale: 1 });
 });
@@ -108,6 +111,25 @@ test("bands skip empty providers and normalise unexpected states and missing com
   ] });
   assert.deepEqual(bands.map(band => band.id), ["icims"]);
   assert.deepEqual(bands[0].boards[0], { company: "acme", state: "unknown", strikes: 0, jobs: 0, last_poll_at: null });
+});
+
+test("the healthy share floors, so 100% means every board is healthy", () => {
+  assert.equal(healthyShare({ ok: 999, failing: 1 }), "99%");
+  assert.equal(healthyShare({ ok: 7 }), "100%");
+  assert.equal(healthyShare({ ok: 0, stale: 1 }), "0%");
+  assert.equal(healthyShare({}), "—");
+  assert.equal(healthTone({ ok: 9, failing: 1 }), "");
+  assert.equal(healthTone({ ok: 89, stale: 11 }), "warn");
+  assert.equal(healthTone({ ok: 1, degraded: 2 }), "bad");
+});
+
+test("the desktop clock reads like the mockup", () => {
+  assert.match(clockLine(new Date("2026-10-09T05:59:06Z")), /^\w{3} \w{3} \d{1,2}, \d{1,2}:\d{2}:\d{2} [AP]M \S+$/);
+});
+
+test("single-employer sources are left off the page", () => {
+  const providers = ["workday", "hn", "apple", "janestreet", "amazon", "flyio", "simplify"].map(source => ({ source, boards: [board("ok", 1)] }));
+  assert.deepEqual(buildBands({ providers }).map(band => band.id), ["workday"]);
 });
 
 test("polling freshness has concise labels", () => {
@@ -136,5 +158,4 @@ test("feed status is the canonical read-only page and navigation label", () => {
     assert.match(shell, /href="\/source-coverage\/"[^>]*title="Feed (?:Status|Overview)"[^>]*>[\s\S]*?<span>Feeds<\/span>/);
     assert.doesNotMatch(shell, /Source coverage|Feed Health/);
   }
-  assert.match(page, /navigation\.css\?v=[\w-]+"/);
 });

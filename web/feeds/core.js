@@ -71,17 +71,20 @@ export const fleetTotals = payload => {
   return totals && Number.isFinite(Number(totals.boards)) ? { ...counts, ...totals, roles } : counts;
 };
 
-// Trouble first (worst first), then healthy boards heaviest first: each band
-// reads as a gradient with its problems pinned to the top-left corner.
-const byWeight = boards => [...boards].sort((a, b) => (SEVERITY[a.state] - SEVERITY[b.state]) || (b.jobs - a.jobs));
+// Trouble first (worst first), pinned to the top-left corner. Within each
+// state boards keep the API's order, so healthy shades mix across the wall.
+const byWeight = boards => [...boards].sort((a, b) => SEVERITY[a.state] - SEVERITY[b.state]);
 
-// One band per provider with boards, ranked by its deduplicated, active
+// Single-employer sources (not an ATS) are left off the Feeds page.
+export const SINGLE_SOURCES = new Set(["amazon", "apple", "janestreet", "flyio", "hn", "simplify"]);
+
+// One band per ATS provider with boards, ranked by its deduplicated, active
 // student jobs eligible for Discover.
 export const buildBands = payload => {
   const bands = [];
   for (const provider of Array.isArray(payload?.providers) ? payload.providers : []) {
     const list = Array.isArray(provider.boards) ? provider.boards : [];
-    if (!list.length) continue;
+    if (!list.length || SINGLE_SOURCES.has(provider.source)) continue;
     const band = { id: String(provider.source || "?"), boards: [], jobs: 0, discoverJobs: Number(provider.discover_jobs) || 0, problems: {} };
     for (const board of list) {
       const state = stateKey(board.state);
@@ -116,6 +119,21 @@ const PROVIDER_NAMES = {
 export const providerName = band => PROVIDER_NAMES[band.id] || band.id;
 export const boardCount = band => `${number(band.boards.length)} ${band.boards.length === 1 ? "board" : "boards"}`;
 export const jobCount = band => `${compact(band.jobs)} ${band.jobs === 1 ? "job" : "jobs"}`;
+
+// Share of a provider's boards that are healthy, floored so 100% means all of them.
+export const healthyShare = counts => {
+  const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
+  if (!total) return "—";
+  return `${counts.ok === total ? 100 : Math.min(99, Math.floor((counts.ok / total) * 100))}%`;
+};
+// The share colours itself, so weak providers stand out without reading.
+export const healthTone = counts => {
+  const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
+  const share = total ? counts.ok / total : 0;
+  return share >= 0.9 ? "" : share >= 0.5 ? "warn" : "bad";
+};
+// Problem columns on each provider row, worst first.
+export const ISSUE_STATES = ["failing", "stale", "degraded"];
 
 /* ───────────── Today's activity ───────────── */
 // `mark` wraps each number, so the same sentence serves as text and as markup.
@@ -156,11 +174,14 @@ export const squareColumns = (width, { pitch, size }) => Math.max(8, Math.floor(
 
 // Row by row, one square per board. Only occupied pitches get the gap tint, so
 // the last row keeps its silhouette and the gutters soften against the page.
+// Without a gap colour the gutters show the page.
 export function paintSquares(context, boards, columns, { pitch, size }, colors) {
   const fullRows = Math.floor(boards.length / columns), remainder = boards.length % columns;
-  context.fillStyle = colors.gap;
-  context.fillRect(0, 0, columns * pitch, fullRows * pitch);
-  if (remainder) context.fillRect(0, fullRows * pitch, remainder * pitch, pitch);
+  if (colors.gap) {
+    context.fillStyle = colors.gap;
+    context.fillRect(0, 0, columns * pitch, fullRows * pitch);
+    if (remainder) context.fillRect(0, fullRows * pitch, remainder * pitch, pitch);
+  }
   boards.forEach((board, index) => {
     context.fillStyle = cellColor(colors, board);
     context.fillRect((index % columns) * pitch, Math.floor(index / columns) * pitch, size, size);
@@ -195,6 +216,17 @@ const TIME_FORMAT = new Intl.DateTimeFormat(undefined, {
   hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true, timeZoneName: "short",
 });
 export const clockText = (now = new Date()) => `${DATE_FORMAT.format(now)} ${TIME_FORMAT.format(now)}`;
+
+// Desktop: "Thu Oct 8, 10:59:06 PM PDT", built from parts since locales place
+// commas differently.
+const CLOCK_FORMAT = new Intl.DateTimeFormat("en-US", {
+  weekday: "short", month: "short", day: "numeric",
+  hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true, timeZoneName: "short",
+});
+export const clockLine = (now = new Date()) => {
+  const part = Object.fromEntries(CLOCK_FORMAT.formatToParts(now).map(({ type, value }) => [type, value]));
+  return `${part.weekday} ${part.month} ${part.day}, ${part.hour}:${part.minute}:${part.second} ${part.dayPeriod} ${part.timeZoneName}`;
+};
 
 const REFRESH_MS = 60000;
 

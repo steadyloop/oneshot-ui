@@ -14,6 +14,8 @@
   <a class="skip-link" href="#workspace">Skip to feed overview</a>
   <svg class="icon-sprite" aria-hidden="true">
     <symbol id="icon-sources" viewBox="0 0 24 24"><circle cx="6" cy="12" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="m8 11 8-4M8 13l8 4"/></symbol>
+    <symbol id="icon-chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+    <symbol id="icon-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
     <symbol id="icon-alert" viewBox="0 0 24 24"><path d="M12 4 3.5 19h17L12 4Z"/><path d="M12 9v4M12 16h.01"/></symbol>
   </svg>
 
@@ -34,30 +36,25 @@
       <div class="account-slot" data-account-slot aria-label="Account"></div>
     </aside>
 
-    <main id="workspace" class="workspace" tabindex="-1" aria-label="Feeds">
-
-      <section class="source-section" aria-labelledby="fleet-stats">
-        <header class="section-header">
-          <h2 id="fleet-stats" class="fleet-stats">Loading fleet…</h2>
-          <div class="section-title">
-            <div id="ticker" class="ticker" hidden>
-              <button type="button" class="ticker-toggle" aria-expanded="false" aria-controls="ticker-card"><span id="today-line" class="today-line" aria-live="polite"></span><svg class="chev" aria-hidden="true" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
-              <div id="ticker-card" class="ticker-card" hidden></div>
-            </div>
-            <span id="stale-note" class="stale-note" hidden aria-live="polite"><i aria-hidden="true"></i>Refresh failed — showing last known data</span>
-          </div>
-          <span id="clock" class="clock" aria-label="Current date and time">—</span>
-        </header>
-        <div id="coverage-content">
-          <div class="state loading-state"><span class="spinner"></span><p>Loading feed overview…</p></div>
-        </div>
-      </section>
-      <footer class="classification-footer" aria-label="Job classification and contact">
-        <p class="classification-summary" hidden aria-live="polite" aria-atomic="true">OneShot currently classifies <span class="classification-metric"><strong class="classification-count classification-total">—</strong> active job postings</span> to identify <span class="classification-metric"><strong class="classification-count classification-students">—</strong> student roles</span> for <span class="classification-discover"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Discover</span>.</p>
-        <p class="classification-contact">Need a filter tailored to your search? <a class="classification-email" href="mailto:chkim@tuta.io?subject=OneShot%20filter%20request">Contact me</a></p>
+    <main id="workspace" class="workspace feeds" tabindex="-1" aria-label="Feeds">
+      <header class="fleet-line">
+        <h2 id="fleet-stats" class="fleet-stats">Loading fleet…</h2>
+        <span class="fl-sep" data-ticker-sep aria-hidden="true" hidden>|</span>
+        <span id="ticker" class="fleet-today" hidden>
+          <button type="button" class="ticker-toggle" aria-expanded="false" aria-controls="ticker-card"><span id="today-line" aria-live="polite"></span><svg aria-hidden="true"><use href="#icon-down"/></svg></button>
+          <div id="ticker-card" class="pop ticker-pop" hidden></div>
+        </span>
+        <span id="stale-note" class="stale-note" hidden aria-live="polite">Refresh failed — showing last known data</span>
+        <span id="clock" class="clock" aria-label="Current date and time">—</span>
+      </header>
+      <div id="coverage-content">
+        <div class="state loading-state"><span class="spinner"></span><p>Loading feed overview…</p></div>
+      </div>
+      <footer class="fleet-foot" aria-label="Job classification and contact">
+        <p class="classification-summary" hidden aria-live="polite">OneShot currently classifies <b class="classification-total">—</b> active postings to filter <b class="classification-students">—</b> roles.</p>
+        <p>Need a filter tailored to your search? <a href="mailto:chkim@tuta.io?subject=OneShot%20filter%20request">Contact me</a></p>
       </footer>
     </main>
   </div>
-  <div class="board-tip" id="board-tip" role="tooltip"></div>
 </body>
 </html>
