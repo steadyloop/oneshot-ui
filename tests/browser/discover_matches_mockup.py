@@ -145,6 +145,10 @@ ALLOW = {
     # the toolbar/card inset, and adds a faint shadow. Geometry is checked below.
     ("card", "max-width"), ("card", "box-shadow"),
     ("pane", "padding"), ("subbar", "padding"),
+    # The approved darker backdrop caps the header and adds a faint outer edge.
+    ("topbar", "max-width"), ("topbar", "box-shadow"),
+    # The role summary fills the narrower card's available content width.
+    ("summary", "max-width"),
     # Content differs (sample vs real postings), so these follow the text.
     ("*", "width"), ("*", "height"),
     # The mockup lays out with an inner span the live markup doesn't have.
@@ -214,8 +218,8 @@ async def check(browser, width):
         grid: document.querySelector('.discover-grid').getBoundingClientRect().width }; }""")
     if abs(geometry["search"] - geometry["card"]) > 1 or abs(geometry["tools"] - geometry["card"]) > 1:
         failures.append(f"[{width}] search, controls and card must share a right edge: {geometry}")
-    if abs(geometry["grid"] - min(width - 76, 1560)) > 1:
-        failures.append(f"[{width}] workspace must be left aligned and capped at 1560px: {geometry}")
+    if abs(geometry["grid"] - min(width - 76, 1400)) > 1:
+        failures.append(f"[{width}] workspace must be left aligned and capped at 1400px: {geometry}")
     await mock.wait_for_timeout(500)
     app = mock.locator("#app")
     # Compare a posting listed with skills and on more than one board where the

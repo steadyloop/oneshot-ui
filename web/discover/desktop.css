@@ -9,7 +9,7 @@
   --sans: 'IBM Plex Sans', ui-sans-serif, -apple-system, 'Segoe UI', sans-serif;
   --serif: 'IBM Plex Serif', Georgia, serif;
   --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  --gutter: 32px; --discover-max: 1560px; --pop-shadow: 0 2px 6px rgb(20 24 22 / 8%), 0 16px 40px rgb(20 24 22 / 14%);
+  --gutter: 32px; --discover-max: var(--app-workspace-max); --pop-shadow: 0 2px 6px rgb(20 24 22 / 8%), 0 16px 40px rgb(20 24 22 / 14%);
 }
 * { box-sizing: border-box; }
 html { min-width: 320px; background: #FFFFFF; }
@@ -204,7 +204,7 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-lineca
 
 .detail-rule { margin: 20px 0 18px; border: 0; border-top: 1px solid var(--line); }
 .detail-body h3 { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
-.role-summary, .summary-missing { max-width: 70ch; margin: 0; color: var(--ink-2); font-size: 14.5px; line-height: 1.65; }
+.role-summary, .summary-missing { margin: 0; color: var(--ink-2); font-size: 14.5px; line-height: 1.65; }
 .detail-facts > h3 { margin-top: 22px; }
 .detail-facts dl { margin: 4px 0 0; }
 .detail-fact { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 12px; padding: 7px 0; border-top: 1px solid var(--line); font-size: 13px; }
@@ -276,12 +276,11 @@ html:has(.report-dialog[open]) { overflow: hidden; }
 .loading i { width: 20px; height: 20px; display: inline-block; border: 2px solid var(--line-strong); border-top-color: var(--green); border-radius: 50%; animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(1turn); } }
 
-/* Bounded desktop workspace with a quiet surplus background. */
+/* Discover content follows the shared desktop frame. */
 @media (min-width: 761px) {
- /* Keep both bars full width; only the workspace and their content are bounded. */
- .opportunities-app .app-topbar { padding-right: max(var(--gutter), calc(100% - 76px - var(--discover-max) + var(--gutter))); }
- .discover-controls-pane { padding-right: max(var(--gutter), calc(100% - var(--discover-max) + var(--gutter))); }
- .discover-page { background: linear-gradient(90deg, var(--ground), #F1F3EF) var(--discover-max) 52px / max(0px, calc(100% - var(--discover-max))) calc(100% - 52px) no-repeat var(--ground); }
+ .opportunities-app .app-topbar { padding-right: var(--gutter); }
+ .discover-controls-pane { padding-right: var(--gutter); }
+ .opportunities-app .main, .discover-page { background: var(--ground); }
  .discover-grid { width: 100%; max-width: var(--discover-max); }
  .detail { padding-right: var(--gutter); }
  .detail-inner { width: 100%; max-width: none; box-shadow: 0 1px 2px rgb(20 24 22 / 3%), 0 6px 20px rgb(20 24 22 / 2%); }

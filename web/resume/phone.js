@@ -1,3 +1,4 @@
+import { importButton, installResumeImport } from "./import.js";
 /* Resume on phones. The profile is the bank: every resume picks from it, so
    each thing is written once. Entries open as full pages that save as you go;
    bullets, skills, courses and contact details edit in sheets; each resume has
@@ -82,7 +83,7 @@ function skillsCard() {
     : `<button class="add-line" type="button" data-act="edit-skills">${icon("plus")}Add skills</button>`}</div></div>`;
 }
 function profileMarkup() {
-  return contactCard() + visibleSections().map(key => key === "skills" ? skillsCard() : entryCard(key)).join("")
+  return importButton() + contactCard() + visibleSections().map(key => key === "skills" ? skillsCard() : entryCard(key)).join("")
     + (missingSections().length
       ? `<div style="padding:0 16px 24px"><button class="add-line center" type="button" data-act="add-section">${icon("plus")}Add section</button></div>`
       : '<div style="height:24px"></div>');
@@ -796,6 +797,7 @@ P.start({
   onClick,
   start: async () => {
     wire();
+    installResumeImport({ getWorkspace: () => state, refresh, notify: message => P.toast(message) });
     await refresh();
     await openHandoff();
   },

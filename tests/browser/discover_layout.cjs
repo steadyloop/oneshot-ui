@@ -38,7 +38,7 @@ const tick = page => page.evaluate(() => document.fonts.ready.then(() => new Pro
         ? route.fulfill({ path: file }) : route.fulfill({ status: 404, body: '' });
     });
     let wideCard;
-    for (const width of [760, 761, 1024, 1280, 1600, 1800, 2200]) {
+    for (const width of [760, 761, 1024, 1280, 1476, 1477, 1600, 1800, 2200]) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto(ORIGIN);
       await page.waitForSelector(width === 760 ? '.job-row' : '.detail-inner');
@@ -54,14 +54,21 @@ const tick = page => page.evaluate(() => document.fonts.ready.then(() => new Pro
         return {
           grid: rect('.discover-grid'), list: rect('.opportunity-list'), rail: rect('.sidebar'),
           search: rect('.topbar-search'), tools: rect('.list-tools'), card: rect('.detail-inner'),
-          header: rect('.app-topbar'), toolbar: rect('.discover-controls-pane'), facts: rect('.detail-facts'),
+          header: rect('.app-topbar'), shell: rect('.app-shell'), toolbar: rect('.discover-controls-pane'), facts: rect('.detail-facts'),
+          backdrop: getComputedStyle(document.body).backgroundColor,
+          ground: getComputedStyle(document.querySelector('.discover-page')).backgroundColor,
           balance: getComputedStyle(document.querySelector('.opportunity h3')).textWrap,
         };
       });
-      assert.equal(metrics.grid.width, Math.min(width - 76, 1560));
+      assert.equal(metrics.grid.width, Math.min(width - 76, 1400));
       assert.equal(metrics.list.left, metrics.rail.right, 'Results stay attached to navigation');
-      assert.equal(metrics.header.right, width);
-      assert.equal(metrics.toolbar.right, width);
+      assert.equal(metrics.header.left, 0, 'Header stays attached to the left edge');
+      assert.equal(metrics.header.right, Math.min(width, 1476));
+      assert.equal(metrics.shell.right, metrics.header.right, 'Shell and header share an edge');
+      assert.equal(metrics.toolbar.right, metrics.header.right, 'Toolbar and header share an edge');
+      assert.equal(metrics.grid.right, metrics.header.right, 'Workspace and header share an edge');
+      assert.equal(metrics.backdrop, 'rgb(230, 234, 227)');
+      assert.equal(metrics.ground, 'rgb(245, 246, 243)');
       assert.ok(Math.abs(metrics.search.right - metrics.card.right) < 1, `Search/card alignment at ${width}`);
       assert.ok(Math.abs(metrics.tools.right - metrics.card.right) < 1, `Toolbar/card alignment at ${width}`);
       assert.ok(metrics.facts.width <= 960);
@@ -111,7 +118,7 @@ const tick = page => page.evaluate(() => document.fonts.ready.then(() => new Pro
     await page.locator('.skip-notice [data-action="undo"]').click();
     await page.waitForSelector('[data-job="2"]');
     assert.deepEqual(errors, []);
-    console.log('PASS: seven widths, shared edges, capped layout, mobile, title/skill edge cases, resize, scroll, menus and keyboard triage');
+    console.log('PASS: nine widths, subtle backdrop, shared edges, capped layout, mobile, title/skill edge cases, resize, scroll, menus and keyboard triage');
   } finally {
     await browser.close();
   }

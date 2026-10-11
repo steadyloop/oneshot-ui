@@ -353,8 +353,13 @@ body:has(.resume-empty) > .app-topbar { flex-shrink: 0; }
 .skill-label { padding-top: 0; }
 .skill-rows { gap: 8px; }
 .course-list, .skill-list { gap: 6px; }
-.course-item, .skill-item { max-width: 100%; min-height: 26px; padding: 2px 7px; font-size: 13px; line-height: 20px; }
-.course-item .value-trigger, .skill-item .value-trigger { max-width: calc(100% + 14px); min-height: 24px; margin: -2px -7px; padding: 2px 7px; line-height: 20px; }
+.course-item, .skill-item { width: max-content; max-width: 100%; min-width: 0; min-height: 26px; padding: 2px 7px; font-size: 13px; line-height: 20px; }
+/* Let the button own the padding so intrinsic tag sizing includes the whole label. */
+.profile-document .course-item, .profile-document .skill-item { padding: 0; }
+.course-item .value-trigger, .skill-item .value-trigger { max-width: 100%; min-width: 0; min-height: 24px; margin: 0; padding: 2px 7px; line-height: 20px; }
+/* Preserve word widths when packing tags; break only labels wider than the list. */
+.course-item .value-trigger > span, .skill-item .value-trigger > span,
+.resume-content .course-item > span, .resume-content .skill-item > span { min-width: 0; overflow-wrap: break-word; }
 .course-item .edit-cue, .skill-item .edit-cue { display: none; }
 .resume-content .course-item, .resume-content .skill-item { gap: 5px; background: #eaf2ec; color: #29553d; border-color: transparent; }
 .resume-content .course-item.selectable::before, .resume-content .skill-item.selectable::before {

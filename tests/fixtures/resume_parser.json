@@ -1,0 +1,158 @@
+[
+  {
+    "name": "student_resume",
+    "text": "Alex Morgan\nalex@example.com | (206) 555-0142 | Seattle, WA\ngithub.com/alex | https://alex.dev\n\nEDUCATION\nUniversity of Washington | B.S. Computer Science | Sep 2023 – Jun 2027\nGPA: 3.85 / 4.0\nRelevant Coursework: Algorithms, Probability\n\nWORK EXPERIENCE\nNorthstar Labs | Software Engineering Intern | Jun 2026 – Sep 2026\n• Built reusable React components.\n• Reduced load time by 35%.\n\nTECHNICAL SKILLS\nProgramming Languages: Python, C++, SQL\nFrameworks & Libraries: React, FastAPI\nDatabases: PostgreSQL, DuckDB\nTools: Git, Docker\n\nPROJECTS\nTrailhead | Hiking route planner | 2025 – Present\n- Built an offline map cache.\n",
+    "expected": {
+      "profile.full_name": "Alex Morgan", "profile.email": "alex@example.com",
+      "profile.phone": "(206) 555-0142", "profile.location": "Seattle, WA",
+      "profile.links.0.url": "https://github.com/alex", "profile.links.1.url": "https://alex.dev",
+      "entries.0.kind": "education", "entries.0.org": "University of Washington",
+      "entries.0.role": "B.S. Computer Science", "entries.0.start_date": "Sep 2023",
+      "entries.0.end_date": "Jun 2027", "entries.0.detail": "3.85 / 4.0",
+      "entries.1.kind": "experience", "entries.1.org": "Northstar Labs",
+      "entries.1.role": "Software Engineering Intern", "entries.1.start_date": "Jun 2026",
+      "entries.1.end_date": "Sep 2026", "entries.1.bullets.0.text": "Built reusable React components.",
+      "entries.1.bullets.1.text": "Reduced load time by 35%.",
+      "entries.2.kind": "project", "entries.2.org": "Trailhead",
+      "entries.2.role": "Hiking route planner", "entries.2.start_date": "2025",
+      "entries.2.end_date": "Present", "entries.2.bullets.0.text": "Built an offline map cache.",
+      "skills.0.name": "Algorithms", "skills.0.category": "coursework",
+      "skills.1.name": "Probability", "skills.1.category": "coursework",
+      "skills.2.name": "Python", "skills.2.category": "language",
+      "skills.3.name": "C++", "skills.3.category": "language",
+      "skills.4.name": "SQL", "skills.4.category": "language",
+      "skills.5.name": "React", "skills.5.category": "framework",
+      "skills.6.name": "FastAPI", "skills.6.category": "framework",
+      "skills.7.name": "PostgreSQL", "skills.7.category": "data",
+      "skills.8.name": "DuckDB", "skills.8.category": "data",
+      "skills.9.name": "Git", "skills.9.category": "tool",
+      "skills.10.name": "Docker", "skills.10.category": "tool"
+    },
+    "entry_count": 3, "skill_count": 11, "warnings": []
+  },
+  {
+    "name": "roles_under_one_employer",
+    "text": "Jamie Chen\njamie@example.org\n\nProfessional Experience\nNorthstar Labs\n  Senior Software Engineer | 2024 – Present\n  - Led the platform migration.\n  Software Engineer | 2022 – 2024\n  - Built the first release.\n",
+    "expected": {
+      "profile.full_name": "Jamie Chen", "profile.email": "jamie@example.org",
+      "entries.0.org": "Northstar Labs", "entries.0.role": "Senior Software Engineer",
+      "entries.0.start_date": "2024", "entries.0.end_date": "Present",
+      "entries.0.bullets.0.text": "Led the platform migration.",
+      "entries.1.org": "Northstar Labs", "entries.1.role": "Software Engineer",
+      "entries.1.start_date": "2022", "entries.1.end_date": "2024",
+      "entries.1.bullets.0.text": "Built the first release."
+    },
+    "entry_count": 2, "skill_count": 0, "warnings": []
+  },
+  {
+    "name": "wrapped_bullets_and_new_employer",
+    "text": "Jane O'Neill\nEmail: jane@example.net\nLocation: London, UK\n\nEmployment History\nSoftware Engineer at Acme | 01/2022 - 06/2024\n- Built a cache that served\n  12,000 requests per second.\n- Improved tail latency by 28%.\n\nResearch Experience\nUndergraduate Researcher | University of Oxford | Fall 2021 to Spring 2022\n* Published reproducible experiments.\n\nLeadership & Activities\nPresident | ACM Chapter | 2020 - 2021\n- Organized 15 workshops.\n",
+    "expected": {
+      "profile.full_name": "Jane O'Neill", "profile.email": "jane@example.net",
+      "profile.location": "London, UK",
+      "entries.0.org": "Acme", "entries.0.role": "Software Engineer",
+      "entries.0.start_date": "01/2022", "entries.0.end_date": "06/2024",
+      "entries.0.bullets.0.text": "Built a cache that served 12,000 requests per second.",
+      "entries.0.bullets.1.text": "Improved tail latency by 28%.",
+      "entries.1.kind": "research", "entries.1.org": "University of Oxford",
+      "entries.1.role": "Undergraduate Researcher", "entries.1.start_date": "Fall 2021",
+      "entries.1.end_date": "Spring 2022", "entries.1.bullets.0.text": "Published reproducible experiments.",
+      "entries.2.kind": "leadership", "entries.2.org": "ACM Chapter",
+      "entries.2.role": "President", "entries.2.bullets.0.text": "Organized 15 workshops."
+    },
+    "entry_count": 3, "skill_count": 0, "warnings": []
+  },
+  {
+    "name": "education_without_bullets",
+    "text": "Priya Singh\n\nAcademic Background\nMIT\nM.S. Computer Science\nExpected graduation: May 2028\nGPA 4.0\nUniversity of Waterloo\nB.Sc. Mathematics\n2019 – 2023\n",
+    "expected": {
+      "profile.full_name": "Priya Singh",
+      "entries.0.kind": "education", "entries.0.org": "MIT",
+      "entries.0.role": "M.S. Computer Science", "entries.0.end_date": "May 2028",
+      "entries.0.start_date": "", "entries.0.detail": "4.0",
+      "entries.1.org": "University of Waterloo", "entries.1.role": "B.Sc. Mathematics",
+      "entries.1.start_date": "2019", "entries.1.end_date": "2023"
+    },
+    "entry_count": 2, "skill_count": 0, "warnings": []
+  },
+  {
+    "name": "unsupported_sections_do_not_leak",
+    "text": "Avery Jones\n\nExperience\nEngineer | Acme | 2021 – Present\n- Built a billing service.\n\nAwards\nCommunity Service Award, 2024\n- Awarded for 100 hours of service.\n\nCertifications\nAWS Certified Developer\n\nSummary\nI like reliable software.\n",
+    "expected": {
+      "profile.full_name": "Avery Jones", "entries.0.org": "Acme",
+      "entries.0.role": "Engineer", "entries.0.bullets.0.text": "Built a billing service."
+    },
+    "entry_count": 1, "skill_count": 0,
+    "warnings": ["unsupported_section"],
+    "unparsed_contains": ["Community Service Award", "100 hours of service", "AWS Certified Developer", "I like reliable software."]
+  },
+  {
+    "name": "conflicting_contact_values",
+    "text": "Full name: Alex Morgan\nFull name: Jamie Chen\nalex@example.com | jamie@example.org\nPhone: +44 20 7946 0958\nLocation: Paris, France\n",
+    "expected": {
+      "profile.full_name": "", "profile.email": "",
+      "profile.phone": "+44 20 7946 0958", "profile.location": "Paris, France"
+    },
+    "entry_count": 0, "skill_count": 0,
+    "warnings": ["ambiguous_field"],
+    "unparsed_contains": ["Alex Morgan", "Jamie Chen", "jamie@example.org"]
+  },
+  {
+    "name": "ambiguous_company",
+    "text": "Alex Morgan\n\nExperience\nSoftware Engineer | Acme | Widgets | 2024 – Present\n- Built a monitoring service.\n",
+    "expected": {
+      "entries.0.org": "", "entries.0.role": "Software Engineer",
+      "entries.0.start_date": "2024", "entries.0.end_date": "Present",
+      "entries.0.bullets.0.text": "Built a monitoring service."
+    },
+    "entry_count": 1, "skill_count": 0,
+    "warnings": ["missing_org", "ambiguous_entry_header"],
+    "unparsed_contains": ["Acme", "Widgets"]
+  },
+  {
+    "name": "taxonomy_and_unknown_skills",
+    "text": "Alex Morgan\n\nTechnical Skills\nPython, React, PostgreSQL, Git, CustomThing\nTools: CustomTool, CI/CD\nMath & Methods: Linear Algebra, Probability\n",
+    "expected": {
+      "skills.0.name": "Python", "skills.0.category": "language",
+      "skills.1.name": "React", "skills.1.category": "framework",
+      "skills.2.name": "PostgreSQL", "skills.2.category": "data",
+      "skills.3.name": "Git", "skills.3.category": "tool",
+      "skills.4.name": "CustomThing", "skills.4.category": null,
+      "skills.5.name": "CustomTool", "skills.5.category": "tool",
+      "skills.6.name": "CI/CD", "skills.6.category": "tool",
+      "skills.7.name": "Linear Algebra", "skills.7.category": "math",
+      "skills.8.name": "Probability", "skills.8.category": "math"
+    },
+    "entry_count": 0, "skill_count": 9, "warnings": ["unresolved_skill_category"]
+  },
+  {
+    "name": "explicit_fields_and_no_inferred_skills",
+    "text": "Alex Morgan\n\nExperience\nCompany: Acme\nPosition: Developer\nStart: June 2021\nEnd: Current\nLocation: New York, NY\n- Used Python and React to serve 2024 customers.\n",
+    "expected": {
+      "entries.0.org": "Acme", "entries.0.role": "Developer",
+      "entries.0.start_date": "June 2021", "entries.0.end_date": "Current",
+      "entries.0.location": "New York, NY",
+      "entries.0.bullets.0.text": "Used Python and React to serve 2024 customers."
+    },
+    "entry_count": 1, "skill_count": 0, "warnings": []
+  },
+  {
+    "name": "missing_headings_is_reviewable",
+    "text": "Alex Morgan\nalex@example.com\nNorthstar Labs\nSoftware Engineer\n2020 – 2024\n- Built a service.\n",
+    "expected": {"profile.full_name": "Alex Morgan", "profile.email": "alex@example.com"},
+    "entry_count": 0, "skill_count": 0, "warnings": [],
+    "unparsed_contains": ["Northstar Labs", "Software Engineer", "2020 – 2024", "Built a service."]
+  },
+  {
+    "name": "date_formats_and_bullet_numbers",
+    "text": "Alex Morgan\n\nEmployment\nEngineer | Acme | September 2020 — Dec. 2022\n1. Served 2020 users with a 99.9% uptime target.\nDeveloper | Widgets | Summer 2023 - Now\n2) Cut costs by $12,000.\n",
+    "expected": {
+      "entries.0.org": "Acme", "entries.0.start_date": "September 2020",
+      "entries.0.end_date": "Dec. 2022",
+      "entries.0.bullets.0.text": "Served 2020 users with a 99.9% uptime target.",
+      "entries.1.org": "Widgets", "entries.1.start_date": "Summer 2023",
+      "entries.1.end_date": "Now", "entries.1.bullets.0.text": "Cut costs by $12,000."
+    },
+    "entry_count": 2, "skill_count": 0, "warnings": []
+  }
+]

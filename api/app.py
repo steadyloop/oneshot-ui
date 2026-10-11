@@ -31,6 +31,7 @@ from .tracker.store import (
 )
 from .resume.routes import render_router, router as resume_router
 from .resume.store import PostgresResumeStore
+from .resume.import_routes import router as resume_import_router
 
 
 def _logo_media_type(payload: bytes) -> str:
@@ -340,6 +341,7 @@ def create_app(
     # in the request. Included first so its fixed /render/* paths are matched
     # before the gated router's parameterized ones.
     application.include_router(render_router)
+    application.include_router(resume_import_router)
     # The resume router carries its own required-account dependency.
     application.include_router(resume_router)
 

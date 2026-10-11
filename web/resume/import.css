@@ -1,0 +1,39 @@
+.resume-import-trigger { display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; color: #27664d; font: inherit; cursor: pointer; padding: 8px 12px; }
+.resume-import-trigger svg, .resume-import-dialog svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+.resume-import-dialog { box-sizing: border-box; padding: 0; width: min(640px, calc(100vw - 32px)); max-width: none; max-height: calc(100dvh - 32px); border: 1px solid #dce2de; border-radius: 8px; color: #24362e; background: white; box-shadow: 0 18px 60px #0002; font: 14px/1.5 'IBM Plex Sans', sans-serif; }
+.resume-import-dialog::backdrop { background: #0005; }
+.resume-import-dialog form { display: flex; flex-direction: column; max-height: calc(100dvh - 34px); margin: 0; }
+.resume-import-dialog header, .resume-import-dialog footer { display: flex; align-items: center; gap: 16px; padding: 18px 20px; flex-shrink: 0; }
+.resume-import-dialog header { border-bottom: 1px solid #e2e6e3; justify-content: space-between; }
+.resume-import-dialog h2 { margin: 0; font: 600 21px/1.4 'IBM Plex Sans', sans-serif; }
+.resume-import-dialog h3 { margin: 22px 0 12px; color: #27664d; }
+.resume-import-dialog button, .resume-import-dialog input, .resume-import-dialog select, .resume-import-dialog textarea { font: inherit; }
+.resume-import-dialog button { cursor: pointer; border: 1px solid #6c9b87; border-radius: 5px; padding: 9px 20px; color: #27664d; background: white; }
+.resume-import-dialog button:disabled { opacity: .55; cursor: wait; }
+.resume-import-dialog header button { border: 0; font-size: 26px; padding: 0 4px; color: #24362e; }
+.resume-import-dialog footer { border-top: 1px solid #e2e6e3; justify-content: flex-end; }
+.resume-import-dialog .ri-primary { color: white; background: #27664d; }
+.resume-import-dialog .ri-body { padding: 0 20px 12px; overflow-y: auto; }
+.resume-import-dialog .ri-note, .resume-import-dialog small { color: #6d7771; font-size: 12px; }
+.resume-import-dialog .ri-drop { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 36px 16px; border: 1px dashed #bac7bf; border-radius: 8px; background: #f8f9f8; cursor: pointer; }
+.resume-import-dialog .ri-drop svg { width: 44px; height: 44px; color: #27664d; }
+.resume-import-dialog .ri-drop button, .resume-import-dialog .ri-text { border: 0; padding: 0; text-decoration: underline; background: transparent; }
+.resume-import-dialog .ri-text { margin-top: 18px; }
+.resume-import-dialog .ri-status { white-space: pre-wrap; color: #864017; }
+.resume-import-dialog .ri-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.resume-import-dialog label { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; }
+.resume-import-dialog input:not([type=checkbox]), .resume-import-dialog textarea, .resume-import-dialog select { box-sizing: border-box; width: 100%; min-width: 0; padding: 8px; color: #24362e; border: 1px solid #c8d1cc; border-radius: 4px; background: white; }
+.resume-import-dialog textarea { min-height: 80px; resize: vertical; }
+.resume-import-dialog .ri-check { flex-direction: row; align-items: center; gap: 8px; font-weight: 500; }
+.resume-import-dialog input[type=checkbox] { width: 16px; height: 16px; accent-color: #27664d; }
+.resume-import-dialog fieldset { min-width: 0; margin: 12px 0; padding: 12px; border: 1px solid #dce2de; border-radius: 5px; }
+.resume-import-dialog pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; color: #58655e; }
+.resume-import-dialog details { margin-top: 16px; }
+.resume-import-dialog [hidden] { display: none !important; }
+.resume-import-dialog :focus-visible, .resume-import-trigger:focus-visible { outline: 2px solid #27664d; outline-offset: 3px; }
+@media (max-width: 760px) {
+  .resume-import-dialog { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); }
+  .resume-import-dialog form { max-height: calc(100dvh - 18px); }
+  .resume-import-dialog .ri-grid { grid-template-columns: 1fr; }
+  .resume-import-trigger { margin: 8px 4px; }
+}

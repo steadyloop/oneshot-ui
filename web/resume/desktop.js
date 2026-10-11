@@ -1,3 +1,4 @@
+import { importButton, installResumeImport } from "./import.js";
 // Resumes on desktop: one master profile, many tailored documents.
 import { startAccount } from "../shared/account.js";
 import { esc } from "../shared/util.js";
@@ -75,6 +76,7 @@ function updateChrome() {
   tabAction.hidden = state.tab !== "profile";
   view.classList.toggle("tailoring-view", state.tab === "resumes");
   renderTabAction();
+  document.querySelector("[data-import-slot]").hidden = state.tab !== "profile";
 }
 
 function missingSections() {
@@ -804,6 +806,12 @@ async function openHandoff() {
   state.tab = "resumes";
   history.replaceState(null, "", location.pathname + location.search);
 }
+
+const importSlot = document.createElement("div");
+importSlot.dataset.importSlot = "";
+importSlot.innerHTML = importButton();
+document.querySelector(".page-actions").prepend(importSlot);
+installResumeImport({ getWorkspace: () => state, refresh, notify: say });
 
 try {
   await loadAll();

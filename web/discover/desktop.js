@@ -31,9 +31,15 @@ function fadeFilters() {
   bar?.classList.toggle("fade", bar.scrollWidth > bar.clientWidth + 2);
 }
 // Keep the existing six-skill preview, fitting fewer chips when the row is narrow.
+let tagMeasurements = new WeakMap();
+const overflowWidths = new Map();
 function fitListTags() {
   const desktop = matchMedia("(min-width: 761px)").matches;
-  for (const tags of view.querySelectorAll(".tags")) {
+  // Read row widths together before changing chip visibility.
+  const rows = [...view.querySelectorAll(".tags")].map(tags => ({ tags, available: tags.clientWidth }));
+  for (const { tags, available } of rows) {
+    const measured = tagMeasurements.get(tags);
+    if (desktop && measured?.available === available) continue;
     const chips = [...tags.querySelectorAll(".tag:not(.tag-more)")];
     let more = tags.querySelector(".tag-more");
     const extra = Number(tags.dataset.extra ?? (more?.textContent.slice(1) || 0));
@@ -50,23 +56,42 @@ function fitListTags() {
       more.setAttribute("aria-label", `${count} more skill${count === 1 ? "" : "s"}`);
     };
     updateMore(extra);
-    if (!desktop) continue;
-    const widths = chips.map(chip => chip.getBoundingClientRect().width);
-    const gap = parseFloat(getComputedStyle(tags).columnGap) || 0;
+    if (!desktop) { tagMeasurements.delete(tags); continue; }
+    const widths = measured?.widths || chips.map(chip => chip.getBoundingClientRect().width);
+    const gap = measured?.gap ?? (parseFloat(getComputedStyle(tags).columnGap) || 0);
     let count = chips.length;
     let width = widths.reduce((total, value) => total + value, 0);
     while (count > 0) {
-      updateMore(extra + chips.length - count);
+      const remaining = extra + chips.length - count;
+      updateMore(remaining);
+      let moreWidth = overflowWidths.get(remaining) || 0;
+      if (more && !moreWidth) {
+        moreWidth = more.getBoundingClientRect().width;
+        overflowWidths.set(remaining, moreWidth);
+      }
       const items = count + (more ? 1 : 0);
-      if (width + (more?.getBoundingClientRect().width || 0) + gap * (items - 1) <= tags.clientWidth) break;
+      if (width + moreWidth + gap * (items - 1) <= available) break;
       width -= widths[--count];
     }
     updateMore(extra + chips.length - count);
     for (let index = count; index < chips.length; index++) chips[index].hidden = true;
+    tagMeasurements.set(tags, { widths, gap, available });
   }
 }
-addEventListener("resize", () => { fadeFilters(); fitListTags(); });
-document.fonts.ready.then(fitListTags);
+let resizeFrame = 0;
+addEventListener("resize", () => {
+  if (resizeFrame) return;
+  resizeFrame = requestAnimationFrame(() => {
+    resizeFrame = 0;
+    fadeFilters();
+    fitListTags();
+  });
+});
+document.fonts.ready.then(() => {
+  tagMeasurements = new WeakMap();
+  overflowWidths.clear();
+  fitListTags();
+});
 
 function paint(html) {
   const filtersLeft = view.querySelector(".discover-filterbar")?.scrollLeft || 0;
