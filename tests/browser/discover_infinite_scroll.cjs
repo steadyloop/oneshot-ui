@@ -20,7 +20,7 @@ const scrollNearEnd = page => page.locator('.opportunity-list').evaluate(list =>
 const waitForRows = (page, count) => page.waitForFunction(count => document.querySelectorAll('.opportunity').length === count, count);
 
 (async () => {
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE });
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     const errors = [], requests = [];

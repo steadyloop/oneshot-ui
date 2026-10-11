@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Chris’s application queue · OneShot</title>
+  <link rel="stylesheet" href="/static/shared/shell.css">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#queue">Skip to ranked jobs</a>
+  <header class="topbar">
+    <a class="brand" href="/">OneShot<span>APPLICATION QUEUE</span></a>
+    <nav aria-label="OneShot"><a href="/">Discover</a><a href="/application/">Applied ↗</a><a href="/resume/">Resume</a></nav>
+    <span id="identity">Checking workspace…</span>
+  </header>
+  <main>
+    <section class="intro">
+      <div>
+        <p class="eyebrow">A RESUME-BASED REVIEW · OCTOBER 11, 2026</p>
+        <h1>Your next applications,<br><em>in order.</em></h1>
+        <p class="lede">Engineering roles where your systems, backend, and data work give you a credible case. Internships, co-ops, and student opportunities across every term.</p>
+        <p class="window">Opened September 22–October 11, 2026 · 20 Pacific calendar days</p>
+      </div>
+      <aside class="profile" aria-label="Candidate profile">
+        <p class="eyebrow">THE PROFILE USED</p>
+        <strong>UC San Diego · CS &amp; Applied Math</strong>
+        <p>Graduation: December 2027, flexible<br>U.S. citizen · No sponsorship needed<br>All terms · Open to relocation</p>
+        <div class="profile-tags"><span>Backend &amp; systems</span><span>Data infrastructure</span><span>Python / Go / C++</span></div>
+        <small>OneShot · TrueTone · ChainSense · Embedded firmware · Networked-services TA</small>
+      </aside>
+    </section>
+
+    <div class="stats" id="stats" aria-label="Review summary"></div>
+    <details class="method">
+      <summary>How this queue was selected and ordered</summary>
+      <div id="methodology"><p>Loading review details…</p></div>
+    </details>
+    <section class="queue" id="queue" aria-labelledby="queue-title">
+      <div class="queue-heading"><div><p class="eyebrow">YOUR APPLICATION QUEUE</p><h2 id="queue-title">Start with the strongest fit.</h2></div><button id="download" class="quiet-button" disabled>Download CSV ↓</button></div>
+      <div class="tabs" role="group" aria-label="Review groups">
+        <button type="button" data-view="ready" aria-pressed="true">Ready to apply <span></span></button>
+        <button type="button" data-view="conditional" aria-pressed="false">Check conditions <span></span></button>
+        <button type="button" data-view="unverified" aria-pressed="false">Needs verification <span></span></button>
+        <button type="button" data-view="excluded" aria-pressed="false">Excluded <span></span></button>
+      </div>
+      <div class="filters">
+        <label class="search"><span class="sr-only">Search company, role, skills, or fit rationale</span><input id="search" type="search" placeholder="Search company, role, or skill…"></label>
+        <label><span class="sr-only">Role family</span><select id="category"><option value="">All role families</option></select></label>
+        <label><span class="sr-only">Internship term</span><select id="term"><option value="">All terms</option><option value="winter">Winter / spring</option><option value="summer">Summer</option><option value="fall">Fall</option><option value="flexible">Flexible / unspecified</option></select></label>
+        <label><span class="sr-only">Fit strength</span><select id="fit"><option value="">All fit levels</option><option value="1">Strongest fit</option><option value="2">Good fit</option><option value="3">Adjacent fit</option></select></label>
+        <label class="check"><input id="hide-applied" type="checkbox" checked> Hide applied</label>
+      </div>
+      <div class="list-meta"><p id="result-count" role="status">Loading ranked jobs…</p><span>Ordered by fit &amp; eligibility, then urgency</span></div>
+      <p class="view-note" id="view-note"></p>
+      <div id="jobs"><div class="loading">Reading the reviewed openings…</div></div>
+      <button id="more" class="more" hidden>Show more jobs</button>
+      <p class="tracker-note">“Add to Applied” records a submitted application in your OneShot workspace. Use it after submitting to the employer.</p>
+    </section>
+    <footer>Reviewed October 11, 2026. This is a dated research snapshot; openings and requirements can change. Each role links to its employer posting.</footer>
+  </main>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

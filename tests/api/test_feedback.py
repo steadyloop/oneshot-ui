@@ -1,7 +1,6 @@
 """Skip, Hidden and Restore work when postings exist only in the jobs database."""
 
 import os
-from pathlib import Path
 import unittest
 from urllib.parse import urlsplit
 from uuid import uuid4
@@ -13,6 +12,7 @@ from api.app import create_app
 from api.auth import session_account
 from api.config import Settings
 from api.tracker.store import PostgresRepository
+from db_fixtures import SERVING_TABLES, clone_tables
 
 
 @unittest.skipUnless(os.environ.get("ONESHOT_TEST_DATABASE_URL"), "local test database not configured")
@@ -20,17 +20,13 @@ class FeedbackDatabaseTests(unittest.IsolatedAsyncioTestCase):
     async def test_split_database_skip_reason_hidden_restore_and_account_scoping(self):
         dsn = os.environ["ONESHOT_TEST_DATABASE_URL"]
         self.assertIn(urlsplit(dsn).hostname, (None, "localhost", "127.0.0.1", "::1"))
-        root = Path(__file__).resolve().parents[2]
-        schema_root = Path(os.environ.get("XJOBSCORE_SCHEMA_ROOT", root.parent / "xjobscore"))
-        if not (schema_root / "frontend.sql").is_file():
-            self.skipTest("xjobscore/frontend.sql checkout required")
         setup = await asyncpg.connect(dsn)
         schemas = ["feedback_jobs_" + uuid4().hex, "feedback_accounts_" + uuid4().hex]
         pools = []
         try:
             for schema in schemas:
                 await setup.execute(f"CREATE SCHEMA {schema}; SET search_path TO {schema}")
-                await setup.execute((schema_root / "frontend.sql").read_text())
+                await clone_tables(setup, *SERVING_TABLES)
                 pools.append(await asyncpg.create_pool(dsn, min_size=1, max_size=4, server_settings={"search_path": schema}))
             jobs, personal = pools
             await jobs.execute("""
@@ -38,9 +34,6 @@ class FeedbackDatabaseTests(unittest.IsolatedAsyncioTestCase):
                 INSERT INTO job_posting(id,source,source_key,company_id,title,content_hash,job_type)
                 VALUES(79,'test','79',9,'Jobs-only intern','hash','intern');
             """)
-            migration = (root / "migrations/20261009_feedback_split_database.sql").read_text()
-            await personal.execute(migration)
-            await personal.execute(migration)
             self.assertEqual(await personal.fetchval("SELECT count(*) FROM job_posting"), 0)
             account, other_account = uuid4(), uuid4()
             await personal.execute("INSERT INTO account(id) VALUES($1),($2)", account, other_account)

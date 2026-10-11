@@ -3,7 +3,6 @@ import asyncio
 import os
 import unittest
 from contextlib import asynccontextmanager
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -12,9 +11,11 @@ import httpx
 
 from api.app import create_app
 from api.auth import session_account
-from api.tracker.store import PostgresRepository, SOFTWARE_FILTER
+from api.tracker.store import PostgresRepository
+from api.taxonomy import SOFTWARE_FILTER
 from api.resume.store import PostgresResumeStore
 from api.config import Settings, load_settings
+from db_fixtures import SERVING_TABLES, clone_tables
 
 
 class Pool:
@@ -149,9 +150,6 @@ class SplitDatabaseTests(unittest.IsolatedAsyncioTestCase):
         dsn=os.environ['ONESHOT_TEST_DATABASE_URL']
         from urllib.parse import urlsplit
         self.assertIn(urlsplit(dsn).hostname,(None,'localhost','127.0.0.1','::1'))
-        root=Path(os.environ.get('XJOBSCORE_SCHEMA_ROOT',Path(__file__).resolve().parents[3]/'xjobscore'))
-        if not (root/'frontend.sql').is_file():
-            self.skipTest('xjobscore/frontend.sql checkout required')
         setup=await asyncpg.connect(dsn)
         names=['jobs_'+uuid4().hex,'personal_'+uuid4().hex]
         pools=[]
@@ -159,9 +157,7 @@ class SplitDatabaseTests(unittest.IsolatedAsyncioTestCase):
             for name in names:
                 await setup.execute('CREATE SCHEMA '+name)
                 await setup.execute('SET search_path TO '+name)
-                await setup.execute((root/'frontend.sql').read_text())
-                for filename in ('20261006_application_tracker.sql','20261006_resume_vocabulary.sql'):
-                    await setup.execute((Path(__file__).resolve().parents[2]/"migrations"/filename).read_text())
+                await clone_tables(setup, *SERVING_TABLES)
                 pool=await asyncpg.create_pool(dsn,min_size=1,max_size=4,server_settings={'search_path':name})
                 pools.append(pool)
                 await pool.execute("""
@@ -172,9 +168,6 @@ class SplitDatabaseTests(unittest.IsolatedAsyncioTestCase):
                           (79,'test','79',9,'New software intern','x','intern','software');
                 """)
             local,central=pools
-            migration = (Path(__file__).resolve().parents[2]/'migrations/20261009_application_split_database.sql').read_text()
-            await central.execute(migration)
-            await central.execute(migration)
             # The new posting exists only locally; central has stale job data.
             await central.execute('DELETE FROM job_posting WHERE id=79')
             await central.execute("UPDATE job_posting SET title='Stale central title' WHERE id=78")
