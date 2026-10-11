@@ -306,7 +306,13 @@ function onClick(event) {
     case "back": return P.back();
     case "sign-out":
       target.disabled = true;
-      fetch("/api/auth/logout", { method: "POST" }).finally(() => location.assign("/login/"));
+      fetch("/api/auth/logout", { method: "POST" }).then(response => {
+        if (!response.ok) throw new Error("Sign out failed");
+        location.assign("/");
+      }).catch(() => {
+        target.disabled = false;
+        P.toast("Could not sign out. Please try again.");
+      });
       return;
   }
   mod.onClick?.(target, d, event);

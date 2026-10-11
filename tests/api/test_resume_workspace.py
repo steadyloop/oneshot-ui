@@ -2,7 +2,6 @@
 from copy import deepcopy
 from contextlib import asynccontextmanager
 import os
-from pathlib import Path
 import unittest
 from urllib.parse import urlsplit
 from uuid import uuid4
@@ -18,6 +17,7 @@ from api.resume.routes import render_router, router
 from api.resume.models import ResumeUpdate, SkillCreate
 from api.resume.render import build_typst_source, compile_pdf
 from api.resume.store import PostgresResumeStore
+from db_fixtures import clone_tables
 
 
 PROFILE = {"full_name": "Alex Morgan", "email": "alex@example.com", "links": []}
@@ -195,18 +195,7 @@ class AccountPersistenceTests(unittest.IsolatedAsyncioTestCase):
         try:
             schema = f"resume_test_{uuid4().hex}"
             await connection.execute(f"CREATE SCHEMA {schema}; SET LOCAL search_path TO {schema}, public")
-            for table in ("resume_workspace", "resume_document"):
-                await connection.execute(f"CREATE TABLE {table} (LIKE public.{table} INCLUDING ALL)")
-            migration = (Path(__file__).resolve().parents[2] / "migrations/20261006_resume_vocabulary.sql").read_text()
-            migration = migration.replace("BEGIN;", "").replace("COMMIT;", "")
-            await connection.execute(migration)
-            await connection.execute(migration)  # Safe on older and current schemas.
-            # A legacy serial default copied by LIKE would use the real table's
-            # sequence. Give the test its own sequence, as identity already does.
-            identity = await connection.fetchval(
-                "SELECT is_identity FROM information_schema.columns WHERE table_schema=$1 AND table_name='resume_document' AND column_name='id'", schema)
-            if identity == "NO":
-                await connection.execute("CREATE SEQUENCE test_resume_id; ALTER TABLE resume_document ALTER COLUMN id SET DEFAULT nextval('test_resume_id')")
+            await clone_tables(connection, "resume_workspace", "resume_document")
             account = uuid4()
             store = PostgresResumeStore(dsn, account_id=account, pool=ConnectionPool(connection))
             await store.update_profile(PROFILE)

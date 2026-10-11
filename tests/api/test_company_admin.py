@@ -4,7 +4,6 @@ import base64
 import json
 import os
 import unittest
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 from urllib.parse import urlsplit
@@ -18,6 +17,7 @@ from api.app import create_app
 from api.config import Settings
 from api.db import Db
 from api.tracker.store import PostgresRepository
+from db_fixtures import clone_tables
 
 SECRET = "isolated-company-editor-test"
 
@@ -110,9 +110,7 @@ class QueueTests(unittest.IsolatedAsyncioTestCase):
         try:
             await setup.execute(f"CREATE SCHEMA {schema}; SET search_path TO {schema}")
             await setup.execute("CREATE TABLE company(id bigint PRIMARY KEY, name text NOT NULL, domain text UNIQUE, description text, tags jsonb NOT NULL DEFAULT '{}')")
-            migration = (Path(__file__).resolve().parents[2] / "migrations/20261007_company_editor.sql").read_text()
-            await setup.execute(migration)
-            await setup.execute(migration)
+            await clone_tables(setup, "company_edit")
             await setup.execute("INSERT INTO company(id,name,domain) VALUES(9,'Acme','acme.example'),(10,'Other','taken.example'),(11,'100% Co','percent.example')")
             pool = await asyncpg.create_pool(dsn, min_size=1, max_size=3, server_settings={"search_path": schema})
             repo = PostgresRepository("", pool=SimpleNamespace(), jobs_pool=pool).for_account(uuid4())

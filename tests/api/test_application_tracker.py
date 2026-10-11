@@ -5,7 +5,6 @@ Run with ONESHOT_TEST_DATABASE_URL pointing to a local development database.
 import os
 import unittest
 from contextlib import asynccontextmanager
-from pathlib import Path
 from urllib.parse import urlsplit
 from uuid import uuid4
 
@@ -18,6 +17,7 @@ from api.tracker.store import PostgresRepository
 from api.app import create_app
 from api.auth import session_account
 from api.config import Settings
+from db_fixtures import clone_tables
 
 
 class PayloadTests(unittest.TestCase):
@@ -43,7 +43,7 @@ class ConnectionPool:
 
 @unittest.skipUnless(os.environ.get('ONESHOT_TEST_DATABASE_URL'), 'local test database not configured')
 class DatabaseTests(unittest.IsolatedAsyncioTestCase):
-    async def test_migration_and_full_record_lifecycle(self):
+    async def test_full_record_lifecycle(self):
         dsn = os.environ['ONESHOT_TEST_DATABASE_URL']
         self.assertIn(urlsplit(dsn).hostname, (None, 'localhost', '127.0.0.1', '::1'))
         connection = await asyncpg.connect(dsn)
@@ -52,25 +52,11 @@ class DatabaseTests(unittest.IsolatedAsyncioTestCase):
         try:
             schema = f'tracker_test_{uuid4().hex}'
             await connection.execute(f'CREATE SCHEMA {schema}; SET LOCAL search_path TO {schema}, public')
-            # LIKE copies identities and checks but deliberately omits FKs to real accounts.
-            for table in ('job_application', 'job_application_event'):
-                await connection.execute(f'CREATE TABLE {table} (LIKE public.{table} INCLUDING ALL)')
+            await clone_tables(connection, 'job_application', 'job_application_event')
             account = uuid4()
-            columns = {r['column_name'] for r in await connection.fetch("SELECT column_name FROM information_schema.columns WHERE table_schema=$1 AND table_name='job_application'", schema)}
-            # Allow testing against a development DB before or after this migration.
-            for constraint in ('job_application_stage_check', 'job_application_last_open_stage_check'):
-                await connection.execute(f'ALTER TABLE job_application DROP CONSTRAINT IF EXISTS {constraint}')
-            legacy = await connection.fetchval("INSERT INTO job_application(account_id, company_snapshot, title_snapshot, stage, submitted_at, resume_variant) VALUES ($1, 'Legacy', 'Intern', 'considering', NULL, 'Existing.pdf') RETURNING id", account)
-            closed = await connection.fetchval("INSERT INTO job_application(account_id, company_snapshot, title_snapshot, stage, closed_reason) VALUES ($1, 'Closed', 'Intern', 'closed', 'withdrawn') RETURNING id", account)
+            legacy = await connection.fetchval("INSERT INTO job_application(account_id, company_snapshot, title_snapshot, stage, task_state, submitted_at, resume_variant) VALUES ($1, 'Legacy', 'Intern', 'applied', 'waiting', NULL, 'Existing.pdf') RETURNING id", account)
+            closed = await connection.fetchval("INSERT INTO job_application(account_id, company_snapshot, title_snapshot, stage, closed_reason, last_open_stage) VALUES ($1, 'Closed', 'Intern', 'closed', 'withdrawn', 'interview') RETURNING id", account)
             await connection.execute("INSERT INTO job_application_event(job_application_id,event_type,to_stage) VALUES ($1,'stage_changed','interview')", closed)
-            if 'task_state' in columns:
-                for column in ('task_state', 'waiting_for', 'last_open_stage'):
-                    await connection.execute(f'ALTER TABLE job_application DROP COLUMN {column} CASCADE')
-            await connection.execute("ALTER TABLE job_application ADD CONSTRAINT job_application_stage_check CHECK(stage IN ('considering','applied','assessment','interview','offer','closed'))")
-            sql = (Path(__file__).resolve().parents[2] / 'migrations/20261006_application_tracker.sql').read_text()
-            sql = sql.replace('BEGIN;\n', '').replace('COMMIT;\n', '')
-            await connection.execute(sql)
-            await connection.execute(sql)  # Safe to apply a second time.
             repo = PostgresRepository(dsn, account_id=account, pool=ConnectionPool(connection))
             other = repo.for_account(uuid4())
             old = await repo.get_application(legacy)

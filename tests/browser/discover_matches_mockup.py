@@ -60,7 +60,7 @@ DEFAULT = [
     ("row time", ".row-time", ".row-meta > span", ""),
     ("list footer", ".list-foot", ".list-pager", ""),
     ("pane", ".pane", ".detail", ""),
-    ("card", ".card.job", ".detail-inner", "w"),
+    ("card", ".card.job", ".detail-inner", ""),
     ("card logo", ".job-co .logo", ".detail-logo", "hw"),
     ("company row", ".job-co", ".detail-company-row", "h"),
     ("company", ".job-co b", ".detail-company", ""),
@@ -141,6 +141,10 @@ REPORT = [
 
 # Differences that are intended. Keep this short, and say why.
 ALLOW = {
+    # The approved grounded-backdrop refinement fills the capped pane, aligns
+    # the toolbar/card inset, and adds a faint shadow. Geometry is checked below.
+    ("card", "max-width"), ("card", "box-shadow"),
+    ("pane", "padding"), ("subbar", "padding"),
     # Content differs (sample vs real postings), so these follow the text.
     ("*", "width"), ("*", "height"),
     # The mockup lays out with an inner span the live markup doesn't have.
@@ -204,6 +208,14 @@ async def check(browser, width):
     await mock.goto(MOCKUP.as_uri() + "#discover")
     await live.goto(LIVE)
     await live.wait_for_selector(".detail h2", timeout=20000)
+    geometry = await live.evaluate("""() => {
+      const right = s => document.querySelector(s).getBoundingClientRect().right;
+      return { search: right('.topbar-search'), tools: right('.list-tools'), card: right('.detail-inner'),
+        grid: document.querySelector('.discover-grid').getBoundingClientRect().width }; }""")
+    if abs(geometry["search"] - geometry["card"]) > 1 or abs(geometry["tools"] - geometry["card"]) > 1:
+        failures.append(f"[{width}] search, controls and card must share a right edge: {geometry}")
+    if abs(geometry["grid"] - min(width - 76, 1560)) > 1:
+        failures.append(f"[{width}] workspace must be left aligned and capped at 1560px: {geometry}")
     await mock.wait_for_timeout(500)
     app = mock.locator("#app")
     # Compare a posting listed with skills and on more than one board where the

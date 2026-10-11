@@ -1,10 +1,11 @@
 """Browser integration checks. Run with Playwright and Chromium installed.
 
 Serves local files and mocks identity only; guest writes use the actual shared
-OneShotAPI/OneShotVisitorData transport. No production records are touched.
+API/browser-local guest transport. No production records are touched.
 """
 import asyncio
 import json
+import os
 import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -57,7 +58,7 @@ async def main():
     threading.Thread(target=server.serve_forever, daemon=True).start()
     origin = f'http://127.0.0.1:{server.server_port}'
     async with async_playwright() as pw:
-        browser = await pw.chromium.launch()
+        browser = await pw.chromium.launch(executable_path=os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE"))
         context = await browser.new_context(viewport={'width': 1600, 'height': 1000}, timezone_id='America/Los_Angeles')
         page = await context.new_page(); errors = []
         page.on('pageerror', lambda error: errors.append(str(error)))
@@ -197,13 +198,13 @@ async def main():
         assert await counts(page) == [0, 1000, 0]
         await page.locator('#search').fill('Company 0')
         assert '—' in await page.locator('tbody').inner_text() and 'NaN' not in await page.locator('tbody').inner_text()
-        # A single canonical record exercises the phone screens (phone/applied.js).
+        # A single canonical record exercises the phone screens (applied/phone.js).
         await page.evaluate('''key => localStorage.setItem(key, JSON.stringify({ applications: [{ id: 'mobile-1', external: true, company: 'Mobile Co', title: 'Long engineering title '.repeat(20), stage: 'interview', last_open_stage: 'interview', task_state: 'action', next_action: 'Prepare for interview', next_due_at: '2026-10-14', events: [] }], jobs: [], nextApplicationId: 2 }))''', KEY)
         await page.set_viewport_size({'width': 390, 'height': 844}); await page.emulate_media(reduced_motion='reduce')
         await page.goto(origin + '/application/')
         phone = page.locator('#phone')
         async def phone_counts():
-            return [int(await phone.locator(f'[data-view={key}] small').inner_text()) for key in ('progress', 'submitted', 'closed')]
+            return [int(await phone.locator(f'[data-view={key}] small').inner_text()) for key in ('pipeline', 'sent', 'closed')]
         await expect(phone.locator('.stage-card')).to_have_count(1)
         assert await page.evaluate('document.documentElement.scrollWidth <= innerWidth')
         await phone.locator('.stage-card').click()

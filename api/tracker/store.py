@@ -18,13 +18,10 @@ import asyncpg
 
 from api.taxonomy.coverage_snapshot import board_state as _board_state
 from api.taxonomy.coverage_snapshot import empty_snapshot
-from api.taxonomy.degrees import canon as degree_canon
 from api.taxonomy.skill_labels import labels as skill_labels
 from api.taxonomy.skills import canon
 
-from ..taxonomy import (
-    BIOENGINEERING_FILTER, FOCUS_FILTERS, SOFTWARE_FILTER, FINANCE_FILTER, UNLABELED_FILTER,
-)
+from ..taxonomy import BIOENGINEERING_FILTER, FOCUS_FILTERS
 
 from ..jobs.locations import (
     RECENCY_TIME_ZONE,
@@ -40,7 +37,10 @@ from ..jobs.locations import (
     US_SUBURB_KEYS,
 )
 from ..jobs.feeds import FeedActivityCache
-from ..jobs.present import JOB_COLUMNS
+from ..jobs.contracts import (
+    DEFAULT_JOB_TYPES, DOMAIN_FILTERS, JOB_COLUMNS, UNCLASSIFIED,
+    VALID_DEGREE_FIELDS, VALID_JOB_TYPES,
+)
 
 
 def _remote(column: str | None, attributes: dict[str, Any]) -> str:
@@ -52,22 +52,6 @@ def _remote(column: str | None, attributes: dict[str, Any]) -> str:
 
 LOCAL_ACCOUNT_ID = UUID("00000000-0000-0000-0000-000000000001")
 
-# `job_type` is a parse-time column now, not a registry-derived enrichment, so
-# the contract is spelled out here and pinned to schema.sql's CHECK by test.
-DEFAULT_JOB_TYPES = ("intern", "coop", "student", "new_grad", "research")
-# API-only token: storage says NULL for "no signal", but the query parameter
-# keeps a name so the unclassified pool stays addressable.
-UNCLASSIFIED = "unclassified"
-VALID_JOB_TYPES = frozenset((*DEFAULT_JOB_TYPES, UNCLASSIFIED))
-# Domain labels are published by the pipeline; NULL remains addressable for review.
-DOMAIN_FILTERS = (SOFTWARE_FILTER, FINANCE_FILTER, UNLABELED_FILTER)
-VALID_DEGREE_FIELDS = frozenset(
-    {
-        *(field.name for field in degree_canon()),
-        BIOENGINEERING_FILTER,
-        *DOMAIN_FILTERS,
-    }
-)
 VALID_APPLICATION_STAGES = frozenset(
     {"applied", "replied", "assessment", "interview", "offer", "closed"}
 )

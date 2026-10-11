@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const { fromAPI, toAPI, age, validDay, viewFor, taskGroup, state, visibleApplications } = require('../../web/applied/desktop.js');
+const { fromAPI, toAPI, age, validDay, viewFor, taskGroup, initialFilters, visibleApplications } = require('../../web/applied/core.js');
 
 test('real API records round-trip without changing IDs, dates or discovered snapshots', () => {
   const app = fromAPI({ id: 42, external: false, job_id: 19, company: 'Halcyon', title: 'Intern', stage: 'applied', submitted_at: '2026-09-28T00:00:00+00:00', next_due_at: '2026-10-06T23:59:59+00:00', task_state: 'waiting', resume_variant: 'SWE.pdf', last_open_stage: 'applied' });
@@ -16,20 +16,23 @@ test('real API records round-trip without changing IDs, dates or discovered snap
 test('legacy unknown submission dates stay unknown and cannot match age filters', () => {
   const app = fromAPI({ id: 'legacy', external: true, company: 'Legacy', title: 'Intern', stage: 'considering', submitted_at: null });
   assert.equal(app.stage, 'sent'); assert.equal(age(app), null); assert.equal(toAPI(app).submitted_at, null);
-  state.applications = [app]; state.view = 'sent';
-  for (const age of ['7', '30']) { state.filters.sent.age = age; assert.equal(visibleApplications().length, 0); }
-  state.filters.sent.age = 'all'; assert.equal(visibleApplications().length, 1);
+  for (const band of ['7', '30']) {
+    assert.equal(visibleApplications([app], 'sent', { age: band }).length, 0);
+  }
+  assert.equal(visibleApplications([app], 'sent', { age: 'all' }).length, 1);
 });
 
 test('search covers the task and company context without changing stored counts', () => {
-  state.applications = [
+  const applications = [
     fromAPI({ id: 1, stage: 'replied', company: 'Halcyon', title: 'Intern', next_action: 'Send availability' }),
     fromAPI({ id: 2, stage: 'interview', company: 'Arbor', title: 'Intern', waiting_for: 'Recruiter feedback', task_state: 'waiting' }),
     fromAPI({ id: 3, stage: 'applied', company: 'Arbor', title: 'Intern' }),
-  ]; state.view = 'pipeline';
-  state.filters.pipeline.query = 'availability'; assert.deepEqual(visibleApplications().map(a => a.id), ['1']);
-  state.filters.pipeline.query = 'feedback'; assert.deepEqual(visibleApplications().map(a => a.id), ['2']);
-  assert.equal(state.applications.length, 3); state.filters.pipeline.query = '';
+  ];
+  const filters = initialFilters().pipeline;
+  for (const [query, id] of [['availability', '1'], ['feedback', '2']]) {
+    assert.deepEqual(visibleApplications(applications, 'pipeline', { ...filters, query }).map(a => a.id), [id]);
+  }
+  assert.equal(applications.length, 3);
 });
 
 test('the live tracker omits demo controls and retired stage labels', () => {

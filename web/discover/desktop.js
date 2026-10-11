@@ -30,7 +30,43 @@ function fadeFilters() {
   const bar = view.querySelector(".discover-filterbar");
   bar?.classList.toggle("fade", bar.scrollWidth > bar.clientWidth + 2);
 }
-addEventListener("resize", fadeFilters);
+// Keep the existing six-skill preview, fitting fewer chips when the row is narrow.
+function fitListTags() {
+  const desktop = matchMedia("(min-width: 761px)").matches;
+  for (const tags of view.querySelectorAll(".tags")) {
+    const chips = [...tags.querySelectorAll(".tag:not(.tag-more)")];
+    let more = tags.querySelector(".tag-more");
+    const extra = Number(tags.dataset.extra ?? (more?.textContent.slice(1) || 0));
+    tags.dataset.extra = extra;
+    for (const chip of chips) chip.hidden = false;
+    const updateMore = count => {
+      if (!count) { more?.remove(); more = null; return; }
+      if (!more) {
+        more = document.createElement("span");
+        more.className = "tag tag-more";
+        tags.append(more);
+      }
+      more.textContent = `+${count}`;
+      more.setAttribute("aria-label", `${count} more skill${count === 1 ? "" : "s"}`);
+    };
+    updateMore(extra);
+    if (!desktop) continue;
+    const widths = chips.map(chip => chip.getBoundingClientRect().width);
+    const gap = parseFloat(getComputedStyle(tags).columnGap) || 0;
+    let count = chips.length;
+    let width = widths.reduce((total, value) => total + value, 0);
+    while (count > 0) {
+      updateMore(extra + chips.length - count);
+      const items = count + (more ? 1 : 0);
+      if (width + (more?.getBoundingClientRect().width || 0) + gap * (items - 1) <= tags.clientWidth) break;
+      width -= widths[--count];
+    }
+    updateMore(extra + chips.length - count);
+    for (let index = count; index < chips.length; index++) chips[index].hidden = true;
+  }
+}
+addEventListener("resize", () => { fadeFilters(); fitListTags(); });
+document.fonts.ready.then(fitListTags);
 
 function paint(html) {
   const filtersLeft = view.querySelector(".discover-filterbar")?.scrollLeft || 0;
@@ -43,6 +79,7 @@ function paint(html) {
   const nextFilters = view.querySelector(".discover-filterbar");
   if (nextFilters) nextFilters.scrollLeft = filtersLeft;
   fadeFilters();
+  fitListTags();
   const nextList = view.querySelector(".opportunity-list");
   const nextDetail = view.querySelector(".detail");
   if (nextList) nextList.scrollTop = listTop;

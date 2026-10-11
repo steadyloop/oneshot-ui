@@ -1,5 +1,5 @@
 // recencyBucket now buckets in the viewer's zone; pin one so the fixtures below
-// mean the same thing on every machine. Must precede the app.js require.
+// mean the same thing on every machine. Must precede the core.js require.
 process.env.TZ = "America/Los_Angeles";
 
 const test = require("node:test");

@@ -134,28 +134,7 @@ def create_app(
         https_only=resolved.cookie_secure,
     )
 
-    # No CORS middleware, deliberately: the client is served from this origin, so
-    # the browser never treats an /api call as cross-origin. Hosting the client
-    # somewhere else (Vercel, a CDN) makes every call cross-origin and the browser
-    # will refuse it before it reaches this process. That is when the following
-    # becomes necessary — not before:
-    #
-    #     from fastapi.middleware.cors import CORSMiddleware
-    #
-    #     application.add_middleware(
-    #         CORSMiddleware,
-    #         allow_origins=resolved.allowed_origins,
-    #         allow_credentials=True,
-    #         allow_methods=["*"],
-    #         allow_headers=["*"],
-    #     )
-    #
-    # Name the client's real origins and read them from the environment, so a
-    # deployment differs from localhost by configuration rather than by edit.
-    # allow_origins=["*"] is the answer most search results give; it lets any site
-    # a user visits call this API from their browser, and Starlette silently drops
-    # it when allow_credentials is set, so credentialed requests fail with no
-    # error worth reading.
+    # Client and API share one origin, so CORS middleware is unnecessary.
 
     def public_store(request: Request) -> Any:
         """Scope public job reads without granting anonymous write access.

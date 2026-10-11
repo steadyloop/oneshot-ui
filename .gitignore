@@ -6,6 +6,4 @@ build/
 *.egg-info/
 /experiments
 /mockup
-/migrations/*
-!/migrations/20261007_company_editor.sql
-!/migrations/20261007_company_editor_source.sql
+/migrations

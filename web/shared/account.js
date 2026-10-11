@@ -120,9 +120,12 @@ function signedInChip(account) {
   out.addEventListener("click", async () => {
     out.disabled = true;
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
-    } finally {
-      location.assign("/login/");
+      const response = await fetch("/api/auth/logout", { method: "POST" });
+      if (!response.ok) throw new Error("Sign out failed");
+      location.assign("/");
+    } catch (_) {
+      out.textContent = "Could not sign out — try again";
+      out.disabled = false;
     }
   });
   menu.append(out);

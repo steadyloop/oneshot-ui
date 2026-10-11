@@ -2,8 +2,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
-const sample = require('../sample-data.js');
-const ROOT = path.resolve(__dirname, '..');
+const { createVisitorState, handle } = require('../web/shared/guest.js');
+const ROOT = path.resolve(__dirname, '../web');
+const pages = { '/': 'discover', '/application/': 'applied', '/resume/': 'resume', '/source-coverage/': 'feeds' };
 const ORIGIN = 'http://oneshot-company-editor.test';
 const OUT = process.env.COMPANY_EDITOR_ARTIFACTS || '/private/tmp/oneshot-company-editor-browser';
 fs.mkdirSync(OUT, { recursive: true });
@@ -12,7 +13,7 @@ async function setup(browser, account) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const state = { companies: Array.from({ length: 57 }, (_, i) => ({ id: i + 1, name: `Company ${String(i).padStart(3, '0')}`, domain: `company${i}.example`, description: null, tags: {}, sync_pending: false, sync_error: null })), calls: [], patches: [], fail: null };
   state.companies[0].name = 'Acme <script>alert(1)</script>';
-  const fixtures = sample.createState();
+  const fixtures = createVisitorState();
   await context.route('**/*', async route => {
     const request = route.request(), url = new URL(request.url());
     if (url.origin !== ORIGIN) return route.fulfill({ status: 404, body: '' });
@@ -32,11 +33,13 @@ async function setup(browser, account) {
       const offset = Number(url.searchParams.get('offset') || 0), limit = Number(url.searchParams.get('limit') || 50);
       return route.fulfill({ json: { companies: filtered.slice(offset, offset + limit), total: filtered.length } });
     }
+    if (url.pathname === '/api/jobs') return route.fulfill({ json: { jobs: [], total: 0 } });
+    if (url.pathname === '/api/source-coverage/boards') return route.fulfill({ json: { providers: [], totals: {} } });
     if (url.pathname.startsWith('/api/')) {
-      const response = await sample.handle(url.pathname.slice(4) + url.search, { method: request.method(), body: request.postData() }, fixtures);
+      const response = await handle(url.pathname.slice(4) + url.search, { method: request.method(), body: request.postData() }, fixtures);
       return route.fulfill({ status: response.status, json: await response.json().catch(() => ({})) });
     }
-    const relative = url.pathname.startsWith('/static/') ? url.pathname.slice(8) : url.pathname === '/' ? 'index.html' : `${url.pathname.replace(/^\//, '')}index.html`;
+    const relative = url.pathname.startsWith('/static/') ? url.pathname.slice(8) : `${pages[url.pathname]}/index.html`;
     const file = path.resolve(ROOT, relative);
     if (!file.startsWith(ROOT + path.sep) || !fs.existsSync(file)) return route.fulfill({ status: 404, body: '' });
     return route.fulfill({ path: file });
@@ -51,7 +54,7 @@ async function open(page) {
 }
 
 (async () => {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE });
   try {
     for (const account of [null, { name: 'Other', email: 'other@gmail.com', can_edit_companies: false }, { name: 'Missing capability', email: 'msg.shkim@gmail.com' }]) {
       const { context, state } = await setup(browser, account);
@@ -100,9 +103,9 @@ async function open(page) {
     await page.locator('.company-editor-search button').click();
     await page.waitForFunction(() => document.querySelector('.company-editor-pager span').textContent === '1–1 of 1');
     await page.getByRole('button', { name: 'Edit Updated Acme', exact: true }).click();
-    await page.setViewportSize({ width: 390, height: 844 });
+    await page.setViewportSize({ width: 768, height: 844 });
     assert(await page.locator('.company-editor').evaluate(el => el.scrollWidth <= el.clientWidth + 1));
-    await page.screenshot({ path: path.join(OUT, 'mobile.png') });
+    await page.screenshot({ path: path.join(OUT, 'narrow.png') });
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.screenshot({ path: path.join(OUT, 'desktop.png') });
     await page.getByLabel('Name', { exact: true }).fill('Unsaved edit');
@@ -130,7 +133,7 @@ async function open(page) {
       assert.equal(await page.locator('.company-editor tbody tr').count(), 50);
       await context.close();
     }
-    console.log('Company editor browser checks passed: account visibility, all four shells, edits, validation, pagination, conflicts, expired access, and mobile layout.');
+    console.log('Company editor browser checks passed: account visibility, all four shells, edits, validation, pagination, conflicts, expired access, and narrow desktop layout.');
   } finally {
     await browser.close();
   }
