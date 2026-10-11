@@ -54,30 +54,12 @@ Design references remain in the local, Git-ignored `mockup/` directory. They
 are outside the served `web/` directory. The optional design-comparison scripts
 open these local files directly and skip when the reference is absent.
 
-## Database migrations
+## Database schema
 
-The migration scripts are included in this repository. Apply the ones needed
-by an older database before deploying code that depends on them:
-
-| Script | Purpose |
-| --- | --- |
-| [20261006_application_tracker.sql](migrations/20261006_application_tracker.sql) | Adds task/waiting fields and the previous open stage; moves Considering records to Submitted while preserving history and unknown submission dates. |
-| [20261006_resume_vocabulary.sql](migrations/20261006_resume_vocabulary.sql) | Adds resume vocabulary storage without replacing saved content. |
-| [20261009_application_split_database.sql](migrations/20261009_application_split_database.sql) | Allows an application to reference a posting in the separate jobs database. |
-| [20261009_feedback_split_database.sql](migrations/20261009_feedback_split_database.sql) | Allows feedback to reference a posting in the separate jobs database. |
-
-The split-database migrations remove the posting foreign key; account ownership
-and account/posting uniqueness remain enforced. The API checks that a posting
-exists in the jobs database before saving personal records.
-
-Run a selected script explicitly against the intended accounts database:
-
-```sh
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/20261006_application_tracker.sql
-```
-
-These scripts support repeated application. The company editor has separate
-migrations described below.
+Use a database provisioned with the current OneShot schema. This repository
+contains no migration scripts, and the web process does not upgrade databases.
+Applications and feedback validate postings through the jobs database, allowing
+personal records to live in a separate accounts database.
 
 ## Tests
 
@@ -90,9 +72,8 @@ uv run python -m unittest discover -s tests/api -v
 
 Use Node 22.12 or newer, or Node 24+, for tests that load JavaScript modules from
 CommonJS. PostgreSQL checks skip unless `ONESHOT_TEST_DATABASE_URL` names a local
-test database with the required schema. They use rolled-back transactions or
-isolated schemas removed afterward; some also need the neighboring `xjobscore`
-checkout.
+test database with the current schema. They copy empty tables into isolated
+schemas, use separate sequences, and roll back or remove their test data afterward.
 
 Browser checks require Playwright and Chromium. One way to install test tools
 outside this repository is:
@@ -184,17 +165,9 @@ appear immediately. The `xjobscore` publisher applies patches to canonical
 companies before publication and acknowledges only the revision it applied.
 Outages preserve pending edits and conflicts remain visible for correction.
 
-Before using the editor, apply its repeatable migrations:
-
-```sh
-# xjobscore pipeline database:
-psql postgresql:///xjobscore -v ON_ERROR_STOP=1 -f migrations/20261007_company_editor_source.sql
-# Each jobs serving database:
-psql postgresql:///xjobscore_frontend -v ON_ERROR_STOP=1 -f migrations/20261007_company_editor.sql
-```
-
-When jobs use `DATABASE_URL`, apply the serving migration there instead. Restart
-the publisher after updating its code; its normal publication interval controls
+The jobs database must include the `company_edit` queue, and the pipeline
+schema must support preserving previous company identity keys. Restart the
+publisher after updating its code; its normal publication interval controls
 when edits reach Discover.
 
 ## Vercel deployment

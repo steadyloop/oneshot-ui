@@ -50,7 +50,8 @@ def calendar_day(value):
         return None
     if len(value) == 10:
         return date.fromisoformat(value)
-    stamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    normalized = re.sub(r"([+-]\d{2})(\d{2})$", r"\1:\2", value.replace("Z", "+00:00"))
+    stamp = datetime.fromisoformat(normalized)
     return stamp.astimezone(PACIFIC).date() if stamp.tzinfo else stamp.date()
 
 
@@ -74,6 +75,10 @@ def identity(job):
         ids = re.findall(r"[a-f0-9]{8}-[a-f0-9-]{27,}",parsed.path,re.I)
         if ids:
             return ("ats_uuid",ids[0].lower())
+    if "workable.com" in parsed.netloc:
+        found = re.search(r"/j/([A-Z0-9]+)", parsed.path, re.I)
+        if found:
+            return ("workable", found[1].upper())
     return (parsed.netloc.lower(),parsed.path.rstrip("/").lower(),tuple(sorted((k,v[0]) for k,v in qs.items() if k.lower() in {"id","job","jobid","domain","opportunityid","pid"})))
 
 
@@ -87,6 +92,9 @@ def priority(row, job):
     score += 5 if age <= 3 else 3 if age <= 7 else 1
     if re.search(r"winter|spring|jan",row["term"],re.I):
         score += 6
+    if row.get("deadline_day"):
+        remaining = (date.fromisoformat(row["deadline_day"]) - END).days
+        score += 40 if 0 <= remaining <= 2 else 15 if 0 <= remaining <= 7 else 0
     return score
 
 
@@ -101,6 +109,11 @@ def main():
     assert len({d["id"] for d in decisions}) == len(ids)
     assert set(d["id"] for d in decisions) == set(ids)
     by_id = {d["id"]:d for d in decisions}
+    override_path = BUILD / "recommendations-parent-overrides.json"
+    overrides = json.loads(override_path.read_text()) if override_path.exists() else {}
+    for job_id, override in overrides.items():
+        assert int(job_id) in by_id
+        by_id[int(job_id)] = {**by_id[int(job_id)], **override}
     live = read("recommendations-live-evidence.json")
     rendered_path = BUILD / "recommendations-rendered-evidence.json"
     rendered = json.loads(rendered_path.read_text()) if rendered_path.exists() else {}
@@ -139,15 +152,18 @@ def main():
             view = "excluded"
             reason = "The employer posting is unavailable or reports that applications are closed; do not spend time on this listing."
         deadline = link.get("deadline") or job["attributes"].get("deadline_at")
+        deadline_day = None
         if deadline:
             try:
-                if calendar_day(deadline) < END:
+                deadline_day = calendar_day(deadline)
+                if deadline_day < END:
                     view = "excluded"
-                    reason = f"The employer's stated application deadline ({calendar_day(deadline).isoformat()}) has passed."
+                    reason = f"The employer's stated application deadline ({deadline_day.isoformat()}) has passed."
             except ValueError:
                 pass
         aliases = sorted(({*job.get("aliases",[]),*matches.keys()} - {job["id"]}))
         row = {"id":job["id"],"aliases":aliases,"company":COMPANY_NAMES.get(job["company"],job["company"]),"title":job["title"].strip(),"location":job["location_text"] or "Location unspecified","locations":job["locations"],"term":decision.get("term") or "Term unspecified","job_type":job["job_type"],"fit":decision["fit"],"category":decision["category"],"view":view,"reason":reason,"conditions":list(dict.fromkeys(conditions)),"evidence":decision.get("evidence", ""),"skills":job["attributes"].get("skills",[]),"summary":job["attributes"].get("summary"),"posted_day":display_day.isoformat(),"posted_at":employer_date or job["posted_at"],"first_seen_at":job["first_seen_at"],"last_seen_at":job["last_seen_at"],"date_basis":basis,"link_state":link.get("state","unknown"),"apply_url":job["source_url"] or job["apply_url"],"source":job["source"]}
+        row["deadline_day"] = deadline_day.isoformat() if deadline_day else None
         row["_key"],row["_priority"] = identity(job),priority(row,job)
         assembled.append(row)
     groups = defaultdict(list)
@@ -155,7 +171,7 @@ def main():
         groups[row["_key"]].append(row)
     rows, duplicates = [], 0
     for group in groups.values():
-        group.sort(key=lambda r:(not r["source"].startswith("simplify:"),r["link_state"] == "verified",r["view"] in {"ready","conditional"},len(r["evidence"])),reverse=True)
+        group.sort(key=lambda r:(r["view"] != "unverified",not r["source"].startswith("simplify:"),r["link_state"] == "verified",len(r["evidence"])),reverse=True)
         chosen = group[0]
         chosen["aliases"] = sorted({a for row in group for a in [row["id"],*row["aliases"]]} - {chosen["id"]})
         duplicates += len(group)-1
