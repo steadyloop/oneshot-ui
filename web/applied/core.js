@@ -1,6 +1,7 @@
 // Applied's logic shared by the desktop page and the phone screens: records,
 // calendar days, filters, the agenda week and the change recipes. No DOM.
 import { clone, localDay as today } from "../shared/util.js";
+import { logoSrc } from "../shared/company-logo.js";
 
 export const PAGE_SIZE = 50;
 const DAY = 86400000;
@@ -78,7 +79,8 @@ export function fromAPI(raw) {
   const stage = uiStage(raw.stage);
   return {
     id: String(raw.id), jobId: raw.job_id, external: raw.external === true,
-    company: raw.company || "", role: raw.title || "", location: raw.location || "",
+    company: raw.company || "", companyId: raw.company_id ?? null, logo: logoSrc(raw.logo),
+    role: raw.title || "", location: raw.location || "",
     url: raw.apply_url_snapshot || "", notes: raw.note || "", resumeVariant: raw.resume_variant || "",
     submittedAt: calendarDay(raw.submitted_at), nextAction: raw.next_action || "",
     nextDue: calendarDay(raw.next_due_at), taskState: raw.task_state || (stage === "sent" ? "waiting" : "action"),
@@ -199,8 +201,8 @@ export async function saveChanges(apps, ids, apply, update) {
   for (let cursor = 0; cursor < before.length; cursor += 6) {
     await Promise.all(before.slice(cursor, cursor + 6).map(async old => {
       const desired = clone(old);
-      apply(desired);
       try {
+        apply(desired);
         replaceApp(apps, fromAPI(await update(old.id, toAPI(desired, desired.events[0]?.text))));
         succeeded.push(old);
       } catch (error) { failed.push({ old, error }); }
@@ -223,6 +225,28 @@ export const savedMessage = (message, succeeded, failed) => failed.length
 export const undoneMessage = errors => errors.length
   ? `${errors.length} changes could not be undone. ${errors[0].message}`
   : "Change undone.";
+
+// Shared save/Undo lifecycle; views retain selection, focus and toast rendering.
+export function createApplicationActions(state, applications, view, update) {
+  const run = async operation => {
+    if (state.busy) return false;
+    state.busy = true;
+    view.busy(true);
+    try { return await operation(); }
+    finally { state.busy = false; view.busy(false); }
+  };
+  const undo = async succeeded => {
+    const errors = await run(() => undoChanges(applications(), succeeded, update));
+    if (errors !== false) view.undone(undoneMessage(errors));
+  };
+  return async (ids, { apply, message }) => {
+    const result = await run(() => saveChanges(applications(), ids, apply, update));
+    if (result === false) return false;
+    const { succeeded, failed } = result;
+    view.saved({ succeeded, failed, message: savedMessage(message, succeeded, failed), undo: succeeded.length ? () => undo(succeeded) : null });
+    return !failed.length;
+  };
+}
 
 /* Recipes: what each action changes on a copy of the record (`apply`) and
    the toast that confirms it (`message`). */

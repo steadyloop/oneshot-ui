@@ -1,0 +1,6 @@
+/* Local fonts shared by the desktop shell and phone views. */
+@font-face { font-family: 'IBM Plex Sans'; src: url('/static/shared/fonts/plex-sans.woff2') format('woff2'); font-weight: 400 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'IBM Plex Serif'; src: url('/static/shared/fonts/plex-serif-medium.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'IBM Plex Serif'; src: url('/static/shared/fonts/plex-serif-semibold.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: 'IBM Plex Mono'; src: url('/static/shared/fonts/plex-mono.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'IBM Plex Mono'; src: url('/static/shared/fonts/plex-mono-medium.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }

@@ -73,21 +73,57 @@ function normalizeApplications(state) {
     }
     if (!app.task_state) { app.task_state = app.stage === 'applied' && !app.next_action ? 'waiting' : 'action'; changed = true; }
     if (app.waiting_for == null) { app.waiting_for = ''; changed = true; }
+    const job = app.job_id == null ? null : findJob(state, app.job_id);
+    const companyId = app.job_id == null ? null : job ? job.company_id ?? null : app.company_id ?? null;
+    const logo = app.job_id == null ? null : job ? job.logo ?? null : app.logo ?? null;
+    if (app.company_id !== companyId || app.logo !== logo) {
+      app.company_id = companyId; app.logo = logo; changed = true;
+    }
     // submitted_at is deliberately left alone, including legacy unknown dates.
   }
   return changed;
 }
-function applicationFromJob(state, job, submittedAt = localDay()) {
+function newApplication(state, fields, submittedAt = localDay(), note = '') {
   return {
     id: `${state.applicationIdPrefix || "sample-app"}-${state.nextApplicationId++}`,
-    job_id: job.id, company: job.company, title: job.title, location: job.location,
+    company_id: null, logo: null,
     stage: 'applied', closed_reason: null, last_open_stage: 'applied',
     task_state: 'waiting', waiting_for: '', next_action: null, next_due_at: null,
-    external: false, submitted_at: submittedAt, apply_url_snapshot: job.apply_url,
+    submitted_at: submittedAt,
     resume_variant: null, updated_at: new Date().toISOString(),
-    stage_changed_at: new Date().toISOString(), note: '',
-    events: [{ occurred_at: new Date().toISOString(), event_type: 'stage_changed', to_stage: 'applied', note: null }],
+    stage_changed_at: new Date().toISOString(), note,
+    events: [{ occurred_at: new Date().toISOString(), event_type: 'stage_changed', to_stage: 'applied', note: note || null }],
+    ...fields,
   };
+}
+
+const RESUME_RECORDS = {
+  entries: { label: "Entry", fields: ["kind", "org", "role", "location", "start_date", "end_date", "url", "detail", "position"] },
+  bullets: { label: "Bullet", fields: ["text", "audience", "tags", "defense_notes", "position"] },
+  skills: { label: "Skill", fields: ["category", "name", "audience"] },
+  resumes: { label: "Resume", fields: ["name", "target_job_id", "variant", "template", "availability_line", "education_note", "selection"] },
+};
+const assignFields = (record, body, fields) => fields.forEach(key => {
+  if (body[key] !== undefined) record[key] = body[key];
+});
+function editResumeRecord(state, path, method, options) {
+  const match = path.match(/^\/resume\/(entries|bullets|skills|resumes)\/(\d+)$/);
+  if (!match || !["PATCH", "DELETE"].includes(method) && !(method === "GET" && match[1] === "resumes")) return null;
+  const [, resource, id] = match, { label, fields } = RESUME_RECORDS[resource];
+  const lists = resource === "bullets" ? state.entries.map(entry => entry.bullets) : [state[resource]];
+  const rows = lists.find(list => list.some(row => String(row.id) === id));
+  if (!rows) return jsonResponse({ detail: `${label} not found` }, 404);
+  const index = rows.findIndex(row => String(row.id) === id), record = rows[index];
+  if (method === "DELETE") { rows.splice(index, 1); return new Response(null, { status: 204 }); }
+  if (method === "PATCH") {
+    const body = parseBody(options);
+    if (resource === "skills" && rows.some(row => row.id !== record.id && row.category === (body.category ?? record.category) && row.name === (body.name ?? record.name))) {
+      return jsonResponse({ detail: "Skill already exists in that category" }, 422);
+    }
+    assignFields(record, body, fields);
+    if (resource === "resumes") record.updated_at = new Date().toISOString();
+  }
+  return jsonResponse(clone(record));
 }
 
 export async function handle(input, options = {}, state) {
@@ -104,7 +140,10 @@ export async function handle(input, options = {}, state) {
     if (existing) return jsonResponse({ ...clone(existing), already_exists: true });
     const submitted = parseBody(options).submitted_at || localDay();
     if (!validApplicationDate(submitted)) return jsonResponse({ detail: 'application dates must be ISO-8601 values' }, 422);
-    const application = applicationFromJob(state, job, submitted);
+    const application = newApplication(state, {
+      job_id: job.id, company: job.company, title: job.title, location: job.location,
+      company_id: job.company_id ?? null, logo: job.logo ?? null, external: false, apply_url_snapshot: job.apply_url,
+    }, submitted);
     state.applications.unshift(application);
     return jsonResponse(clone(application), 201);
   }
@@ -153,16 +192,9 @@ export async function handle(input, options = {}, state) {
     if (!company || !title) return jsonResponse({ detail: 'company and title are required' }, 422);
     if (!validPostingURL(body.url)) return jsonResponse({ detail: 'application URL must be HTTP(S)' }, 422);
     if (!validApplicationDate(body.submitted_at)) return jsonResponse({ detail: 'application dates must be ISO-8601 values' }, 422);
-    const application = {
-      id: `${state.applicationIdPrefix || "sample-app"}-${state.nextApplicationId++}`,
-      company, title, stage: 'applied', closed_reason: null, last_open_stage: 'applied',
-      task_state: 'waiting', waiting_for: '', next_action: null, next_due_at: null,
-      external: true, submitted_at: body.submitted_at || localDay(),
-      apply_url_snapshot: body.url || null, resume_variant: null,
-      updated_at: new Date().toISOString(), stage_changed_at: new Date().toISOString(),
-      location: body.location || '', note: body.note || '',
-      events: [{ occurred_at: new Date().toISOString(), event_type: 'stage_changed', to_stage: 'applied', note: body.note || null }],
-    };
+    const application = newApplication(state, {
+      company, title, external: true, apply_url_snapshot: body.url || null, location: body.location || '',
+    }, body.submitted_at || localDay(), body.note || '');
     state.applications.unshift(application);
     return jsonResponse(clone(application), 201);
   }
@@ -222,15 +254,15 @@ export async function handle(input, options = {}, state) {
 
   // A state persisted before the resume workspace existed has no `resume` key.
   const resumeState = state.resume || (state.resume = createResumeState());
+  const edited = editResumeRecord(resumeState, path, method, options);
+  if (edited) return edited;
 
   if (method === "GET" && path === "/resume/profile") {
     return jsonResponse(clone(resumeState.profile));
   }
   if (method === "PUT" && path === "/resume/profile") {
     const body = parseBody(options);
-    ["full_name", "email", "phone", "location", "links"].forEach(key => {
-      if (body[key] !== undefined) resumeState.profile[key] = body[key];
-    });
+    assignFields(resumeState.profile, body, ["full_name", "email", "phone", "location", "links"]);
     return jsonResponse(clone(resumeState.profile));
   }
 
@@ -257,23 +289,6 @@ export async function handle(input, options = {}, state) {
     resumeState.entries.push(entry);
     return jsonResponse(clone(entry), 201);
   }
-  const entryMatch = path.match(/^\/resume\/entries\/(\d+)$/);
-  if (method === "PATCH" && entryMatch) {
-    const entry = resumeState.entries.find(row => String(row.id) === entryMatch[1]);
-    if (!entry) return jsonResponse({ detail: "Entry not found" }, 404);
-    const body = parseBody(options);
-    ["kind", "org", "role", "location", "start_date", "end_date", "url", "detail", "position"].forEach(key => {
-      if (body[key] !== undefined) entry[key] = body[key];
-    });
-    return jsonResponse(clone(entry));
-  }
-  if (method === "DELETE" && entryMatch) {
-    const index = resumeState.entries.findIndex(row => String(row.id) === entryMatch[1]);
-    if (index < 0) return jsonResponse({ detail: "Entry not found" }, 404);
-    resumeState.entries.splice(index, 1);
-    return new Response(null, { status: 204 });
-  }
-
   const entryBulletsMatch = path.match(/^\/resume\/entries\/(\d+)\/bullets$/);
   if (method === "POST" && entryBulletsMatch) {
     const entry = resumeState.entries.find(row => String(row.id) === entryBulletsMatch[1]);
@@ -288,27 +303,6 @@ export async function handle(input, options = {}, state) {
     entry.bullets.push(bullet);
     return jsonResponse(clone(bullet), 201);
   }
-  const bulletMatch = path.match(/^\/resume\/bullets\/(\d+)$/);
-  if (method === "PATCH" && bulletMatch) {
-    const bullet = resumeState.entries.flatMap(entry => entry.bullets).find(row => String(row.id) === bulletMatch[1]);
-    if (!bullet) return jsonResponse({ detail: "Bullet not found" }, 404);
-    const body = parseBody(options);
-    ["text", "audience", "tags", "defense_notes", "position"].forEach(key => {
-      if (body[key] !== undefined) bullet[key] = body[key];
-    });
-    return jsonResponse(clone(bullet));
-  }
-  if (method === "DELETE" && bulletMatch) {
-    for (const entry of resumeState.entries) {
-      const index = entry.bullets.findIndex(row => String(row.id) === bulletMatch[1]);
-      if (index >= 0) {
-        entry.bullets.splice(index, 1);
-        return new Response(null, { status: 204 });
-      }
-    }
-    return jsonResponse({ detail: "Bullet not found" }, 404);
-  }
-
   if (method === "GET" && path === "/resume/variants") {
     return jsonResponse({ variants: clone(resumeState.variants || []) });
   }
@@ -352,27 +346,6 @@ export async function handle(input, options = {}, state) {
     resumeState.skills.push(skill);
     return jsonResponse(clone(skill), 201);
   }
-  const skillMatch = path.match(/^\/resume\/skills\/(\d+)$/);
-  if (method === "PATCH" && skillMatch) {
-    const skill = resumeState.skills.find(row => String(row.id) === skillMatch[1]);
-    if (!skill) return jsonResponse({ detail: "Skill not found" }, 404);
-    const body = parseBody(options);
-    const category = body.category ?? skill.category;
-    const name = body.name ?? skill.name;
-    const duplicate = resumeState.skills.some(row => row.id !== skill.id && row.category === category && row.name === name);
-    if (duplicate) return jsonResponse({ detail: "Skill already exists in that category" }, 422);
-    ["category", "name", "audience"].forEach(key => {
-      if (body[key] !== undefined) skill[key] = body[key];
-    });
-    return jsonResponse(clone(skill));
-  }
-  if (method === "DELETE" && skillMatch) {
-    const index = resumeState.skills.findIndex(row => String(row.id) === skillMatch[1]);
-    if (index < 0) return jsonResponse({ detail: "Skill not found" }, 404);
-    resumeState.skills.splice(index, 1);
-    return new Response(null, { status: 204 });
-  }
-
   if (method === "GET" && path === "/resume/jobs") {
     return jsonResponse({ jobs: clone(resumeState.targetJobs) });
   }
@@ -390,28 +363,6 @@ export async function handle(input, options = {}, state) {
     resumeState.resumes.unshift(resumeRecord);
     return jsonResponse(clone(resumeRecord), 201);
   }
-  const resumeIdMatch = path.match(/^\/resume\/resumes\/(\d+)$/);
-  if (method === "GET" && resumeIdMatch) {
-    const record = resumeState.resumes.find(row => String(row.id) === resumeIdMatch[1]);
-    return record ? jsonResponse(clone(record)) : jsonResponse({ detail: "Resume not found" }, 404);
-  }
-  if (method === "PATCH" && resumeIdMatch) {
-    const record = resumeState.resumes.find(row => String(row.id) === resumeIdMatch[1]);
-    if (!record) return jsonResponse({ detail: "Resume not found" }, 404);
-    const body = parseBody(options);
-    ["name", "target_job_id", "variant", "template", "availability_line", "education_note", "selection"].forEach(key => {
-      if (body[key] !== undefined) record[key] = body[key];
-    });
-    record.updated_at = new Date().toISOString();
-    return jsonResponse(clone(record));
-  }
-  if (method === "DELETE" && resumeIdMatch) {
-    const index = resumeState.resumes.findIndex(row => String(row.id) === resumeIdMatch[1]);
-    if (index < 0) return jsonResponse({ detail: "Resume not found" }, 404);
-    resumeState.resumes.splice(index, 1);
-    return new Response(null, { status: 204 });
-  }
-
   return jsonResponse({ detail: `No sample response for ${method} ${path}` }, 404);
 }
 

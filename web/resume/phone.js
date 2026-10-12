@@ -6,7 +6,7 @@ import { importButton, installResumeImport } from "./import.js";
 import P from "../phone/shell.js";
 import {
   DENSITIES, KIND, SECTION_ORDER, SKILL_GROUPS, TEMPLATES, bulletPick, cloneSelection, dates, densityOf, gpa, groupOf,
-  handoffTarget, linkOf, newResume, orgLabel, pdfBlob, pdfName, pickOf, resumeApi, resumeForJob, rewordBullet, shortDay,
+  handoffTarget, linkOf, newResume, orgLabel, pdfBlob, pdfName, pickOf, resumeApi, resolveHandoff, rewordBullet, shortDay,
   skillOn, targetOf, templateOf, toggleBullet, toggleDetail, toggleEntry, toggleSkill,
 } from "./core.js";
 
@@ -616,15 +616,11 @@ async function openHandoff() {
   const job = state.jobs.find(item => item.id === requested);
   if (!job) return;
   state.view = "resumes";
-  let resume = resumes().find(item => item.target_job_id === requested);
-  if (!resume) {
-    try {
-      resume = await resumeApi.addResume(resumeForJob(job, state.variants, entries(), skills()));
-      state.resumes.unshift(resume);
-      P.toast(`Created ${resume.name}`);
-    } catch (error) { return fail(error); }
-  }
-  S.push = { kind: "doc", id: resume.id, mode: "content" };
+  try {
+    const { resume, created } = await resolveHandoff(requested, { ...state, entries: entries(), skills: skills(), resumes: resumes() });
+    if (created) { state.resumes.unshift(resume); P.toast(`Created ${resume.name}`); }
+    S.push = { kind: "doc", id: resume.id, mode: "content" };
+  } catch (error) { return fail(error); }
   bump(); P.render();
 }
 

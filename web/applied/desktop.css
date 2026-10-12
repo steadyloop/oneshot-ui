@@ -229,6 +229,8 @@
 .records-view tr[data-row-open] { cursor: pointer; }
 .records-view tr[data-row-open]:hover, .records-view tr[data-row-open]:focus-within { background: #f1f6f2; }
 .records-view table tbody tr.selected { background: #eaf2ed; }
+.company-logo-tile { position: relative; overflow: hidden; }
+.company-logo-tile > img[data-company-logo] { position: absolute; inset: 0; display: block; width: 100%; height: 100%; padding: 2px; object-fit: contain; background: white; }
 .records-view .company-row { gap: 8px; }
 .records-view .records-company-mark { display: inline-grid; place-items: center; flex: none; width: 22px; height: 22px; border-radius: 5px; background: #eef1ed; color: #626d64; font-size: 9px; font-weight: 500; letter-spacing: .015em; }
 .records-view .records-company-name { min-width: 0; color: var(--muted); font-size: 13px; font-weight: 400; }

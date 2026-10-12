@@ -50,6 +50,7 @@ class RoutingTests(unittest.IsolatedAsyncioTestCase):
             "locations": [], "source_url": "https://acme.example/jobs/79",
             "apply_url": None, "dup_group_id": None, "collapsible": False,
         }
+        jobs.fetch.return_value = [{"id": 79, "company_id": 9, "has_logo": True}]
         connection.fetchrow.side_effect = [None, {
             "id": 123, "job_posting_id": 79, "company_snapshot": "Acme",
             "title_snapshot": "Local intern", "stage": "applied",
@@ -67,6 +68,8 @@ class RoutingTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.json()['job_id'], 79)
             self.assertEqual(response.json()['title'], 'Local intern')
+            self.assertEqual(response.json()['company_id'], 9)
+            self.assertEqual(response.json()['logo'], '/api/companies/9/logo')
             jobs.fetchrow.assert_awaited_once()
             self.assertNotIn('FOR SHARE', jobs.fetchrow.call_args.args[0])
             for method in (connection.fetchrow, connection.fetchval, connection.fetch, connection.execute):
@@ -77,6 +80,49 @@ class RoutingTests(unittest.IsolatedAsyncioTestCase):
             connection.fetchval.reset_mock()
             self.assertEqual((await client.post('/api/jobs/999/applications')).status_code, 404)
             connection.fetchval.assert_not_awaited()
+
+    async def test_application_companies_are_batched_and_optional(self):
+        personal, jobs = AsyncMock(), AsyncMock()
+        personal.fetch.return_value = [
+            {"id": i, "job_posting_id": job_id, "company_snapshot": "Acme",
+             "title_snapshot": "Saved title", "stage": "applied",
+             "task_state": "waiting", "last_open_stage": "applied"}
+            for i, job_id in enumerate([77, 78, 80, 81, None])
+        ]
+        jobs.fetch.return_value = [
+            {"id": 77, "company_id": 9, "has_logo": True},
+            {"id": 78, "company_id": 9, "has_logo": True},
+            {"id": 80, "company_id": 10, "has_logo": False},
+        ]
+        repo = PostgresRepository('', pool=personal, jobs_pool=jobs)
+        rows = (await repo.list_applications())["applications"]
+        self.assertEqual([row["company_id"] for row in rows], [9, 9, 10, None, None])
+        self.assertEqual([row["logo"] for row in rows],
+                         ['/api/companies/9/logo'] * 2 + [None] * 3)
+        self.assertTrue(all(row["company"] == "Acme" and row["title"] == "Saved title" for row in rows))
+        jobs.fetch.assert_awaited_once()
+        self.assertEqual(jobs.fetch.call_args.args[1], [77, 78, 80, 81])
+        jobs.fetch.reset_mock()
+        personal.fetch.return_value = personal.fetch.return_value[-1:]
+        await repo.list_applications()
+        personal.fetch.return_value = []
+        self.assertEqual((await repo.list_applications())["applications"], [])
+        jobs.fetch.assert_not_awaited()
+
+    async def test_application_detail_reuses_shared_database_connection(self):
+        connection, pool = AsyncMock(), MagicMock()
+        pool.acquire.return_value.__aenter__.return_value = connection
+        connection.fetchrow.return_value = {
+            "id": 1, "job_posting_id": 77, "company_snapshot": "Saved name",
+            "title_snapshot": "Intern", "stage": "applied",
+            "task_state": "waiting", "last_open_stage": "applied",
+        }
+        connection.fetch.side_effect = [[], [{"id": 77, "company_id": 9, "has_logo": True}]]
+        app = await PostgresRepository('', pool=pool).get_application(1)
+        self.assertEqual(app["company_id"], 9)
+        self.assertEqual(app["logo"], '/api/companies/9/logo')
+        self.assertEqual(app["company"], 'Saved name')
+        pool.fetch.assert_not_called()
 
     async def test_personal_exclusions_come_from_neon_and_gold_filter_runs_locally(self):
         personal, jobs = Pool(True), Pool()
@@ -168,6 +214,7 @@ class SplitDatabaseTests(unittest.IsolatedAsyncioTestCase):
                           (79,'test','79',9,'New software intern','x','intern','software');
                 """)
             local,central=pools
+            await local.execute("INSERT INTO company_logo(company_id,bytes) VALUES(9,$1)", b'logo')
             # The new posting exists only locally; central has stale job data.
             await central.execute('DELETE FROM job_posting WHERE id=79')
             await central.execute("UPDATE job_posting SET title='Stale central title' WHERE id=78")
@@ -179,6 +226,13 @@ class SplitDatabaseTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual([j['id'] for j in listing['jobs']],[79])
             application=await repo.create_application(79,submitted_at='2026-10-07')
             self.assertEqual(application['title'], 'New software intern')
+            self.assertEqual(application['company_id'], 9)
+            self.assertEqual(application['logo'], '/api/companies/9/logo')
+            self.assertEqual((await repo.list_applications())['applications'][0]['logo'], application['logo'])
+            self.assertEqual((await repo.update_application(application['id'], {'note': 'Saved'}))['logo'], application['logo'])
+            external = await repo.create_external_application(company='Acme', title='External intern')
+            self.assertIsNone(external['company_id']); self.assertIsNone(external['logo'])
+            await repo.delete_application(external['id'])
             self.assertEqual(await central.fetchval('SELECT job_posting_id FROM job_application WHERE id=$1',application['id']),79)
             self.assertEqual(await central.fetchval('SELECT count(*) FROM job_application'),2)
             self.assertEqual(await local.fetchval('SELECT count(*) FROM job_application'),0)
@@ -208,6 +262,7 @@ class SplitDatabaseTests(unittest.IsolatedAsyncioTestCase):
             await local.execute('INSERT INTO account(id) VALUES($1)', account)
             single_rows = await asyncio.gather(single.create_application(78), single.create_application(79))
             self.assertEqual(single_rows[0]['id'], single_rows[1]['id'])
+            self.assertEqual(single_rows[0]['logo'], application['logo'])
             resumes=PostgresResumeStore('',pool=central).for_account(account)
             await resumes.update_profile({'full_name':'Central test'})
             self.assertEqual(await central.fetchval('SELECT count(*) FROM resume_workspace'),1)

@@ -1,11 +1,16 @@
-import test from "node:test";
-import assert from "node:assert/strict";
-import { createVisitorState, handle } from "../../web/shared/guest.js";
-import { api, errorMessage, query } from "../../web/shared/api.js";
-import { opportunityTotal } from "../../web/shared/account.js";
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const { createVisitorState, handle } = require("../../web/shared/guest.js");
+const { api, errorMessage, query } = require("../../web/shared/api.js");
+const { opportunityTotal } = require("../../web/shared/account.js");
 
 // Signed out: the identity probe answers 401, and every other request is recorded.
 const requests = [];
+const storage = new Map();
+Object.defineProperty(globalThis, 'localStorage', { value: {
+  getItem: key => storage.get(key) ?? null,
+  setItem: (key, value) => storage.set(key, value),
+}, configurable: true });
 globalThis.fetch = async (url, options = {}) => {
   requests.push(`${options.method || "GET"} ${url}`);
   return url === "/api/auth/me" ? new Response(null, { status: 401 }) : Response.json({ jobs: [], total: 0 });
@@ -55,6 +60,22 @@ test("guest applications follow the server's editing rules", async () => {
 
   assert.equal((await call(state, `/applications/${external.id}`, "DELETE")).status, 204);
   assert.equal((await (await call(state, "/applications")).json()).applications.length, 1);
+});
+
+test("guest company metadata survives saves and fills older linked applications", async () => {
+  const state = createVisitorState();
+  state.jobs.push({ id: 7, company: "Acme", title: "Intern", company_id: 9, logo: "/api/companies/9/logo" });
+  const app = await (await call(state, "/jobs/7/applications", "POST", {})).json();
+  const saved = await (await call(state, `/applications/${app.id}`, "PATCH", { note: "Updated" })).json();
+  assert.equal(saved.company_id, 9); assert.equal(saved.logo, "/api/companies/9/logo");
+  delete state.applications[0].company_id; delete state.applications[0].logo;
+  const reloaded = await (await call(JSON.parse(JSON.stringify(state)), "/applications")).json();
+  assert.equal(reloaded.applications[0].company_id, 9);
+  assert.equal(reloaded.applications[0].logo, "/api/companies/9/logo");
+  const external = await (await call(state, "/applications/external", "POST", { company: "Acme", title: "Other" })).json();
+  assert.equal(external.company_id, null); assert.equal(external.logo, null);
+  const changed = await (await call(state, `/applications/${external.id}`, "PATCH", { company: "Edited" })).json();
+  assert.equal(changed.company, "Edited"); assert.equal(changed.company_id, null); assert.equal(changed.logo, null);
 });
 
 test("guest resumes round-trip through the resume routes", async () => {

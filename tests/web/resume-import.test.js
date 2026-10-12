@@ -1,6 +1,6 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import { applyReview, duplicateEntry, possibleDuplicate, reviewDraft, validateReview } from '../../web/resume/import-model.js';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { applyReview, duplicateEntry, possibleDuplicate, reviewDraft, validateReview } = require('../../web/resume/import-model.js');
 const draft = () => ({ profile: { full_name: 'New Name', email: 'new@example.com', phone: '123', location: '', links: [{ label: 'Site', url: 'https://example.com' }] }, entries: [{ kind: 'experience', org: 'Example', role: 'Engineer', bullets: [{ text: 'First bullet' }, { text: 'Second bullet' }] }], skills: [{ category: 'language', name: 'Python' }] });
 const workspace = () => ({ profile: { full_name: 'Existing Name', email: '', links: [{ label: 'Existing', url: 'https://example.com' }] }, entries: [], skills: [] });
 test('validation preserves long content and requires organization and skill category', () => {

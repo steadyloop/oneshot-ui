@@ -229,7 +229,7 @@ async def main():
             nonlocal row
             url = route.request.url
             if url.endswith('/api/auth/me'):
-                payload, status = {'name': 'Chris Kim', 'email': 'test@example.test'}, 200
+                payload, status = {'name': 'Alex Morgan', 'email': 'test@example.test'}, 200
             elif route.request.method == 'PATCH':
                 writes.append(route.request.post_data_json)
                 if fail: payload, status = {'detail': 'Save unavailable'}, 503

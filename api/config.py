@@ -22,6 +22,8 @@ class Settings:
     # Builds the OAuth redirect_uri, which must match the one registered with Google.
     public_url: str = "http://127.0.0.1:8766"
     cookie_secure: bool = False
+    # Empty disables company administration; only a stored verified email can match.
+    company_editor_email: str = ""
 
 
 def _unquote(value: str) -> str:
@@ -74,4 +76,5 @@ def load_settings() -> Settings:
         session_secret=env("ONESHOT_SESSION_SECRET", ""),
         public_url=env("ONESHOT_PUBLIC_URL", "").rstrip("/") or Settings.public_url,
         cookie_secure=env("ONESHOT_COOKIE_SECURE", "").strip().lower() in {"1", "true", "yes", "on"},
+        company_editor_email=env("ONESHOT_COMPANY_EDITOR_EMAIL", "").strip().lower(),
     )

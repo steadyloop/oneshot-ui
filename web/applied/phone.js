@@ -3,12 +3,13 @@
 import P from "../phone/shell.js";
 import { api } from "../shared/api.js";
 import { guest } from "../shared/guest.js";
+import { companyLogoContent, startCompanyLogoFallbacks } from "../shared/company-logo.js";
 import { $, esc } from "../shared/util.js";
 import {
   LABELS, OPEN, PLACEHOLDERS, REASONS, age, agendaIdentity, agendaItems, agendaWeek, closeAs, closeNoReply,
   completeTask, counts, detailFields, dueDays, dueLabel, editDetails, externalPayload, formatDay, fromAPI, fromList,
-  hasChanges, inPipeline, initialFilters, moveTo, paginate, replaceApp, respond, restore, resumeLink, safeUrl, saveChanges,
-  savedMessage, tasksDue, undoChanges, undoneMessage, validDay, viewFor, visibleApplications, waitLabel, waitingOnCompany,
+  hasChanges, inPipeline, initialFilters, moveTo, paginate, replaceApp, respond, restore, resumeLink, safeUrl, createApplicationActions,
+  tasksDue, validDay, viewFor, visibleApplications, waitLabel, waitingOnCompany,
   zoneName,
 } from "./core.js";
 
@@ -34,7 +35,8 @@ const state = {
 const bump = () => { state.v += 1; };
 const remember = () => { try { sessionStorage.setItem(STORE, JSON.stringify({ view: state.view })); } catch (_) { /* private mode */ } };
 const byId = id => state.apps.find(app => app.id === String(id));
-const logo = company => `<div class="logo sm">${esc(P.initials(company))}</div>`;
+startCompanyLogoFallbacks();
+const logo = (app, size = "sm") => `<div class="logo ${size} company-logo-tile" aria-hidden="true">${companyLogoContent(app, P.initials(app.company))}</div>`;
 const refresh = () => { bump(); P.setBadge(tasksDue(state.apps)); P.render(); };
 
 /* ───────────── Data ───────────── */
@@ -49,22 +51,15 @@ async function load({ quiet = false } = {}) {
   refresh();
 }
 // Saves a recipe from core.js; resolves true when every record saved.
-async function commit(ids, { apply, message }) {
-  if (state.busy) return false;
-  state.busy = true; P.render();
-  const { succeeded, failed } = await saveChanges(state.apps, ids, apply, api.applications.update);
-  state.busy = false; refresh();
-  if (failed.length && !succeeded.length) { P.toast(failed[0].error.message || "Could not save."); return false; }
-  P.toast(savedMessage(message, succeeded, failed), succeeded.length ? [{ label: "Undo", run: () => undo(succeeded) }] : []);
-  return !failed.length;
-}
-async function undo(succeeded) {
-  if (state.busy) return;
-  state.busy = true; P.render();
-  const errors = await undoChanges(state.apps, succeeded, api.applications.update);
-  state.busy = false; refresh();
-  P.toast(undoneMessage(errors));
-}
+const commit = createApplicationActions(state, () => state.apps, {
+  busy(value) { if (value) P.render(); },
+  saved({ succeeded, failed, message, undo }) {
+    refresh();
+    if (failed.length && !succeeded.length) P.toast(failed[0].error.message || "Could not save.");
+    else P.toast(message, undo ? [{ label: "Undo", run: undo }] : []);
+  },
+  undone(message) { refresh(); P.toast(message); },
+}, api.applications.update);
 
 /* ───────────── In progress ───────────── */
 function dueTag(app) {
@@ -116,7 +111,7 @@ function listRow(app, end, sub) {
     const on = state.selected.has(app.id);
     return `<button class="app-row selectable${on ? " is-selected" : ""}" type="button" data-pick="${esc(app.id)}" aria-pressed="${on}"><span class="row-pick"><i>${icon("check")}</i></span>${text}<span class="end">${end}</span></button>`;
   }
-  return `<button class="app-row" type="button" data-app="${esc(app.id)}">${logo(app.company)}${text}<span class="end">${end}${icon("chev")}</span></button>`;
+  return `<button class="app-row" type="button" data-app="${esc(app.id)}">${logo(app)}${text}<span class="end">${end}${icon("chev")}</span></button>`;
 }
 function pageOf(list, view) {
   const { page, pages, start, end, items } = paginate(list, state.page[view]);
@@ -217,7 +212,7 @@ function appPage(push) {
   const history = app.events.map(event => `<li>${esc(String(event.text).replace(/\bSent\b/g, "Submitted"))}<time>${esc(dayText(String(event.at).slice(0, 10), true))}</time></li>`).join("");
   return `${backBar(esc(app.company))}
       <div class="push-scroll" id="push-scroll"><div class="d-wrap">
-        <div class="d-company"><div class="logo lg">${esc(P.initials(app.company))}</div><div><b class="app-title">${esc(app.role)}</b><span>${esc(app.company)}${app.external ? " · added by you" : ""}</span></div></div>
+        <div class="d-company">${logo(app, "lg")}<div><b class="app-title">${esc(app.role)}</b><span>${esc(app.company)}${app.external ? " · added by you" : ""}</span></div></div>
         <div class="quick-row">${quick}</div>
         ${move}
         <div class="sheet-label">Details</div>

@@ -3,12 +3,13 @@
 import { api } from "../shared/api.js";
 import { startAccount } from "../shared/account.js";
 import { guest } from "../shared/guest.js";
+import { companyLogoContent, startCompanyLogoFallbacks } from "../shared/company-logo.js";
 import { $, $$, esc, localDay as today } from "../shared/util.js";
 import {
   LABELS, OPEN, PLACEHOLDERS, REASONS, STAGES, age, agendaIdentity, agendaWeek, closeAs, closeNoReply, completeTask, counts,
   detailFields, dueDays, dueLabel, editDetails, externalPayload, formatDay, fromAPI, fromList, hasChanges, inPipeline,
-  initialFilters, moveTo, openTasks, paginate, replaceApp, respond, restore, resumeLink, safeUrl, saveChanges, savedMessage,
-  taskGroup, undoChanges, undoneMessage, validDay, viewFor, visibleApplications, waitLabel, waitingOnCompany, zoneName,
+  initialFilters, moveTo, openTasks, paginate, replaceApp, respond, restore, resumeLink, safeUrl, createApplicationActions,
+  taskGroup, validDay, viewFor, visibleApplications, waitLabel, waitingOnCompany, zoneName,
 } from "./core.js";
 
 const state = {
@@ -20,10 +21,12 @@ const currentFilters = () => state.filters[state.view];
 const byId = id => state.applications.find(app => app.id === id);
 const icon = name => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 const PALETTES = [["#eaf0eb", "#4d6f56"], ["#eeeaf2", "#6c5c7d"], ["#eaf0f3", "#526c7a"], ["#f2ece6", "#8a6e52"], ["#f1e9e7", "#8a625c"]];
-function companyMark(company) {
+startCompanyLogoFallbacks();
+function companyMark(app) {
+  const company = app.company;
   const [bg, color] = PALETTES[[...company].reduce((sum, ch) => sum + ch.charCodeAt(0), 0) % PALETTES.length];
   const initial = company.trim().charAt(0).toUpperCase() || "?";
-  return `<i class="company-mark" aria-hidden="true" style="--mark-bg:${bg};--mark-color:${color}">${esc(initial)}</i>`;
+  return `<i class="company-mark company-logo-tile" aria-hidden="true" style="--mark-bg:${bg};--mark-color:${color}">${companyLogoContent(app, initial)}</i>`;
 }
 
 async function loadApplications() {
@@ -133,17 +136,15 @@ function agendaMarkup() {
   </aside>`;
 }
 
-function recordsCompanyMark(company) {
-  const words = company.trim().split(/\s+/).filter(Boolean);
-  const initials = words.length > 1 ? words.slice(0, 2).map(word => word[0]).join("") : (words[0] || "?").slice(0, 2);
-  return `<span class="records-company-mark" aria-hidden="true">${esc(initials.toUpperCase())}</span>`;
+function recordsCompanyMark(app) {
+  return `<span class="records-company-mark company-logo-tile" aria-hidden="true">${companyLogoContent(app)}</span>`;
 }
 function tableRow(app, sent) {
   const id = esc(app.id), identity = esc(`${app.company}, ${app.role}`), selected = state.selected.has(app.id), days = age(app);
   const date = validDay(app.submittedAt) ? ` datetime="${esc(app.submittedAt)}" title="${esc(formatDay(app.submittedAt, true))}"` : "";
   return `<tr data-row-open="${id}"${selected ? ' class="selected"' : ""}>
     ${sent ? `<td class="check-cell"><input type="checkbox" data-select="${id}" aria-label="Select ${identity}" ${selected ? "checked" : ""}></td>` : ""}
-    <td class="company-cell"><span class="company-row">${recordsCompanyMark(app.company)}<button class="text-button records-company-name" type="button" data-open="${id}" title="${esc(app.company)}">${esc(app.company)}</button></span></td>
+    <td class="company-cell"><span class="company-row">${recordsCompanyMark(app)}<button class="text-button records-company-name" type="button" data-open="${id}" title="${esc(app.company)}">${esc(app.company)}</button></span></td>
     <td class="role-cell"><button class="text-button role-title" type="button" data-open="${id}" aria-label="Open ${identity}" title="${esc(app.role)}">${esc(app.role)}</button></td>
     <td class="date-cell"><time class="table-date"${date}>${esc(formatDay(app.submittedAt))}</time></td>
     ${sent
@@ -271,28 +272,22 @@ function showSaveError(message) {
 }
 
 // Saves a recipe from core.js; resolves true when every record saved.
-async function commit(ids, { apply, message }) {
-  if (state.busy) return false;
-  setBusy(true);
-  const { succeeded, failed } = await saveChanges(state.applications, ids, apply, api.applications.update);
-  setBusy(false);
-  state.selected = new Set(failed.map(failure => failure.old.id));
-  render();
-  if ($("#drawer").open && succeeded.some(app => app.id === state.selectedId)) renderDrawer();
-  const feedback = savedMessage(message, succeeded, failed);
-  if (failed.length && !succeeded.length) { showSaveError(feedback); return false; }
-  showToast(feedback, succeeded.length ? () => undo(succeeded) : null);
-  return !failed.length;
-}
-async function undo(succeeded) {
-  setBusy(true);
-  const errors = await undoChanges(state.applications, succeeded, api.applications.update);
-  setBusy(false);
-  state.selected.clear();
-  render();
-  if ($("#drawer").open) renderDrawer();
-  showToast(undoneMessage(errors));
-}
+const commit = createApplicationActions(state, () => state.applications, {
+  busy: setBusy,
+  saved({ succeeded, failed, message, undo }) {
+    state.selected = new Set(failed.map(failure => failure.old.id));
+    render();
+    if ($("#drawer").open && succeeded.some(app => app.id === state.selectedId)) renderDrawer();
+    if (failed.length && !succeeded.length) showSaveError(message);
+    else showToast(message, undo);
+  },
+  undone(message) {
+    state.selected.clear();
+    render();
+    if ($("#drawer").open) renderDrawer();
+    showToast(message);
+  },
+}, api.applications.update);
 
 /* ───────────── Dialogs and the drawer ───────────── */
 function openDialog(id) {
@@ -314,7 +309,7 @@ function renderDrawer() {
   const next = app.stage === "sent" ? `<button class="button" type="button" data-response="${esc(app.id)}">Record response</button>`
     : inPipeline(app) && !waiting && app.nextAction ? `<button class="button" type="button" data-complete="${esc(app.id)}">Complete task</button>` : "";
   $("#drawer-content").innerHTML = `<form id="detail-form" class="drawer-form">
-    <header class="drawer-head">${companyMark(app.company)}<div class="drawer-title"><h2 id="drawer-title">${esc(app.role)}</h2><p>${esc(app.company)}</p></div><button class="icon-button" type="button" data-close="drawer" aria-label="Close application details" autofocus>${icon("close")}</button></header>
+    <header class="drawer-head">${companyMark(app)}<div class="drawer-title"><h2 id="drawer-title">${esc(app.role)}</h2><p>${esc(app.company)}</p></div><button class="icon-button" type="button" data-close="drawer" aria-label="Close application details" autofocus>${icon("close")}</button></header>
     <div class="drawer-body"><div class="form-grid">
       <label class="field ${closed ? "" : "full"}">Stage<select name="stage" id="detail-stage">${options(stages, app.stage)}</select></label>
       <label class="field" id="detail-reason-field" ${closed ? "" : "hidden"}>Outcome<select name="closedReason" ${closed ? "required" : "disabled"}><option value="">Choose an outcome</option>${options(Object.entries(REASONS), app.closedReason)}</select></label>
@@ -374,7 +369,7 @@ function openResponse(id) {
   state.responseId = id;
   const form = $("#response-form");
   form.reset();
-  $("#response-context").innerHTML = `${companyMark(app.company)}<div><strong>${esc(app.company)}</strong><span>${esc(app.role)}</span></div>`;
+  $("#response-context").innerHTML = `${companyMark(app)}<div><strong>${esc(app.company)}</strong><span>${esc(app.role)}</span></div>`;
   form.elements.nextAction.value = app.nextAction || "";
   form.elements.nextDue.value = app.nextDue || "";
   updateResponseFields();

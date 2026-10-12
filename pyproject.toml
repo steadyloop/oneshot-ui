@@ -3,7 +3,6 @@ name = "oneshot-ui"
 version = "0.1.0"
 description = "OneShot web app: the browser client and its request-facing API."
 requires-python = ">=3.12"
-# Request-facing API only; the crawler stays in its own private repository.
 dependencies = [
     "asyncpg>=0.29",
     "fastapi>=0.141.1",

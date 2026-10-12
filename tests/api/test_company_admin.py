@@ -14,7 +14,7 @@ import httpx
 from itsdangerous import TimestampSigner
 
 from api.app import create_app
-from api.config import Settings
+from api.config import Settings, load_settings
 from api.db import Db
 from api.tracker.store import PostgresRepository
 from db_fixtures import clone_tables
@@ -36,9 +36,9 @@ class AuthorizationTests(unittest.IsolatedAsyncioTestCase):
         )
         self.repo.for_account = Mock(return_value=self.repo)
         self.auth = SimpleNamespace(account_profile=AsyncMock(return_value={
-            "email": "msg.shkim@gmail.com", "name": "Admin", "picture_url": "",
+            "email": "admin@example.com", "name": "Admin", "picture_url": "",
         }))
-        self.app = create_app(Settings(dsn="", session_secret=SECRET), repository=self.repo, auth_store=self.auth)
+        self.app = create_app(Settings(dsn="", session_secret=SECRET, company_editor_email="admin@example.com"), repository=self.repo, auth_store=self.auth)
         self.app.state.repository = self.repo
         self.app.state.auth_store = self.auth
         self.pool = SimpleNamespace()
@@ -65,14 +65,14 @@ class AuthorizationTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_other_accounts_and_lookalike_addresses_are_denied(self):
         self.client.cookies.set("oneshot_session", cookie(self.account_id))
-        for email in ("other@gmail.com", "msg.shkim@gmail.com.evil.example", "msg.shkim+admin@gmail.com"):
+        for email in ("other@example.com", "admin@example.com.evil.example", "admin+extra@example.com"):
             self.auth.account_profile.return_value["email"] = email
             await self.assert_denied(403)
             self.assertFalse((await self.client.get("/api/auth/me")).json()["can_edit_companies"])
 
     async def test_allowed_account_can_list_and_patch_only_supported_fields(self):
         self.client.cookies.set("oneshot_session", cookie(self.account_id))
-        self.auth.account_profile.return_value["email"] = "MSG.SHKIM@gmail.com"
+        self.auth.account_profile.return_value["email"] = "ADMIN@example.com"
         self.assertTrue((await self.client.get("/api/auth/me")).json()["can_edit_companies"])
         response = await self.client.get("/api/admin/companies", params={"q": "Acme", "limit": 25, "offset": 50})
         self.assertEqual(response.status_code, 200)
@@ -80,7 +80,7 @@ class AuthorizationTests(unittest.IsolatedAsyncioTestCase):
         response = await self.client.patch("/api/admin/companies/9", json={"name": " Updated ", "domain": "EXAMPLE.COM", "description": "", "tags": {"startup": True}})
         self.assertEqual(response.status_code, 200)
         self.repo.update_company.assert_awaited_once_with(self.pool, self.account_id, 9, {"name": "Updated", "domain": "example.com", "description": None, "tags": {"startup": True}})
-        for body in ({}, {"id": 123}, {"name": " "}, {"name": None}, {"tags": []}, {"tags": None}, {"email": "msg.shkim@gmail.com"}):
+        for body in ({}, {"id": 123}, {"name": " "}, {"name": None}, {"tags": []}, {"tags": None}, {"email": "admin@example.com"}):
             self.assertEqual((await self.client.patch("/api/admin/companies/9", json=body)).status_code, 422)
         self.assertEqual((await self.client.get("/api/admin/companies?limit=10000")).status_code, 422)
 
@@ -88,6 +88,14 @@ class AuthorizationTests(unittest.IsolatedAsyncioTestCase):
         self.client.cookies.set("oneshot_session", cookie(self.account_id))
         self.auth.account_profile.return_value = None
         await self.assert_denied(401)
+
+    async def test_unconfigured_administrator_disables_company_editing(self):
+        self.app.state.settings = Settings(dsn="", session_secret=SECRET)
+        self.client.cookies.set("oneshot_session", cookie(self.account_id))
+        for email in ("admin@example.com", ""):
+            self.auth.account_profile.return_value["email"] = email
+            await self.assert_denied(403)
+            self.assertFalse((await self.client.get("/api/auth/me")).json()["can_edit_companies"])
 
     async def test_missing_company_and_duplicate_domain_have_useful_errors(self):
         self.client.cookies.set("oneshot_session", cookie(self.account_id))
@@ -97,6 +105,14 @@ class AuthorizationTests(unittest.IsolatedAsyncioTestCase):
         response = await self.client.patch("/api/admin/companies/9", json={"domain": "taken.com"})
         self.assertEqual(response.status_code, 409)
         self.assertIn("already assigned", response.json()["detail"])
+
+
+class AdminSettingsTests(unittest.TestCase):
+    def test_admin_email_comes_from_environment_and_defaults_to_disabled(self):
+        with patch("api.config.load_dotenv_files"), patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(load_settings().company_editor_email, "")
+            os.environ["ONESHOT_COMPANY_EDITOR_EMAIL"] = " ADMIN@Example.com "
+            self.assertEqual(load_settings().company_editor_email, "admin@example.com")
 
 
 @unittest.skipUnless(os.environ.get("ONESHOT_TEST_DATABASE_URL"), "local test database not configured")

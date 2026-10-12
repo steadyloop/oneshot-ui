@@ -1,7 +1,6 @@
 // Resume logic shared by the desktop and phone pages: the section tables,
 // reading and editing a resume's selection, and the /api/resume calls.
-import { privateRequest } from "../shared/api.js";
-import { guest } from "../shared/guest.js";
+import { api } from "../shared/api.js";
 import { clone } from "../shared/util.js";
 
 // fields: the two header fields an entry leads with, as [key, label, phone placeholder].
@@ -145,45 +144,20 @@ export const handoffTarget = hash => Number(new URLSearchParams(hash.replace(/^#
 export const resumeForJob = (job, variants, entries, skills) =>
   newResume({ name: `${job.company} · ${job.title}`.slice(0, 300), target: job.id, variant: variants[0]?.key || "" }, entries, skills);
 
-/* /api/resume */
-const call = (method, path, body) => privateRequest(`/resume${path}`, { method, body: body && JSON.stringify(body) });
+export const resumeApi = api.resumes;
 
-export const resumeApi = {
-  async load() {
-    const [profile, entries, skills, variants, jobs, resumes] = await Promise.all(
-      ["/profile", "/entries", "/skills", "/variants", "/jobs", "/resumes"].map(path => call("GET", path)));
-    return {
-      profile: profile || {}, entries: entries?.entries || [], skills: skills?.skills || [], variants: variants?.variants || [],
-      jobs: jobs?.jobs || [], resumes: resumes?.resumes || [], local: await guest.isLocal(),
-    };
-  },
-  saveProfile: fields => call("PUT", "/profile", fields),
-  addEntry: fields => call("POST", "/entries", fields),
-  updateEntry: (id, fields) => call("PATCH", `/entries/${id}`, fields),
-  addBullet: (entryId, text) => call("POST", `/entries/${entryId}/bullets`, { text, audience: "all", tags: [], defense_notes: "" }),
-  updateBullet: (id, text) => call("PATCH", `/bullets/${id}`, { text }),
-  addSkill: (category, name, audience = "all") => call("POST", "/skills", { category, name, audience }),
-  // The server has no skill edit; only the guest workspace answers this.
-  updateSkill: (id, fields) => call("PATCH", `/skills/${id}`, fields),
-  addResume: fields => call("POST", "/resumes", fields),
-  updateResume: (id, fields) => call("PATCH", `/resumes/${id}`, fields),
-  remove: path => call("DELETE", path),
-};
+// Views supply their current workspace, including pending phone deletions.
+// Only creating a missing target writes data; navigation stays in the view.
+export async function resolveHandoff(target, workspace, create = resumeApi.addResume) {
+  const job = target ? workspace.jobs.find(item => item.id === target) : null;
+  if (!job) return null;
+  const existing = workspace.resumes.find(resume => resume.target_job_id === target);
+  return existing ? { resume: existing, created: false } : {
+    resume: await create(resumeForJob(job, workspace.variants, workspace.entries, workspace.skills)), created: true,
+  };
+}
 
 // The PDF comes back as a file, not JSON. Signed out there is no stored resume
 // to render, so the document travels with the request.
-export async function pdfBlob({ local, profile, resume, entries, skills }) {
-  const response = local
-    ? await fetch("/api/resume/render/pdf", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profile, resume, entries, skills }),
-    })
-    : await fetch(`/api/resume/resumes/${resume.id}/pdf`);
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    throw new Error(payload.detail || "Could not build PDF");
-  }
-  return response.blob();
-}
+export const pdfBlob = resumeApi.pdf;
 export const pdfName = resume => `${(resume.name || "resume").replace(/[^a-z0-9]+/gi, "_")}.pdf`;

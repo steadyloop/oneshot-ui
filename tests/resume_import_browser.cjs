@@ -7,13 +7,14 @@ const { spawn, execFileSync } = require('node:child_process');
 const { chromium, expect } = require(process.env.PLAYWRIGHT_MODULE || '@playwright/test');
 const { createVisitorState, handle } = require('../web/shared/guest.js');
 const root = path.resolve(__dirname, '..');
+const python = process.env.ONESHOT_PYTHON || path.join(root, '.venv/bin/python');
 const artifacts = process.env.ONESHOT_BROWSER_ARTIFACTS || '/private/tmp/oneshot-import-browser';
 let signedIn = false, state, failBullet = false;
 const calls = [];
 const sample = 'Alex Morgan\nalex@example.com\nExperience\nCompany: Example Co\nRole: Software Engineer\nJan 2024 - Present\n• Built useful tools.\n• Improved latency.\nSkills\nLanguages: Python\nAwards\nAward for service';
 function parse(bytes, type) {
   return new Promise((resolve, reject) => {
-    const p = spawn(path.join(root, '.venv/bin/python'), ['-c', 'import sys; from api.resume.parser import parse_text,parse_document; data=sys.stdin.buffer.read(); r=parse_text(data.decode()) if sys.argv[1]=="text" else parse_document(data,sys.argv[1]); print(r.model_dump_json())', type], { cwd: root });
+    const p = spawn(python, ['-c', 'import sys; from api.resume.parser import parse_text,parse_document; data=sys.stdin.buffer.read(); r=parse_text(data.decode()) if sys.argv[1]=="text" else parse_document(data,sys.argv[1]); print(r.model_dump_json())', type], { cwd: root });
     const output = [], errors = [];
     p.stdout.on('data', b => output.push(b)); p.stderr.on('data', b => errors.push(b));
     p.on('error', reject); p.on('close', code => code ? reject(Error(Buffer.concat(errors).toString())) : resolve(Buffer.concat(output)));
@@ -47,11 +48,11 @@ const server = createServer(async (req, res) => {
 });
 async function main() {
   await mkdir(artifacts, { recursive: true });
-  await new Promise(r => server.listen(0, '127.0.0.1', r));
-  const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE });
-  const fixtures = JSON.parse(execFileSync(path.join(root, '.venv/bin/python'), ['-c',
+  const fixtures = JSON.parse(execFileSync(python, ['-c',
     'import base64,json; from io import BytesIO; from docx import Document; from api.resume.render import compile_pdf; d=Document(); d.add_paragraph("Alex Morgan"); d.add_paragraph("alex@example.com"); b=BytesIO(); d.save(b); pdf,_,error=compile_pdf("Alex Morgan\\n\\nalex@example.com".replace("@",chr(92)+"@")); assert not error,error; print(json.dumps({"docx":base64.b64encode(b.getvalue()).decode(),"pdf":base64.b64encode(pdf).decode()}))'], { cwd: root }));
   const errors = [];
+  await new Promise(r => server.listen(0, '127.0.0.1', r));
+  const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE });
   try {
     for (const phone of [false, true]) for (const account of [false, true]) {
       signedIn = account; state = createVisitorState(); state.resume.profile.full_name = 'Existing Name';

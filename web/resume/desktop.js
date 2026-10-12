@@ -4,7 +4,7 @@ import { startAccount } from "../shared/account.js";
 import { esc } from "../shared/util.js";
 import {
   BULLET_KINDS, DENSITIES, KIND, SECTION_ORDER, SKILL_GROUPS, TEMPLATES, bulletPick, cloneSelection, dates, densityOf, gpa,
-  handoffTarget, linkOf, newResume, parseDates, pdfBlob, pdfName, pickOf, resumeApi, resumeForJob, rewordBullet, shortDay,
+  handoffTarget, linkOf, newResume, parseDates, pdfBlob, pdfName, pickOf, resumeApi, resolveHandoff, rewordBullet, shortDay,
   showsDetail, shownEntry, skillOn, targetOf, templateOf, toggleBullet, toggleDetail, toggleEntry, toggleSkill, webUrl,
 } from "./core.js";
 
@@ -915,14 +915,10 @@ document.addEventListener("click", event => {
 // Applied's "Tailor resume": open the resume for that job, or start one.
 async function openHandoff() {
   const requested = handoffTarget(location.hash);
-  const job = requested ? state.jobs.find(item => item.id === requested) : null;
-  if (!job) return;
-  const existing = state.resumes.find(resume => resume.target_job_id === requested);
-  if (existing) state.resumeId = existing.id;
-  else {
-    const created = await resumeApi.addResume(resumeForJob(job, state.variants, state.entries, state.skills));
-    state.resumes.unshift(created); state.resumeId = created.id;
-  }
+  const handoff = await resolveHandoff(requested, state);
+  if (!handoff) return;
+  if (handoff.created) state.resumes.unshift(handoff.resume);
+  state.resumeId = handoff.resume.id;
   state.tab = "resumes";
   state.resumeView = "editor";
   history.replaceState(null, "", location.pathname + location.search);

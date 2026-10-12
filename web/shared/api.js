@@ -46,6 +46,7 @@ export const privateRequest = (path, options) => send(path, options, true);
 
 const id = encodeURIComponent;
 const body = (method, payload) => ({ method, body: JSON.stringify(payload) });
+const resumeRequest = (method, path, payload) => privateRequest(`/resume${path}`, { method, body: payload && JSON.stringify(payload) });
 // Guests snapshot a posting before writing about it, so their lists can still show it.
 const remember = async job => { if (await guest.isLocal()) guest.rememberJob(job); };
 
@@ -82,7 +83,47 @@ export const api = {
     remove: appId => privateRequest(`/applications/${id(appId)}`, { method: "DELETE" }),
   },
   resumes: {
+    async load() {
+      const [profile, entries, skills, variants, jobs, resumes] = await Promise.all(
+        ["/profile", "/entries", "/skills", "/variants", "/jobs", "/resumes"].map(path => resumeRequest("GET", path)));
+      return {
+        profile: profile || {}, entries: entries?.entries || [], skills: skills?.skills || [], variants: variants?.variants || [],
+        jobs: jobs?.jobs || [], resumes: resumes?.resumes || [], local: await guest.isLocal(),
+      };
+    },
     list: () => privateRequest("/resume/resumes"),
+    saveProfile: fields => resumeRequest("PUT", "/profile", fields),
+    addEntry: fields => resumeRequest("POST", "/entries", fields),
+    updateEntry: (entryId, fields) => resumeRequest("PATCH", `/entries/${id(entryId)}`, fields),
+    addBullet: (entryId, text) => resumeRequest("POST", `/entries/${id(entryId)}/bullets`, { text, audience: "all", tags: [], defense_notes: "" }),
+    updateBullet: (bulletId, text) => resumeRequest("PATCH", `/bullets/${id(bulletId)}`, { text }),
+    addSkill: (category, name, audience = "all") => resumeRequest("POST", "/skills", { category, name, audience }),
+    // Skill editing is supported by the guest workspace only.
+    updateSkill: (skillId, fields) => resumeRequest("PATCH", `/skills/${id(skillId)}`, fields),
+    addResume: fields => resumeRequest("POST", "/resumes", fields),
+    updateResume: (resumeId, fields) => resumeRequest("PATCH", `/resumes/${id(resumeId)}`, fields),
+    remove: path => resumeRequest("DELETE", path),
+    async parse(input, type, signal) {
+      const response = await fetch(`/api/resume/parse?file_type=${type}`, {
+        method: "POST", body: input, signal,
+        headers: { "Content-Type": type === "text" ? "text/plain; charset=utf-8" : "application/octet-stream" },
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error?.message || "The resume could not be read. Try pasting its text.");
+      return result;
+    },
+    async pdf({ local, profile, resume, entries, skills }) {
+      const response = local
+        ? await fetch("/api/resume/render/pdf", {
+          ...body("POST", { profile, resume, entries, skills }), headers: { "Content-Type": "application/json" },
+        })
+        : await fetch(`/api/resume/resumes/${resume.id}/pdf`);
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.detail || "Could not build PDF");
+      }
+      return response.blob();
+    },
     // Idempotent: a double click returns the existing target.
     targetFromApplication: appId => privateRequest(`/resume/jobs/from-application/${id(appId)}`, { method: "POST" }),
   },

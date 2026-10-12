@@ -3,6 +3,8 @@
 // pane's markup, so it can be tested without a DOM.
 import { api } from "../shared/api.js";
 import { esc, localDay } from "../shared/util.js";
+import { logoSrc } from "../shared/company-logo.js";
+export { logoSrc } from "../shared/company-logo.js";
 
 /* ───────────── Filters and sorting ───────────── */
 export const FILTERS = [
@@ -148,7 +150,6 @@ export function initials(job) {
 }
 // Same-origin path only. The mark is server-issued, so a value that does not
 // look like the logo route is dropped rather than rendered as a remote src.
-export const logoSrc = value => /^\/api\/companies\/\d+\/logo$/.test(String(value || "")) ? String(value) : "";
 // Render only the harvested logo or the neutral company icon, never both.
 export function logoMarkup(job, imageClass = "job-logo-mark") {
   const src = logoSrc(job?.logo);
@@ -379,6 +380,41 @@ export const fetchJobs = ({ query, sort, types, fields }, offset = 0) => api.job
   q: query, season: seasonFilter(sort), sort: sortOrder(sort),
   job_type: jobTypes(types), degree_field: degreeFields(fields), limit: PAGE_SIZE, offset,
 });
+
+// One request lifecycle for both views. A newer filter request owns the state;
+// late responses and their cleanup cannot overwrite it or unlock its paging.
+export function createFeedLoader(state, filters, hooks, fetchPage = fetchJobs) {
+  let generation = 0, loading = false, autoLoadFailed = false;
+  return {
+    get loading() { return loading; },
+    get autoLoadFailed() { return autoLoadFailed; },
+    async load({ append = false } = {}) {
+      if (append && (loading || state.loadingMore)) return;
+      const current = append ? generation : ++generation;
+      if (append) state.loadingMore = true;
+      else { loading = true; state.loadingMore = false; autoLoadFailed = false; }
+      hooks.start?.(append);
+      try {
+        const payload = await fetchPage(filters(), append ? (state.jobs || []).length : 0);
+        if (current !== generation) return;
+        const rows = hooks.rows ? hooks.rows(payload.jobs, append) : payload.jobs;
+        state.jobs = append ? [...(state.jobs || []), ...rows] : rows;
+        state.total = payload.total;
+        state.typeCounts = payload.job_type_counts || {};
+        state.loadingMore = loading = false;
+        autoLoadFailed = append && !payload.jobs.length;
+        hooks.received?.(payload, append);
+      } catch (error) {
+        if (current !== generation) return;
+        state.loadingMore = loading = false;
+        autoLoadFailed = append;
+        hooks.error?.(error, append);
+      } finally {
+        if (current === generation) hooks.settled?.(append);
+      }
+    },
+  };
+}
 export async function fetchHidden() {
   const payload = await api.feedback.list({ limit: 200 });
   return { total: payload.total, rows: (payload.hidden || []).filter(row => row.job) };

@@ -51,7 +51,6 @@ test("job type tabs cover every student job type exactly once", () => {
   assert.equal(FILTERS.reduce((total, filter) => total + tabCount(counts, filter), 0), 68);
   const design = fs.readFileSync(require.resolve("../../web/discover/desktop.js"), "utf8");
   assert.match(design, /class="filter-count"/);
-  assert.match(design, /payload\.job_type_counts/);
   assert.match(design, /filters: \["internships"\]/);
 });
 

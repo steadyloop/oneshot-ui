@@ -106,6 +106,65 @@ async function checkRecordsLayout(page, closed = false) {
     await page.locator('[data-action="clear-selection"]').click();
   }
 }
+async function checkCompanyLogos(browser) {
+  for (const signedIn of [false, true]) for (const phone of [false, true]) {
+    const rows = [
+      row('logo-1', 'Logo Company', 'applied', { external: false, job_id: 1, company_id: 9, logo: '/api/companies/9/logo' }),
+      row('logo-2', 'Logo Company', 'applied', { external: false, job_id: 2, company_id: 9, logo: '/api/companies/9/logo' }),
+      row('broken', 'Missing Logo', 'applied', { external: false, job_id: 3, company_id: 10, logo: '/api/companies/10/logo' }),
+      row('none', 'No Logo', 'applied', { external: false, job_id: 4, company_id: 11, logo: null }),
+      row('external', 'Logo Company', 'applied'),
+    ];
+    const context = await browser.newContext({ viewport: { width: phone ? 390 : 1440, height: 1000 }, isMobile: phone, hasTouch: phone });
+    await routeFiles(context, (route, url) => {
+      if (url.pathname === '/api/auth/me') return route.fulfill({ status: signedIn ? 200 : 401, json: { name: 'Test', email: 'test@example.test' } });
+      if (url.pathname === '/api/companies/9/logo') return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="12" fill="#1e5c42"/></svg>' });
+      if (url.pathname === '/api/companies/10/logo') return route.fulfill({ status: 404, body: '' });
+      if (url.pathname === '/api/applications') return route.fulfill({ json: { applications: rows } });
+      const app = rows.find(row => url.pathname === `/api/applications/${row.id}`);
+      if (app) {
+        if (route.request().method() === 'PATCH') Object.assign(app, route.request().postDataJSON());
+        return route.fulfill({ json: app });
+      }
+      return route.fulfill({ json: { jobs: [], total: 0 } });
+    });
+    if (!signedIn) await context.addInitScript(({ key, rows }) => {
+      const jobs = rows.filter(row => row.job_id != null).map(row => ({ id: row.job_id, company: row.company, company_id: row.company_id, logo: row.logo }));
+      // Older guest applications get their metadata from the remembered job.
+      const applications = rows.map(({ company_id, logo, ...row }) => row);
+      localStorage.setItem(key, JSON.stringify({ applications, jobs, feedback: [] }));
+    }, { key: KEY, rows });
+    const page = await context.newPage(), errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.goto(`${ORIGIN}/application/`);
+    const tab = page.locator(phone ? '#phone [data-view="sent"]' : '#tab-sent');
+    await expect(tab).toContainText('5'); await tab.click();
+    const record = id => page.locator(phone ? `.app-row[data-app="${id}"]` : `tr[data-row-open="${id}"]`);
+    const image = record('logo-1').locator('img[data-company-logo]');
+    await expect(image).toHaveAttribute('src', '/api/companies/9/logo');
+    await expect.poll(() => image.evaluate(img => img.naturalWidth)).toBeGreaterThan(0);
+    await expect(record('logo-2').locator('img')).toHaveAttribute('src', '/api/companies/9/logo');
+    for (const [id, initials] of [['broken', 'ML'], ['none', 'NL'], ['external', 'LC']]) {
+      await expect(record(id).locator('img')).toHaveCount(0);
+      await expect(record(id).locator('.company-logo-tile')).toHaveText(initials);
+    }
+    assert.equal(await image.evaluate(img => getComputedStyle(img).objectFit), 'contain');
+    if (!phone) assert.equal(Math.round((await record('logo-1').boundingBox()).height), 40);
+    await record('logo-1').locator(phone ? ':scope' : '.role-title').click();
+    await expect(page.locator(phone ? '.d-company img' : '#drawer img')).toHaveAttribute('src', '/api/companies/9/logo');
+    await page.locator(phone ? '[data-draft="notes"]' : '#detail-form [name="notes"]').fill('Keep the logo');
+    await page.locator(phone ? '[data-act="save-app"]' : '#detail-form [type="submit"]').click();
+    if (phone) await expect(page.locator('[data-act="save-app"]')).toHaveCount(0);
+    else { await idle(page); await page.keyboard.press('Escape'); }
+    await expect(image).toHaveAttribute('src', '/api/companies/9/logo');
+    await page.reload(); await expect(tab).toContainText('5'); await tab.click();
+    await expect.poll(() => image.evaluate(img => img.naturalWidth)).toBeGreaterThan(0);
+    await page.screenshot({ path: path.join(OUT, `logos-${signedIn ? 'account' : 'guest'}-${phone ? 'phone' : 'desktop'}.png`) });
+    assert.deepEqual(errors, []);
+    await context.close();
+  }
+}
+
 async function responsiveRecords(page) {
   for (const view of ['sent', 'closed']) {
     await page.locator(`#tab-${view}`).click();
@@ -322,6 +381,8 @@ async function responsiveRecords(page) {
       await phone.close();
     }
     notes.push('Dedicated phone screens: pagination and no overflow at 320/390/760px; bulk closure and Undo preserve counts.');
+    await checkCompanyLogos(browser);
+    notes.push('Company logos: account and guest desktop/phone lists and details reuse stored logos, failed and absent images retain initials, and saves/reloads preserve metadata.');
     fs.writeFileSync(path.join(OUT, 'manifest.json'), JSON.stringify({ manifest, fixedTime: NOW, notes }, null, 2));
     console.log(JSON.stringify({ passed: notes, baselines: OUT, sourceFilesChangedByTest: false }, null, 2));
   } finally { await browser.close(); }

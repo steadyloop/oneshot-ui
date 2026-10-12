@@ -1,11 +1,4 @@
-/* OneShot on phones. Loaded only on phones (shared/boot.js), where the desktop
-   stylesheets are switched off, so these rules never reach the desktop site.
-   Ported from mockup/mobile-overhaul. */
-@font-face { font-family: 'IBM Plex Sans'; src: url('/static/shared/fonts/plex-sans.woff2') format('woff2'); font-weight: 400 700; font-display: swap; }
-@font-face { font-family: 'IBM Plex Serif'; src: url('/static/shared/fonts/plex-serif-medium.woff2') format('woff2'); font-weight: 500; font-display: swap; }
-@font-face { font-family: 'IBM Plex Serif'; src: url('/static/shared/fonts/plex-serif-semibold.woff2') format('woff2'); font-weight: 600; font-display: swap; }
-@font-face { font-family: 'IBM Plex Mono'; src: url('/static/shared/fonts/plex-mono.woff2') format('woff2'); font-weight: 400; font-display: swap; }
-@font-face { font-family: 'IBM Plex Mono'; src: url('/static/shared/fonts/plex-mono-medium.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+@import url("/static/shared/fonts.css");
 
 html.is-phone {
   --sans: 'IBM Plex Sans', ui-sans-serif, -apple-system, system-ui, sans-serif;
@@ -103,6 +96,8 @@ html.is-phone body > :not(#phone) { display: none !important; }
 .logo.lg:has(img) { border: 1px solid var(--line-strong); }
 .logo.lg img { padding: 0; border-radius: 12px; }
 .logo.sm { width: 36px; height: 36px; border-radius: 9px; font-size: 12px; }
+.company-logo-tile { position: relative; overflow: hidden; }
+.company-logo-tile > img[data-company-logo] { position: absolute; inset: 0; display: block; width: 100%; height: 100%; padding: 2px; object-fit: contain; background: white; }
 .job-row .logo { width: 24px; height: 24px; margin-top: 1px; border-radius: 6px; background: #EFF1EE; color: #4A524D; font: 600 10px/1 var(--sans); letter-spacing: 0; }
 .job-row .logo .company-logo-fallback, .hidden-open .logo .company-logo-fallback { width: 14px; height: 14px; }
 .job-row h3 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin: 0; font: 600 14px/1.35 var(--sans); }

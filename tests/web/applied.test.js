@@ -13,6 +13,15 @@ test('real API records round-trip without changing IDs, dates or discovered snap
   assert.equal(Object.hasOwn(body, 'company'), false); assert.equal(Object.hasOwn(body, 'title'), false);
 });
 
+test('company metadata is display-only and accepts only stored logo paths', () => {
+  const app = fromAPI({ id: 42, job_id: 19, company: 'Acme', company_id: 9, logo: '/api/companies/9/logo' });
+  assert.equal(app.companyId, 9); assert.equal(app.logo, '/api/companies/9/logo');
+  assert.equal(Object.hasOwn(toAPI(app), 'company_id'), false);
+  assert.equal(Object.hasOwn(toAPI(app), 'logo'), false);
+  assert.equal(fromAPI({ id: 43, logo: 'https://example.com/logo.png' }).logo, '');
+  assert.equal(fromAPI({ id: 44 }).companyId, null);
+});
+
 test('legacy unknown submission dates stay unknown and cannot match age filters', () => {
   const app = fromAPI({ id: 'legacy', external: true, company: 'Legacy', title: 'Intern', stage: 'considering', submitted_at: null });
   assert.equal(app.stage, 'sent'); assert.equal(age(app), null); assert.equal(toAPI(app).submitted_at, null);

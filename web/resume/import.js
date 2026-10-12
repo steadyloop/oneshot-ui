@@ -80,9 +80,7 @@ export function installResumeImport({ getWorkspace, refresh, notify }) {
     controller = new AbortController(); lock(true); message('Reading your resume…');
     try {
       const type = pasted ? 'text' : file.name.split('.').pop().toLowerCase();
-      const response = await fetch(`/api/resume/parse?file_type=${type}`, { method: 'POST', body, headers: { 'Content-Type': pasted ? 'text/plain; charset=utf-8' : 'application/octet-stream' }, signal: controller.signal });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error?.message || 'The resume could not be read. Try pasting its text.');
+      const result = await resumeApi.parse(body, type, controller.signal);
       original = result; review = reviewDraft(result); lock(false); showReview();
       dialog.querySelector('h3').tabIndex = -1; dialog.querySelector('h3').focus();
     } catch (error) { lock(false); if (error.name !== 'AbortError') message(error.message); }

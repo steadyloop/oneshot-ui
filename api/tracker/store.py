@@ -369,6 +369,7 @@ class PostgresRepository:
             "source": row.get("source"),
             "source_url": row.get("source_url"),
             "company": row.get("company_name") or "Unknown company",
+            "company_id": row.get("company_id"),
             # Null when the harvest found nothing, which the client reads as
             # "draw the initials instead".
             "logo": (
@@ -916,6 +917,8 @@ class PostgresRepository:
             "job_id": row.get("job_posting_id"),
             "external": external,
             "company": row["company_snapshot"],
+            "company_id": None,
+            "logo": None,
             "title": row["title_snapshot"],
             "location": row.get("location_snapshot"),
             "stage": row["stage"],
@@ -931,6 +934,38 @@ class PostgresRepository:
             "note": row.get("note") or "",
             "updated_at": _iso(row.get("updated_at")),
         }
+
+    async def _application_companies(
+        self,
+        applications: list[dict[str, Any]],
+        connection: asyncpg.Connection | None = None,
+    ) -> None:
+        """Read linked companies and their existing logos in one jobs query."""
+        job_ids = sorted({app["job_id"] for app in applications if app["job_id"] is not None})
+        if not job_ids:
+            return
+        jobs = self._jobs_ready()
+        # Reuse an acquired connection when both stores share a pool. Taking
+        # another pool slot here can deadlock a single-connection transaction.
+        if connection is not None and jobs is self._ready():
+            jobs = connection
+        rows = await jobs.fetch(
+            """
+            SELECT j.id, c.id AS company_id,
+                   (logo.bytes IS NOT NULL) AS has_logo
+            FROM job_posting j
+            JOIN company c ON c.id = j.company_id
+            LEFT JOIN company_logo logo ON logo.company_id = c.id
+            WHERE j.id = ANY($1::bigint[])
+            """,
+            job_ids,
+        )
+        by_job = {row["id"]: row for row in rows}
+        for app in applications:
+            match = by_job.get(app["job_id"])
+            if match is not None:
+                app["company_id"] = match["company_id"]
+                app["logo"] = f"/api/companies/{match['company_id']}/logo" if match["has_logo"] else None
 
     async def _get_application(
         self, connection: asyncpg.Connection, application_id: int
@@ -971,6 +1006,7 @@ class PostgresRepository:
             }
             for event in events
         ]
+        await self._application_companies([result], connection)
         return result
 
     async def list_applications(self) -> dict[str, Any]:
@@ -998,7 +1034,9 @@ class PostgresRepository:
             """,
             self.account_id,
         )
-        return {"applications": [self._application(row) for row in rows]}
+        applications = [self._application(row) for row in rows]
+        await self._application_companies(applications)
+        return {"applications": applications}
 
     async def get_application(self, application_id: int) -> dict[str, Any] | None:
         async with self._ready().acquire() as connection:

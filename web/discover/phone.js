@@ -6,7 +6,7 @@ import { api } from "../shared/api.js";
 import { guest } from "../shared/guest.js";
 import {
   DEGREE_FILTERS, FILTERS, SKIP_REASONS, SORTS, defaultDegreeFields, degreeFields, commonNote, commonTerms, dayGroups, deadlineLabel, dueLabel, feedbackBody,
-  fetchHidden, fetchHiddenTotal, fetchJobs, foldLabel, hiddenReason, linkChoices, linkNote, listBundles, logoMarkup, needsRefill,
+  createFeedLoader, fetchHidden, fetchHiddenTotal, foldLabel, hiddenReason, linkChoices, linkNote, listBundles, logoMarkup, needsRefill,
   placeList, placeSummary, postedFact, putBack, reportCorrections, reportRows, rowAge, sameId, skillGroups, skillLabel, skillTitle,
   tabCount, takeOut, workplaceLabel,
 } from "./core.js";
@@ -50,39 +50,34 @@ const pills = skills => `<div class="pills">${skills.map(skill => `<span class="
 const placeLine = job => [placeSummary(job), workplaceLabel(job.remote), job.attributes?.term].filter(Boolean).join(" · ");
 
 /* ───────────── Data ───────────── */
-let loadSeq = 0, searchTimer = null;
-async function loadJobs({ append = false } = {}) {
-  const seq = append ? loadSeq : ++loadSeq;
-  if (append) {
-    if (state.loadingMore) return;
-    state.loadingMore = true;
-  } else {
-    state.error = null;
-    if (state.jobs !== null) state.reloading = true;
-  }
-  P.render();
-  try {
-    const filters = { query: state.query, sort: state.sort, types: [state.type], fields: state.fields };
-    const payload = await fetchJobs(filters, append ? (state.jobs || []).length : 0);
-    if (seq !== loadSeq) return;
-    know(payload.jobs);
-    const fresh = (payload.jobs || []).filter(job => !state.added.has(String(job.id)));
-    state.jobs = append ? [...(state.jobs || []), ...fresh.filter(job => !(state.jobs || []).some(row => sameId(row.id, job.id)))] : fresh;
+let searchTimer = null;
+const feed = createFeedLoader(state,
+  () => ({ query: state.query, sort: state.sort, types: [state.type], fields: state.fields }), {
+  start(append) {
+    if (!append) { state.error = null; state.reloading = state.jobs !== null; }
+    P.render();
+  },
+  rows(jobs, append) {
+    know(jobs);
+    const fresh = (jobs || []).filter(job => !state.added.has(String(job.id)));
+    return append ? fresh.filter(job => !(state.jobs || []).some(row => sameId(row.id, job.id))) : fresh;
+  },
+  received(payload, append) {
     state.total = Number(payload.total) || 0;
-    state.typeCounts = payload.job_type_counts || {};
     if (!append) P.els.page.scrollTop = 0;
-  } catch (error) {
-    if (seq !== loadSeq) return;
+  },
+  error(error, append) {
     if (append) P.toast(error.message || "Couldn’t load more opportunities.");
     else if (state.jobs === null) state.error = error.message || "The request failed.";
     else P.toast(error.message || "Opportunities couldn’t load");
-  } finally {
-    if (append) state.loadingMore = false;
-    if (seq === loadSeq) state.reloading = false;
+  },
+  settled() {
+    state.reloading = false;
     bump();
     P.render();
-  }
-}
+  },
+});
+const loadJobs = options => feed.load(options);
 const reload = () => { remember(); return loadJobs(); };
 
 async function loadHidden() {

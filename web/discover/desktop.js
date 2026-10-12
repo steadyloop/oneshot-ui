@@ -6,7 +6,7 @@ import { guest } from "../shared/guest.js";
 import { $, $$, esc } from "../shared/util.js";
 import {
   DEGREE_FILTERS, FILTERS, SKIP_REASONS, SORTS, defaultDegreeFields, appliedNoticeMarkup, skipMenuMarkup, skipNoticeMarkup, cardMetaMarkup, commonTerms, dayGroups, detailPaneMarkup,
-  dueLabel, feedbackBody, fetchHidden, fetchHiddenTotal, fetchJobs, hiddenReason, icon, listTags, logoMarkup, needsRefill,
+  dueLabel, feedbackBody, createFeedLoader, fetchHidden, fetchHiddenTotal, hiddenReason, icon, listTags, logoMarkup, needsRefill,
   putBack, reportCorrections, reportMarkup, rowAge, sameId, tabCount, takeOut,
 } from "./core.js";
 
@@ -22,7 +22,6 @@ const state = {
   skipMenu: null, skipNotice: null, appliedNotice: null, sheet: false, fieldOpen: false, sortOpen: false,
 };
 let searchTimer = 0;
-let loadSeq = 0, loadingFeed = false, autoLoadFailed = false;
 
 /* ───────────── Painting ───────────── */
 // The job-type tabs scroll when the tools need the room; a fade says so.
@@ -402,28 +401,13 @@ function select(id, { focus = false } = {}) {
 }
 
 /* ───────────── Data ───────────── */
-async function loadJobs({ append = false } = {}) {
-  if (append && (state.loadingMore || loadingFeed)) return;
-  const seq = append ? loadSeq : ++loadSeq;
-  if (!append) {
-    loadingFeed = true;
-    state.loadingMore = false;
-    autoLoadFailed = false;
-  }
-  if (append) {
-    state.loadingMore = true;
-    render();
-  } else if (state.jobs === null) loading();
-  try {
-    const filters = { query: state.query, sort: state.sort, types: state.filters, fields: state.degreeFilters };
-    const payload = await fetchJobs(filters, append ? (state.jobs || []).length : 0);
-    if (seq !== loadSeq) return;
-    state.total = payload.total;
-    state.typeCounts = payload.job_type_counts || {};
-    state.jobs = append ? [...(state.jobs || []), ...payload.jobs] : payload.jobs;
-    state.loadingMore = false;
-    loadingFeed = false;
-    autoLoadFailed = append && !payload.jobs.length;
+const feed = createFeedLoader(state,
+  () => ({ query: state.query, sort: state.sort, types: state.filters, fields: state.degreeFilters }), {
+  start(append) {
+    if (append) render();
+    else if (state.jobs === null) loading();
+  },
+  received(payload, append) {
     if (!append) state.stale = false;
     if (!append && state.view === "feed" && !state.jobs.some(job => sameId(job.id, state.selected))) {
       state.selected = state.jobs[0]?.id || null;
@@ -434,16 +418,14 @@ async function loadJobs({ append = false } = {}) {
       const list = $(".opportunity-list");
       if (list) list.scrollTop = 0;
     }
-  } catch (error) {
-    if (seq !== loadSeq) return;
-    state.loadingMore = false;
-    loadingFeed = false;
-    autoLoadFailed = append;
+  },
+  error(error, append) {
     if (!append) return paint(errorState("Opportunities couldn’t load", error));
     render();
     announce(error.message || "Couldn’t load more opportunities.");
-  }
-}
+  },
+});
+const loadJobs = options => feed.load(options);
 
 async function loadHidden() {
   const { total, rows } = await fetchHidden();
@@ -778,7 +760,7 @@ const reload = () => {
 view.addEventListener("scroll", event => {
   const list = event.target;
   if (!list.matches(".opportunity-list") || state.view !== "feed"
-    || loadingFeed || state.loadingMore || autoLoadFailed
+    || feed.loading || state.loadingMore || feed.autoLoadFailed
     || !state.jobs?.length || state.jobs.length >= state.total) return;
   if (list.scrollTop + list.clientHeight > list.scrollHeight - 600) loadJobs({ append: true });
 }, { capture: true, passive: true });

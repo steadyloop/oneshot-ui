@@ -62,7 +62,7 @@ async function open(page) {
 (async () => {
   const browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE });
   try {
-    for (const account of [null, { name: 'Other', email: 'other@gmail.com', can_edit_companies: false }, { name: 'Missing capability', email: 'msg.shkim@gmail.com' }]) {
+    for (const account of [null, { name: 'Other', email: 'other@example.com', can_edit_companies: false }, { name: 'Missing capability', email: 'admin@example.com' }]) {
       const { context, state } = await setup(browser, account);
       const page = await context.newPage();
       await page.goto(ORIGIN + '/');
@@ -73,7 +73,7 @@ async function open(page) {
       assert.equal(state.calls.length, 0);
       await context.close();
     }
-    const account = { name: 'Admin', email: 'msg.shkim@gmail.com', can_edit_companies: true };
+    const account = { name: 'Admin', email: 'admin@example.com', can_edit_companies: true };
     const { context, state } = await setup(browser, account);
     const page = await context.newPage();
     const errors = [];

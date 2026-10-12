@@ -24,7 +24,6 @@ USERINFO_ENDPOINT = "https://openidconnect.googleapis.com/v1/userinfo"
 
 SESSION_ACCOUNT_KEY = "account_id"
 SESSION_STATE_KEY = "oauth_state"
-COMPANY_EDITOR_EMAIL = "msg.shkim@gmail.com"
 
 _TIMEOUT = httpx.Timeout(10.0)
 
@@ -194,14 +193,15 @@ async def _signed_in_profile(request: Request) -> tuple[UUID, dict[str, Any]]:
     return account_id, profile
 
 
-def can_edit_companies(profile: dict[str, Any]) -> bool:
+def can_edit_companies(profile: dict[str, Any], editor_email: str) -> bool:
     """Only the account's stored, Google-verified address grants access."""
-    return str(profile.get("email") or "").strip().lower() == COMPANY_EDITOR_EMAIL
+    allowed = editor_email.strip().lower()
+    return bool(allowed) and str(profile.get("email") or "").strip().lower() == allowed
 
 
 async def require_company_editor(request: Request) -> UUID:
     account_id, profile = await _signed_in_profile(request)
-    if not can_edit_companies(profile):
+    if not can_edit_companies(profile, request.app.state.settings.company_editor_email):
         raise HTTPException(status_code=403, detail="Company editing is restricted to the administrator")
     return account_id
 
@@ -276,18 +276,11 @@ async def logout(request: Request) -> Response:
 @router.get("/me")
 async def me(request: Request) -> dict[str, Any]:
     account_id, profile = await _signed_in_profile(request)
-    # Account-specific Discover defaults; everyone else starts with all fields.
-    fields = {
-        UUID("6596ed23-6f1f-4c74-9072-48cb7fe198be"): [
-            "med_device", "biotech", "clinical_affairs",
-        ],
-        UUID("82d7f821-369e-45c1-9bb8-7e5a28d16eea"): ["finance", "software"],
-    }.get(account_id, [])
     return {
         **profile,
         "id": str(account_id),
-        "can_edit_companies": can_edit_companies(profile),
-        "discover_default_fields": fields,
+        "can_edit_companies": can_edit_companies(profile, request.app.state.settings.company_editor_email),
+        "discover_default_fields": [],
     }
 
 
