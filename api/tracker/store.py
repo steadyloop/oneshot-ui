@@ -22,6 +22,7 @@ from api.taxonomy.skill_labels import labels as skill_labels
 from api.taxonomy.skills import canon
 
 from ..taxonomy import BIOENGINEERING_FILTER, FOCUS_FILTERS
+from ..company_profile import company_website
 
 from ..jobs.locations import (
     RECENCY_TIME_ZONE,
@@ -441,12 +442,14 @@ class PostgresRepository:
 
     @staticmethod
     def _company(row: asyncpg.Record) -> dict[str, Any]:
+        tags = _json_object(row["tags"])
         return {
             "id": row["id"],
             "name": row["name"],
             "domain": row["domain"],
             "description": row["description"],
-            "tags": _json_object(row["tags"]),
+            "tags": tags,
+            "website": company_website(row["domain"], tags),
             "sync_pending": row["sync_pending"],
             "sync_error": row["sync_error"],
         }
@@ -457,7 +460,7 @@ class PostgresRepository:
         pool = self._jobs_ready()
         q = q.strip()
         match = "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
-        where = "($1 = '' OR name ILIKE $2 OR domain ILIKE $2 OR id::text = $1)"
+        where = "($1 = '' OR name ILIKE $2 OR domain ILIKE $2 OR tags->'company_resolution'->>'website' ILIKE $2 OR id::text = $1)"
         effective = f"({self._COMPANY_EDIT_SELECT}) AS effective"
         total, rows = await asyncio.gather(
             pool.fetchval(f"SELECT count(*) FROM {effective} WHERE {where}", q, match),

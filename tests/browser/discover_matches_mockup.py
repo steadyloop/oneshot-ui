@@ -220,6 +220,8 @@ async def check(browser, width):
         failures.append(f"[{width}] search, controls and card must share a right edge: {geometry}")
     if abs(geometry["grid"] - min(width - 76, 1400)) > 1:
         failures.append(f"[{width}] workspace must be left aligned and capped at 1400px: {geometry}")
+    if abs(geometry["card"] - (min(width, 1476) - 12)) > 1:
+        failures.append(f"[{width}] aligned components must end 12px from the app's right edge: {geometry}")
     await mock.wait_for_timeout(500)
     app = mock.locator("#app")
     # Compare a posting listed with skills and on more than one board where the

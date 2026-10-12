@@ -473,11 +473,11 @@ export function detailFactsMarkup(job, { common = new Map(), expanded = false } 
   const row = (label, value) => `<div class="detail-fact"><dt>${esc(label)}</dt><dd>${value}</dd></div>`;
   const pills = skills => `<div class="skill-list">${chips(skills, "skill")}</div>`;
   const others = expertiseMarkup(groups, common, expanded);
+  if (!groups.languages.length && !groups.tools.length && !others) return "";
   return `<section class="detail-facts"><h3>Details</h3><dl>`
     + (groups.languages.length ? row("Languages", pills(groups.languages)) : "")
     + (groups.tools.length ? row("Tools", pills(groups.tools)) : "")
     + (others ? row("Other skills", others) : "")
-    + row("Posted", esc(postedFact(job)))
     + `</dl></section>`;
 }
 
@@ -579,5 +579,6 @@ export function detailPaneMarkup(job, { ui = {}, hidden = null, common = new Map
     + actions
     + `<hr class="detail-rule"><div class="detail-body"><section><h3>About the role</h3>`
     + (summary ? `<p class="role-summary">${esc(summary)}</p>` : '<p class="summary-missing">Summary unavailable. View the original posting for complete details.</p>')
-    + `</section>${detailFactsMarkup(job, { common, expanded: Boolean(ui.common) })}</div></div>`;
+    + `</section>${detailFactsMarkup(job, { common, expanded: Boolean(ui.common) })}</div>`
+    + `<footer class="detail-footer"><dl><div class="detail-fact"><dt>Posted</dt><dd>${esc(postedFact(job))}</dd></div></dl></footer></div>`;
 }

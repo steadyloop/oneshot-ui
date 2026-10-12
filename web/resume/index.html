@@ -54,11 +54,13 @@
           <button id="profile-tab" class="page-tab" role="tab" aria-selected="true" aria-controls="view" data-tab="profile">Profile</button>
           <button id="resumes-tab" class="page-tab" role="tab" aria-selected="false" aria-controls="view" tabindex="-1" data-tab="resumes">My resumes <span data-resume-count>0</span></button>
         </nav>
-        <div class="page-actions">
-          <div id="tab-action"></div>
-        </div>
+        <div class="page-actions"></div>
       </div>
-      <div class="workspace-content">
+      <div class="workspace-content profile-layout">
+        <aside class="section-sidebar" hidden>
+          <nav class="section-index" aria-label="Profile sections"></nav>
+          <div id="tab-action"></div>
+        </aside>
         <section id="view" class="resume-view" role="tabpanel" aria-labelledby="profile-tab" aria-live="polite">
           <div class="loading-state"><span></span><p>Loading resumes…</p></div>
         </section>

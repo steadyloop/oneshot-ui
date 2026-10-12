@@ -206,11 +206,13 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-lineca
 .detail-body h3 { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
 .role-summary, .summary-missing { margin: 0; color: var(--ink-2); font-size: 14.5px; line-height: 1.65; }
 .detail-facts > h3 { margin-top: 22px; }
-.detail-facts dl { margin: 4px 0 0; }
-.detail-fact { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 12px; padding: 7px 0; border-top: 1px solid var(--line); font-size: 13px; }
-.detail-fact:first-of-type { border-top: 0; }
+.detail-facts dl { margin: 8px 0 0; }
+.detail-fact { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 12px; padding: 11px 0; border-top: 1px solid var(--line); font-size: 13px; }
+.detail-facts .detail-fact:first-child { border-top: 0; }
 .detail-fact dt { padding-top: 1px; color: var(--muted); }
 .detail-fact dd { min-width: 0; margin: 0; }
+.detail-facts .expertise-term { border-color: var(--line); background: var(--hover); }
+.detail-footer dl { margin: 0; }
 .section-kicker { display: none; margin: 2px 0 5px; color: var(--faint); font-size: 11.5px; font-weight: 600; }
 .detail-fact dd:has(> .detail-skill-section + .detail-skill-section) .section-kicker { display: block; }
 .detail-skill-section + .detail-skill-section .section-kicker { margin-top: 10px; }
@@ -278,6 +280,7 @@ html:has(.report-dialog[open]) { overflow: hidden; }
 
 /* Discover content follows the shared desktop frame. */
 @media (min-width: 761px) {
+ .opportunities-app { --gutter: 12px; }
  .opportunities-app .app-topbar { padding-right: var(--gutter); }
  .discover-controls-pane { padding-right: var(--gutter); }
  .opportunities-app .main, .discover-page { background: var(--ground); }

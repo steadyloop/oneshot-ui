@@ -35,6 +35,9 @@
 .company-editor-empty, .company-editor-prompt { margin: 0; padding: 20px 0; color: #59615c; }
 .company-editor-details { min-width: 0; padding-left: 24px; border-left: 1px solid #e7e9e6; }
 .company-editor-record { margin: 0 0 12px; color: #59615c; font-size: 12px; }
+.company-editor-website { margin: 0 0 12px; overflow-wrap: anywhere; }
+.company-editor-related { margin: 0 0 12px; color: #59615c; font-size: 12px; }
+.company-editor a { color: #38602b; }
 .company-editor fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 .company-editor-form :is(input, textarea) + label { margin-top: 14px; }
 .company-editor textarea[name=tags] { font-family: 'IBM Plex Mono', monospace; font-size: 12px; }

@@ -307,6 +307,9 @@ function jobPage(push) {
   const common = commonTerms(state.jobs || []);
   const groups = skillGroups(job, common);
   const fact = (label, value) => value ? `<div class="fact"><dt>${label}</dt><dd>${value}</dd></div>` : "";
+  const details = fact("Languages", groups.languages.length ? pills(groups.languages) : "")
+    + fact("Tools", groups.tools.length ? pills(groups.tools) : "")
+    + fact("Other skills", otherSkillsMarkup(groups, common, Boolean(push.common)));
   const summary = String(job.summary || "").trim();
   const others = links.length - 1;
   const actions = entry
@@ -318,14 +321,15 @@ function jobPage(push) {
     ? `<button class="place-more" type="button" data-act="toggle-places" aria-expanded="${Boolean(push.places)}" aria-label="Show all ${places.length} locations">+${places.length - 1}</button>`
     : "";
   return `<header class="push-bar" id="push-bar"><button class="back" type="button" data-act="back">${icon("back")}${entry ? "Hidden" : "Discover"}</button><span class="push-title">${esc(job.company)}</span>${entry || push.hidden ? '<span class="bar-spacer"></span>' : `<button class="text-btn" type="button" data-act="report">${icon("flag")}Report</button>`}</header>
-    <div class="push-scroll" id="push-scroll">${entry ? `<div class="hidden-banner">${icon("eyeoff")}<span>${esc(hiddenReason(entry))}</span></div>` : ""}<div class="d-wrap">
+    <div class="push-scroll" id="push-scroll">${entry ? `<div class="hidden-banner">${icon("eyeoff")}<span>${esc(hiddenReason(entry))}</span></div>` : ""}<div class="d-wrap d-job">
       <div class="d-company">${logo(job, "lg")}<div><b>${esc(job.company)}</b></div></div>
       <h2 class="d-title">${esc(job.title)}</h2>
       <div class="d-meta"><span>${icon("pin")}${esc(places[0])}${placeMore}</span>${workplace ? `<span>${icon("brief")}${esc(workplace)}</span>` : ""}${term ? `<span>${icon("cal")}${esc(term)}</span>` : ""}${deadline ? `<span class="deadline">${esc(deadline)}</span>` : ""}</div>
       ${push.places && places.length > 1 ? `<ul class="place-list">${places.map(place => `<li>${icon("pin")}${esc(place)}</li>`).join("")}</ul>` : ""}
       ${others > 0 ? `<button class="more-link links-link" type="button" data-act="links">${others} other link${others > 1 ? "s" : ""}${icon("down")}</button>` : ""}
       <section class="d-section"><h3>About the role</h3>${summary ? `<p>${esc(summary)}</p>` : '<p class="missing">Summary unavailable. View the original posting for complete details.</p>'}</section>
-      <section class="d-section"><h3>Details</h3><dl class="facts">${fact("Languages", groups.languages.length ? pills(groups.languages) : "")}${fact("Tools", groups.tools.length ? pills(groups.tools) : "")}${fact("Other skills", otherSkillsMarkup(groups, common, Boolean(push.common)))}${fact("Posted", esc(postedFact(job)))}</dl></section>
+      ${details ? `<section class="d-section"><h3>Details</h3><dl class="facts">${details}</dl></section>` : ""}
+      <footer class="d-footer"><dl class="facts">${fact("Posted", esc(postedFact(job)))}</dl></footer>
     </div></div>
     <footer class="action-bar">${actions}</footer>`;
 }

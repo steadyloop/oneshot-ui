@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field, model_validator
 
 from .auth import require_company_editor
+from .company_profile import company_website
 from .db import ilike, json_as, pools
 from .errors import found
 
@@ -52,12 +53,13 @@ class CompanyUpdate(BaseModel):
 
 
 def _company(row: Any) -> dict[str, Any]:
-    return {**dict(row), "tags": json_as(row["tags"], dict)}
+    tags = json_as(row["tags"], dict)
+    return {**dict(row), "tags": tags, "website": company_website(row["domain"], tags)}
 
 
 async def list_companies(pool: Any, *, q: str = "", limit: int = 50, offset: int = 0) -> dict[str, Any]:
     q = q.strip()
-    source = f"({EFFECTIVE}) AS effective WHERE ($1 = '' OR name ILIKE $2 OR domain ILIKE $2 OR id::text = $1)"
+    source = f"({EFFECTIVE}) AS effective WHERE ($1 = '' OR name ILIKE $2 OR domain ILIKE $2 OR tags->'company_resolution'->>'website' ILIKE $2 OR id::text = $1)"
     total, rows = await asyncio.gather(
         pool.fetchval(f"SELECT count(*) FROM {source}", q, ilike(q)),
         pool.fetch(f"SELECT * FROM {source} ORDER BY lower(name), id LIMIT $3 OFFSET $4", q, ilike(q), limit, offset),

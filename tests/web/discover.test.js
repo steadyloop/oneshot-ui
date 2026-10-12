@@ -469,8 +469,8 @@ test("the company logo is contained in the original row tile rather than cropped
 });
 
 
-test("the details table preserves all skills and only shows Posted metadata", () => {
-  const markup = detailFactsMarkup({
+test("the details table preserves all skills and Posted metadata lives in the card footer", () => {
+  const job = {
     source: "ashby:acme", posted_at: "2026-10-05T12:00:00Z", first_seen_at: "2026-10-04T12:00:00Z",
     last_seen_at: "2026-10-06T12:00:00Z",
     attributes: { degree: ["cs", "mathematics"] },
@@ -480,14 +480,19 @@ test("the details table preserves all skills and only shows Posted metadata", ()
       { id: "ml", name: "Machine learning", label: "Machine learning", category: "concept" },
       { id: "custom", name: "A < B", label: "A < B", category: null },
     ],
-  });
+  };
+  const markup = detailFactsMarkup(job);
   assert.ok(markup.indexOf("Languages") < markup.indexOf("Tools"));
-  for (const value of ["Go", "Kubernetes", "Machine learning", "A &lt; B", "Oct 5, 2026 on Ashby"]) assert.ok(markup.includes(value), value);
-  assert.doesNotMatch(markup, /A < B|<dt>Degree|<dt>First seen|<dt>Last checked/);
+  for (const value of ["Go", "Kubernetes", "Machine learning", "A &lt; B"]) assert.ok(markup.includes(value), value);
+  assert.doesNotMatch(markup, /A < B|<dt>Degree|<dt>First seen|<dt>Last checked|<dt>Posted/);
+  const pane = detailPaneMarkup(job);
+  assert.match(pane, /<footer class="detail-footer"><dl><div class="detail-fact"><dt>Posted<\/dt><dd>Oct 5, 2026 on Ashby<\/dd><\/div><\/dl><\/footer><\/div>$/);
 });
 
 test("missing posting fields never turn into invented facts or invalid dates", () => {
-  const markup = detailFactsMarkup({ source: "lever:acme", posted_at: "bad-date", attributes: {} });
+  const job = { source: "lever:acme", posted_at: "bad-date", attributes: {} };
+  assert.equal(detailFactsMarkup(job), "");
+  const markup = detailPaneMarkup(job);
   assert.match(markup, /<dt>Posted<\/dt><dd>On Lever<\/dd>/);
   assert.doesNotMatch(markup, /Invalid Date|First seen|Degree|Languages|Tools|Last checked/);
 });

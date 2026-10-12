@@ -1,6 +1,26 @@
 let editor;
 let styles;
 
+function websiteLink(company) {
+  const website = company.website || company.tags?.company_resolution?.website
+    || (company.domain ? `https://${company.domain}` : null);
+  if (!website) return null;
+  try {
+    const url = new URL(website);
+    if (!["https:", "http:"].includes(url.protocol) || url.username || url.password) return null;
+    const link = document.createElement("a");
+    link.href = url.href;
+    link.textContent = url.hostname;
+    link.title = url.href;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.setAttribute("aria-label", `Visit ${company.name} website`);
+    return link;
+  } catch (_) {
+    return null;
+  }
+}
+
 function loadStyles() {
   if (!styles) {
     styles = new Promise((resolve, reject) => {
@@ -53,7 +73,7 @@ function createEditor() {
     <p class="company-editor-status" role="status" aria-live="polite"></p>
     <div class="company-editor-body">
       <section class="company-editor-results" aria-label="Companies">
-        <div class="company-editor-table-wrap"><table><thead><tr><th scope="col">Company</th><th scope="col">Domain</th><th scope="col"><span class="company-editor-sr">Action</span></th></tr></thead><tbody></tbody></table></div>
+        <div class="company-editor-table-wrap"><table><thead><tr><th scope="col">Company</th><th scope="col">Website</th><th scope="col"><span class="company-editor-sr">Action</span></th></tr></thead><tbody></tbody></table></div>
         <p class="company-editor-empty" hidden>No matching companies.</p>
         <nav class="company-editor-pager" aria-label="Company pages"><button type="button" data-company-prev>Previous</button><span></span><button type="button" data-company-next>Next</button></nav>
       </section>
@@ -61,6 +81,8 @@ function createEditor() {
         <p class="company-editor-prompt">Select a company to edit its details.</p>
         <form class="company-editor-form" hidden>
           <p class="company-editor-record"></p>
+          <p class="company-editor-website" hidden></p>
+          <p class="company-editor-related" hidden></p>
           <fieldset>
             <label for="company-editor-name">Name</label><input id="company-editor-name" name="name" required maxlength="500" autocomplete="off">
             <label for="company-editor-domain">Domain</label><input id="company-editor-domain" name="domain" maxlength="253" placeholder="company.com" autocomplete="off">
@@ -120,6 +142,29 @@ function createEditor() {
       form.elements.name.setCustomValidity("");
       baseline = JSON.stringify(values());
       dialog.querySelector(".company-editor-record").textContent = `Company #${company.id}${company.sync_pending ? " · Waiting to sync to xjobscore" : ""}`;
+      const website = dialog.querySelector(".company-editor-website");
+      const link = websiteLink(company);
+      website.replaceChildren(...(link ? [link] : []));
+      website.hidden = !link;
+      const related = dialog.querySelector(".company-editor-related");
+      const resolution = company.tags?.company_resolution;
+      related.replaceChildren();
+      related.hidden = !resolution?.canonical_company_id;
+      if (!related.hidden) {
+        related.append(document.createTextNode(`Same company as ${resolution.canonical_name || company.name}. `));
+        const canonicalId = resolution.canonical_serving_id;
+        if (Number.isSafeInteger(canonicalId) && canonicalId > 0 && canonicalId !== company.id) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.textContent = "Open canonical profile";
+          button.addEventListener("click", () => {
+            if (busy || !discard()) return;
+            query.value = String(canonicalId);
+            load(String(canonicalId), 0, canonicalId);
+          });
+          related.append(button);
+        }
+      }
       if (company.sync_error) message(`Sync needs attention: ${company.sync_error}`, true);
     }
     tbody.querySelectorAll("tr").forEach(row => row.classList.toggle("is-selected", row.dataset.id === String(company?.id)));
@@ -138,7 +183,9 @@ function createEditor() {
       id.textContent = `#${company.id}${company.sync_pending ? " · Pending sync" : ""}`;
       name.append(label, id);
       const domain = document.createElement("td");
-      domain.textContent = company.domain || "—";
+      const link = websiteLink(company);
+      if (link) domain.append(link);
+      else domain.textContent = "—";
       const action = document.createElement("td");
       const button = document.createElement("button");
       button.type = "button";
@@ -162,7 +209,7 @@ function createEditor() {
     controls();
   }
 
-  async function load(newQuery = q, newOffset = offset) {
+  async function load(newQuery = q, newOffset = offset, selectId = null) {
     busy = true;
     controls();
     message("Loading companies…");
@@ -174,6 +221,7 @@ function createEditor() {
       companies = payload.companies;
       select(null);
       renderRows();
+      if (selectId !== null) select(companies.find(company => company.id === selectId) || null);
       message("");
     } catch (error) {
       if (error.status === 401 || error.status === 403) {

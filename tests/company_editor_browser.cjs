@@ -13,6 +13,12 @@ async function setup(browser, account) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const state = { companies: Array.from({ length: 57 }, (_, i) => ({ id: i + 1, name: `Company ${String(i).padStart(3, '0')}`, domain: `company${i}.example`, description: null, tags: {}, sync_pending: false, sync_error: null })), calls: [], patches: [], fail: null };
   state.companies[0].name = 'Acme <script>alert(1)</script>';
+  Object.assign(state.companies[1], { name: 'Shared Website Subsidiary', domain: null,
+    website: 'https://parent.example/collision-centers',
+    tags: { company_resolution: { website: 'https://parent.example/collision-centers' } } });
+  state.companies[2].website = 'javascript:alert(1)';
+  state.companies[3].tags = { company_resolution: { website: 'https://company0.example',
+    canonical_company_id: 100, canonical_serving_id: 1, canonical_name: state.companies[0].name } };
   const fixtures = createVisitorState();
   await context.route('**/*', async route => {
     const request = route.request(), url = new URL(request.url());
@@ -76,6 +82,22 @@ async function open(page) {
     await open(page);
     assert.equal(await page.locator('.company-editor tbody tr').count(), 50);
     assert.equal(await page.locator('.company-editor tbody script').count(), 0);
+    const sharedRow = page.locator('.company-editor tbody tr[data-id="2"]');
+    assert.equal(await sharedRow.getByRole('link').getAttribute('href'), 'https://parent.example/collision-centers');
+    assert.equal(await page.locator('.company-editor tbody tr[data-id="3"] a').count(), 0);
+    await page.getByRole('button', { name: 'Edit Shared Website Subsidiary', exact: true }).click();
+    assert.equal(await page.getByLabel('Domain', { exact: true }).inputValue(), '');
+    assert.equal(await page.locator('.company-editor-website a').getAttribute('href'), 'https://parent.example/collision-centers');
+    assert.equal(state.patches.length, 0);
+    await page.getByRole('button', { name: 'Edit Company 003', exact: true }).click();
+    assert.equal(await page.locator('.company-editor-related script').count(), 0);
+    assert.match(await page.locator('.company-editor-related').textContent(), /Same company as Acme/);
+    await page.getByRole('button', { name: 'Open canonical profile', exact: true }).click();
+    await page.waitForFunction(() => document.querySelector('.company-editor-form [name="name"]').value === 'Acme <script>alert(1)</script>'
+      && document.querySelector('.company-editor').getAttribute('aria-busy') === 'false');
+    await page.getByLabel('Find a company', { exact: true }).fill('');
+    await page.locator('.company-editor-search button').click();
+    await page.waitForFunction(() => document.querySelector('.company-editor-pager span').textContent === '1–50 of 57');
     await page.getByRole('button', { name: 'Edit Acme <script>alert(1)</script>', exact: true }).click();
     await page.getByLabel('Name', { exact: true }).fill('Updated Acme');
     await page.getByLabel('Description', { exact: true }).fill('New company description');
