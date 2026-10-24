@@ -94,12 +94,12 @@ test("no board is dropped: every board lands in exactly one band", () => {
   assert.equal(bands.length, providers.length);
 });
 
-test("each band pins trouble first, worst first; healthy boards keep their order", () => {
+test("each band retains feed order so job-count shades stay scattered", () => {
   const [band] = buildBands({ providers: [{ source: "workday", boards: [
     board("ok", 5), board("stale", 900), board("ok", 800), board("failing", 0), board("degraded", 50),
   ] }] });
   assert.deepEqual(band.boards.map(b => [b.state, b.jobs]), [
-    ["failing", 0], ["degraded", 50], ["stale", 900], ["ok", 5], ["ok", 800],
+    ["ok", 5], ["stale", 900], ["ok", 800], ["failing", 0], ["degraded", 50],
   ]);
   assert.deepEqual(band.problems, { failing: 1, degraded: 1, stale: 1 });
 });
@@ -110,7 +110,7 @@ test("bands skip empty providers and normalise unexpected states and missing com
     { source: "icims", boards: [{ key: "acme", company: null, state: "Weird", coverage: null }] },
   ] });
   assert.deepEqual(bands.map(band => band.id), ["icims"]);
-  assert.deepEqual(bands[0].boards[0], { company: "acme", state: "unknown", strikes: 0, jobs: 0, last_poll_at: null });
+  assert.deepEqual(bands[0].boards[0], { key: "acme", company: "acme", state: "unknown", strikes: 0, jobs: 0, last_poll_at: null });
 });
 
 test("the healthy share floors, so 100% means every board is healthy", () => {

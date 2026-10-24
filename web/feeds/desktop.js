@@ -4,9 +4,9 @@ import { startAccount } from "../shared/account.js";
 import { api } from "../shared/api.js";
 import { $, esc } from "../shared/util.js";
 import {
-  ISSUE_STATES, JOB_TYPES, STATE_LABEL, boardCount, buildBands, cellColor, clockLine, feedLoader, fleetTotals,
-  healthCounts, healthText, healthTone, healthyShare, jobCount, number, paintSquares, palette, pickSquare,
-  providerName, relativeTime, todayLine, todaySentence,
+  JOB_TYPES, boardCount, buildBands, clockLine, feedLoader, fleetTotals,
+  jobCount, number, paintSquares, palette, pickSquare,
+  providerName, relativeTime, studentCount, todayLine, todaySentence,
 } from "./core.js";
 
 const content = $("#coverage-content");
@@ -17,12 +17,7 @@ const toggle = $(".ticker-toggle");
 // 5px squares on a 6px grid.
 const SQUARES = { pitch: 6, size: 5 };
 const LOADING = `<div class="state loading-state"><span class="spinner"></span><p>Loading feed overview…</p></div>`;
-// Healthy boards shade by jobs; the rest are flat. Unpolled and unknown boards read as paused.
-const COLORS = palette({
-  low: "#C4DEBE", high: "#74A26E",
-  failing: "#C0473A", degraded: "#D9A441", stale: "#6B7480", paused: "#D3D7D2", idle: "#D3D7D2",
-});
-const ISSUE_TONE = { failing: "bad", stale: "", degraded: "warn" };
+const COLORS = palette({ low: "#E4ECDF", high: "#73996B" });
 
 let bands = [];
 let expandedProvider = null;
@@ -31,21 +26,17 @@ let wall = null;  // The open band and its column count, for hit-testing.
 /* ───────────── Provider rows ───────────── */
 function providerMarkup(band) {
   const label = providerName(band);
-  const counts = healthCounts(band);
-  const description = healthText(counts);
   const open = expandedProvider === band.id;
-  const issues = ISSUE_STATES.map(state => `<td class="issue-cell">${counts[state]
-    ? `<span class="issue ${ISSUE_TONE[state]}"><i style="background:${COLORS[state]}"></i>${esc(number(counts[state]))} ${STATE_LABEL[state]}</span>` : ""}</td>`).join("");
   const row = `<tr class="p-row${open ? " open" : ""}" data-provider="${esc(band.id)}" tabindex="0" aria-expanded="${open}">`
     + `<td><span class="p-name"><svg aria-hidden="true"><use href="#icon-chev"/></svg>${esc(label)}</span></td>`
-    + `<td class="pct ${healthTone(counts)}" title="${esc(description)}">${healthyShare(counts)}</td>${issues}<td class="fill"></td>`
-    + `<td class="scale">${boardCount(band)}</td><td class="scale">${jobCount(band)}</td></tr>`;
+    + `<td class="scale">${boardCount(band)}</td><td class="scale">${jobCount(band)}</td>`
+    + `<td class="student-count" title="Filtered, normalized, and deduplicated job postings relevant to students.">${studentCount(band)}</td></tr>`;
   if (!open) return row;
-  return `${row}<tr class="p-detail"><td colspan="8"><div class="sq-wrap"><canvas role="img" aria-label="${esc(label)}: ${esc(description)}"></canvas><div class="sq-tip" hidden></div></div></td></tr>`;
+  return `${row}<tr class="p-detail"><td colspan="4"><div class="sq-wrap"><canvas role="img" aria-label="${esc(label)}: ${boardCount(band)} shaded by indexed job count"></canvas><div class="sq-tip" hidden></div></div></td></tr>`;
 }
 
 function renderWall() {
-  content.innerHTML = `<div class="prov-card"><table class="prov"><tbody>${bands.map(providerMarkup).join("")}</tbody></table></div>`;
+  content.innerHTML = `<div class="prov-card"><table class="prov"><thead><tr><th>ATS</th><th>Feeds</th><th>Indexed jobs</th><th title="Filtered, normalized, and deduplicated job postings relevant to students.">Student opportunities ↓</th></tr></thead><tbody>${bands.map(providerMarkup).join("")}</tbody></table></div>`;
   drawWall();
   const canvas = $(".sq-wrap > canvas", content);
   if (!canvas) return;
@@ -79,10 +70,8 @@ function drawWall() {
 
 function showTip(board, pointerX, pointerY) {
   const tip = $(".sq-tip", content);
-  const strikes = board.strikes ? ` · ${board.strikes} ${board.strikes === 1 ? "strike" : "strikes"}` : "";
-  const state = STATE_LABEL[board.state] || STATE_LABEL.unknown;
-  tip.innerHTML = `<b>${esc(board.company)}</b><span>${esc(state[0].toUpperCase() + state.slice(1))}${esc(strikes)}</span>`
-    + `<span>${esc(number(board.jobs))} jobs · last polled ${esc(board.last_poll_at ? relativeTime(board.last_poll_at).toLowerCase() : "never")}</span>`;
+  tip.innerHTML = `<b>${esc(board.company)}</b><span>${esc(number(board.jobs))} indexed jobs</span>`
+    + `<span>Last polled ${esc(board.last_poll_at ? relativeTime(board.last_poll_at).toLowerCase() : "never")}</span>`;
   tip.hidden = false;
   const wrap = tip.parentElement.getBoundingClientRect();
   tip.style.left = `${Math.min(pointerX - wrap.left + 14, wrap.width - 200)}px`;
@@ -101,13 +90,6 @@ function renderHeader(payload) {
     `<b>${esc(number(totals.roles))}</b> active jobs`,
   ].join(sep);
   renderTicker(payload, totals);
-  const values = payload.classification;
-  const summary = $(".classification-summary");
-  summary.hidden = !values;
-  if (values) {
-    $(".classification-total").textContent = number(values.total);
-    $(".classification-students").textContent = number(values.student_roles);
-  }
 }
 
 function renderTicker(payload, totals) {

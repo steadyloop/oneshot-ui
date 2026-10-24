@@ -71,10 +71,6 @@ export const fleetTotals = payload => {
   return totals && Number.isFinite(Number(totals.boards)) ? { ...counts, ...totals, roles } : counts;
 };
 
-// Trouble first (worst first), pinned to the top-left corner. Within each
-// state boards keep the API's order, so healthy shades mix across the wall.
-const byWeight = boards => [...boards].sort((a, b) => SEVERITY[a.state] - SEVERITY[b.state]);
-
 // Single-employer sources (not an ATS) are left off the Feeds page.
 export const SINGLE_SOURCES = new Set(["amazon", "apple", "janestreet", "flyio", "hn", "simplify"]);
 
@@ -85,18 +81,17 @@ export const buildBands = payload => {
   for (const provider of Array.isArray(payload?.providers) ? payload.providers : []) {
     const list = Array.isArray(provider.boards) ? provider.boards : [];
     if (!list.length || SINGLE_SOURCES.has(provider.source)) continue;
-    const band = { id: String(provider.source || "?"), boards: [], jobs: 0, discoverJobs: Number(provider.discover_jobs) || 0, problems: {} };
+    const band = { id: String(provider.source || "?"), boards: [], jobs: 0, discoverJobs: Number.isFinite(Number(provider.discover_jobs)) && provider.discover_jobs != null ? Number(provider.discover_jobs) : null, problems: {} };
     for (const board of list) {
       const state = stateKey(board.state);
       const jobs = Number(board.coverage) || 0;
-      band.boards.push({ company: board.company || board.key, state, strikes: Number(board.strikes) || 0, jobs, last_poll_at: board.last_poll_at || null });
+      band.boards.push({ key: String(board.key || ""), company: board.company || board.key, state, strikes: Number(board.strikes) || 0, jobs, last_poll_at: board.last_poll_at || null });
       band.jobs += jobs;
       if (state !== "ok") band.problems[state] = (band.problems[state] || 0) + 1;
     }
-    band.boards = byWeight(band.boards);
     bands.push(band);
   }
-  return bands.sort((a, b) => b.discoverJobs - a.discoverJobs || a.id.localeCompare(b.id));
+  return bands.sort((a, b) => (b.discoverJobs ?? -1) - (a.discoverJobs ?? -1) || a.id.localeCompare(b.id));
 };
 
 export const healthCounts = band => ({
@@ -119,6 +114,7 @@ const PROVIDER_NAMES = {
 export const providerName = band => PROVIDER_NAMES[band.id] || band.id;
 export const boardCount = band => `${number(band.boards.length)} ${band.boards.length === 1 ? "board" : "boards"}`;
 export const jobCount = band => `${compact(band.jobs)} ${band.jobs === 1 ? "job" : "jobs"}`;
+export const studentCount = band => band.discoverJobs == null ? "—" : number(band.discoverJobs);
 
 // Share of a provider's boards that are healthy, floored so 100% means all of them.
 export const healthyShare = counts => {
@@ -168,7 +164,7 @@ export function palette({ low, high, ...flat }) {
   };
   return { ...flat, ramp };
 }
-export const cellColor = (colors, board) => board.state === "ok" ? colors.ramp(board.jobs) : colors[board.state] || colors.idle;
+export const cellColor = (colors, board) => colors.ramp(board.jobs);
 
 export const squareColumns = (width, { pitch, size }) => Math.max(8, Math.floor((width + (pitch - size)) / pitch));
 
@@ -195,17 +191,7 @@ export function pickSquare(boards, columns, x, y, pitch) {
   const column = Math.floor(x / pitch), row = Math.floor(y / pitch);
   const index = row * columns + column;
   if (column < 0 || row < 0 || column >= columns || index >= boards.length) return null;
-  if (boards[index].state !== "ok") return index;
-  let nearest = null, nearestDistance = Infinity;
-  for (let dr = -SNAP_RADIUS; dr <= SNAP_RADIUS; dr += 1) {
-    for (let dc = -SNAP_RADIUS; dc <= SNAP_RADIUS; dc += 1) {
-      const r = row + dr, c = column + dc, candidate = r * columns + c;
-      if (r < 0 || c < 0 || c >= columns || candidate >= boards.length || boards[candidate].state === "ok") continue;
-      const distance = Math.hypot(dr, dc);
-      if (distance < nearestDistance) { nearestDistance = distance; nearest = candidate; }
-    }
-  }
-  return nearest ?? index;
+  return index;
 }
 
 /* ───────────── Clock and polling ───────────── */

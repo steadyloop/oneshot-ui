@@ -5,17 +5,14 @@
 import P from "../phone/shell.js";
 import { api } from "../shared/api.js";
 import {
-  JOB_TYPES, STATES, STATE_LABEL, SUMMARY_STATES, boardCount, buildBands, cellColor, clockText, feedLoader,
-  fleetTotals, healthCounts, healthText, jobCount, number, paintSquares, palette, pickSquare, providerName,
-  relativeTime, shownStates, signedCount, squareColumns, todayLine, todaySentence,
+  JOB_TYPES, boardCount, buildBands, clockText, feedLoader,
+  fleetTotals, jobCount, number, paintSquares, palette, pickSquare, providerName,
+  relativeTime, signedCount, squareColumns, studentCount, todayLine, todaySentence,
 } from "./core.js";
 
 const { $, esc, icon } = P;
 // The desktop wall's colours.
-const BAR = { ok: "#a7c4ae", degraded: "#c9860f", failing: "#b3342b", stale: "#66717c", paused: "#d4d8d2", never: "#d4d8d2", unknown: "#d4d8d2" };
-const COLORS = palette({ low: "#d8e6d9", high: "#568567", gap: "#f0f3ed", failing: "#b3342b", degraded: "#c9860f", stale: "#4f5863", idle: "#a9afa8" });
-// Phone summaries leave unpolled boards out.
-const LISTED = SUMMARY_STATES.filter(state => state !== "never");
+const COLORS = palette({ low: "#d8e6d9", high: "#568567", gap: "#f0f3ed" });
 const SQUARES = { pitch: 6, size: 5 };
 
 const state = { payload: null, bands: [], error: "", loading: true, stale: false, open: null, square: null, ticker: false };
@@ -37,22 +34,15 @@ const loader = feedLoader(api.sources.boards, {
 function squareInfo(band) {
   const board = state.square === null ? null : band.boards[state.square];
   if (!board) return '<p class="sq-hint">Tap a square to see its board.</p>';
-  const label = STATE_LABEL[board.state] || STATE_LABEL.unknown;
-  const strikes = board.strikes ? ` · ${board.strikes} ${board.strikes === 1 ? "strike" : "strikes"}` : "";
-  return `<div class="sq-info" role="status"><b>${esc(board.company)}</b><span><i style="background:${cellColor(COLORS, board)}"></i>${esc(label[0].toUpperCase() + label.slice(1))}${strikes}</span>`
-    + `<span>jobs ${esc(number(board.jobs))}</span><span>last polled ${esc(board.last_poll_at ? relativeTime(board.last_poll_at) : "never")}</span></div>`;
+  return `<div class="sq-info" role="status"><b>${esc(board.company)}</b><span>${esc(number(board.jobs))} indexed jobs</span><span>Last polled ${esc(board.last_poll_at ? relativeTime(board.last_poll_at).toLowerCase() : "never")}</span></div>`;
 }
 
 function providerRow(band) {
   const open = state.open === band.id;
   const name = providerName(band);
-  const tally = healthCounts(band);
-  const segments = STATES.filter(key => tally[key]).map(key => `<i style="width:${(tally[key] / band.boards.length) * 100}%;background:${BAR[key]}"></i>`).join("");
-  const description = healthText(tally, LISTED);
-  const detail = open ? `<div class="prov-detail">${shownStates(tally, LISTED).map(key => `<div class="hstat"><i style="background:${BAR[key]}"></i>${esc(STATE_LABEL[key])}<b>${esc(number(tally[key]))}</b></div>`).join("")}
-      <div class="squares-wrap"><canvas class="squares" data-squares="${esc(band.id)}" role="img" aria-label="${esc(`${name}: ${description}`)}"></canvas>${squareInfo(band)}</div></div>` : "";
+  const detail = open ? `<div class="prov-detail"><div class="squares-wrap"><canvas class="squares" data-squares="${esc(band.id)}" role="img" aria-label="${esc(`${name}: ${boardCount(band)} shaded by indexed job count`)}"></canvas>${squareInfo(band)}</div></div>` : "";
   return `<div class="prov${open ? " open" : ""}"><button class="prov-btn" type="button" data-prov="${esc(band.id)}" aria-expanded="${open}"><b>${esc(name)}</b>`
-    + `<span class="jobs">${boardCount(band)} <i>|</i> ${jobCount(band)}</span>${icon("chev")}<span class="bar" role="img" aria-label="${esc(description)}">${segments}</span></button>${detail}</div>`;
+    + `<span class="jobs">${boardCount(band)} <i>|</i> ${jobCount(band)} indexed <i>|</i> ${studentCount(band)} student opportunities</span>${icon("chev")}</button>${detail}</div>`;
 }
 
 function tickerCard(detail) {
@@ -73,11 +63,7 @@ function renderPage() {
     ? `<button class="ticker" type="button" data-act="ticker" aria-expanded="${state.ticker}"><span>${todaySentence(totals, value => `<b>${value}</b>`)}</span>${icon("down")}</button>
       ${state.ticker ? tickerCard(payload.today_breakdown || {}) : ""}`
     : "";
-  const classification = payload.classification;
-  const summary = classification && Number.isSafeInteger(classification.total)
-    ? `<p>OneShot currently classifies <b>${number(classification.total)}</b> active job postings to identify <b>${number(classification.student_roles)}</b> student roles for ${icon("search")} Discover.</p>`
-    : "";
-  const foot = `<footer class="feeds-foot">${summary}<p>Need a filter tailored to your search? <a href="mailto:chkim@tuta.io?subject=OneShot%20filter%20request">Contact me</a></p></footer>`;
+  const foot = `<footer class="feeds-foot"><p>Need a filter tailored to your search? <a href="mailto:chkim@tuta.io?subject=OneShot%20filter%20request">Contact me</a></p></footer>`;
   const list = state.bands.length
     ? state.bands.map(providerRow).join("")
     : '<div class="empty"><strong>No feed overview data yet</strong>Configured feeds will appear here after status data becomes available.</div>';

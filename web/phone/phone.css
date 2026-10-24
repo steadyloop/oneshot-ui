@@ -515,6 +515,8 @@ html.is-phone body > :not(#phone) { display: none !important; }
 .prov-btn b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 600; }
 .prov-btn .jobs { color: var(--muted); font-size: 13.5px; font-variant-numeric: tabular-nums; }
 .prov-btn .jobs i { color: var(--line-strong); font-style: normal; padding: 0 2px; }
+.prov-btn .jobs { grid-column: 1 / 3; grid-row: 2; }
+.prov-btn svg { grid-column: 3; grid-row: 1; }
 .prov-btn svg { width: 18px; height: 18px; color: var(--faint); transition: transform .15s; }
 .prov.open .prov-btn svg { transform: rotate(90deg); }
 .bar { grid-column: 1 / 3; display: flex; height: 6px; overflow: hidden; border-radius: 3px; background: #E5E8E4; }

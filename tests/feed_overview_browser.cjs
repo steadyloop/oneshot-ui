@@ -25,11 +25,10 @@ const keys = ['intern', 'coop', 'student', 'new_grad', 'research', 'unclassified
     const page = await context.newPage(), errors = [];
     page.on('pageerror', e => errors.push(e.message));
     await page.goto(`${origin}/source-coverage/`);
-    await expect(page.locator('.classification-summary')).toBeVisible();
+    await expect(page.locator('.classification-summary')).toHaveCount(0);
     assert.equal(payload.totals.active_postings, payload.classification.total);
     await expect(page.locator('#fleet-stats b').nth(2)).toHaveText(fmt(payload.classification.total));
-    await expect(page.locator('.classification-total')).toHaveText(fmt(payload.classification.total));
-    await expect(page.locator('.classification-students')).toHaveText(fmt(payload.classification.student_roles));
+    await expect(page.locator('.prov th').last()).toContainText('Student opportunities');
     const detail = payload.today_breakdown;
     await expect(page.locator('#today-line')).toHaveText(`${fmt(detail.total)} jobs posted, ${fmt(detail.disappeared.total)} jobs closed today`);
     for (const width of [768, 1024, 1440, 2208]) {
